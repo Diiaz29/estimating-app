@@ -1,0 +1,73 @@
+import { NavLink, Outlet } from 'react-router-dom'
+import { signOut, useAuth } from '../lib/auth'
+
+const baseTabs = [
+  { to: '/', label: 'Dashboard', icon: '▦' },
+  { to: '/bids', label: 'Bids', icon: '▤' },
+  { to: '/contractors', label: 'Contractors', icon: '▧' },
+]
+const adminTabs = [...baseTabs, { to: '/team', label: 'Team', icon: '▩' }]
+
+export default function Layout() {
+  const { session, isAdmin } = useAuth()
+  const tabs = isAdmin ? adminTabs : baseTabs
+
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `px-3 py-1.5 rounded-md text-sm font-medium ${
+      isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-200'
+    }`
+
+  return (
+    <div className="min-h-screen bg-slate-100 pb-16 sm:pb-0">
+      <header className="sticky top-0 z-20 border-b-2 border-slate-800 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
+          <div className="leading-tight">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+              ZAID Millwork
+            </div>
+            <div className="text-sm font-semibold tracking-tight">Estimating</div>
+          </div>
+          <nav className="hidden sm:flex items-center gap-1 ml-6">
+            {tabs.map((t) => (
+              <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass}>
+                {t.label}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="hidden sm:block text-xs text-slate-500">{session?.user.email}</span>
+            <button
+              onClick={() => void signOut()}
+              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        <Outlet />
+      </main>
+
+      {/* Bottom tabs on phones */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t-2 border-slate-800 bg-white sm:hidden">
+        {tabs.map((t) => (
+          <NavLink
+            key={t.to}
+            to={t.to}
+            end={t.to === '/'}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${
+                isActive ? 'text-slate-900' : 'text-slate-400'
+              }`
+            }
+          >
+            <span className="text-base leading-none">{t.icon}</span>
+            {t.label}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  )
+}
