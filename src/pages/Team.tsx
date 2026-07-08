@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import ConfirmDialog from '../components/ConfirmDialog'
 import type { Profile, Role } from '../lib/types'
 
 export default function Team() {
   const { isAdmin, profile: me } = useAuth()
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<Profile | null>(null)
 
   async function load() {
     const { data, error } = await supabase!.from('profiles').select('*').order('created_at')
@@ -34,6 +36,26 @@ export default function Team() {
     const { error } = await supabase!.from('profiles').update({ role }).eq('id', p.id)
     if (error) setError(error.message)
     else void load()
+  }
+
+  async function removeUser(p: Profile) {
+    setRemoving(null)
+    const { error } = await supabase!.functions.invoke('delete-user', {
+      body: { user_id: p.id },
+    })
+    if (error) {
+      let message = error.message
+      try {
+        const ctx = (error as { context?: Response }).context
+        if (ctx) {
+          const body = await ctx.json()
+          if (body?.error) message = body.error
+        }
+      } catch {
+        /* keep the generic message */
+      }
+      setError(message)
+    } else void load()
   }
 
   const admins = profiles.filter((p) => p.role === 'admin')
@@ -84,10 +106,28 @@ export default function Team() {
                   </button>
                 ))}
               </div>
+              {p.id !== me?.id && (
+                <button
+                  onClick={() => setRemoving(p)}
+                  className="text-xs text-slate-400 hover:text-red-600"
+                >
+                  remove
+                </button>
+              )}
             </div>
           )
         })}
       </div>
+
+      {removing && (
+        <ConfirmDialog
+          title="Remove team member"
+          message={`Remove ${removing.email}'s login? They'll no longer be able to sign in. Bids and contractors they worked on are untouched.`}
+          confirmLabel="Remove"
+          onConfirm={() => void removeUser(removing)}
+          onCancel={() => setRemoving(null)}
+        />
+      )}
     </div>
   )
 }
