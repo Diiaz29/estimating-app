@@ -161,6 +161,14 @@ export interface BidAdders {
   insurance: boolean
 }
 
+export interface OverheadItem {
+  id: string
+  name: string
+  amount: number
+  period: 'monthly' | 'yearly'
+  sort_order: number
+}
+
 export type SettingFormat = 'number' | 'money' | 'percent' | 'factor' | 'days' | 'miles' | 'lf'
 
 export interface Setting {

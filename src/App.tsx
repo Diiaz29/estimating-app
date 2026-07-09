@@ -10,6 +10,7 @@ import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Team from './pages/Team'
 import Settings from './pages/Settings'
+import Overhead from './pages/Overhead'
 import Estimate from './pages/Estimate'
 import LibrariesLayout from './components/LibrariesLayout'
 import Materials from './pages/libraries/Materials'
@@ -54,6 +55,7 @@ function Gate() {
         </Route>
         <Route path="/libraries/assemblies/:id" element={<AssemblyDetail />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/overhead" element={<Overhead />} />
         <Route path="/team" element={<Team />} />
         <Route path="*" element={<Dashboard />} />
       </Route>

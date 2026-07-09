@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Setting } from '../lib/types'
@@ -31,6 +32,7 @@ export default function Settings() {
   const grouped = useMemo(() => {
     const map = new Map<string, Setting[]>()
     for (const s of settings ?? []) {
+      if (s.group_name === 'Overhead') continue // lives on the Overhead page
       if (!map.has(s.group_name)) map.set(s.group_name, [])
       map.get(s.group_name)!.push(s)
     }
@@ -93,6 +95,21 @@ export default function Settings() {
           </button>
         </div>
       </div>
+
+      <Link
+        to="/settings/overhead"
+        className="block rounded-lg border-2 border-slate-800 bg-white p-4 shadow-[3px_3px_0_0_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-transform"
+      >
+        <div className="flex items-center">
+          <div>
+            <div className="font-semibold">Overhead → true cost rate</div>
+            <div className="mt-0.5 text-sm text-slate-500">
+              List real costs (salaries, rent, trucks) and get an honest cost rate per shop hour.
+            </div>
+          </div>
+          <span className="ml-auto text-xl text-slate-400">→</span>
+        </div>
+      </Link>
 
       {grouped.map(([group, items]) => (
         <section key={group}>
