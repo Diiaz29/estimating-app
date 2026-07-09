@@ -1,4 +1,4 @@
-import type { BidStatus } from './types'
+import type { BidStatus, SettingFormat } from './types'
 
 export const STATUSES: { value: BidStatus; label: string; badge: string }[] = [
   { value: 'received', label: 'Received', badge: 'bg-slate-100 text-slate-700 border-slate-300' },
@@ -40,6 +40,37 @@ export function formatPhone(raw: string): string {
   if (d.length <= 3) return `(${d}`
   if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+}
+
+/** Days since an ISO timestamp, rounded down. */
+export function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+}
+
+/** Cost with cents, for library prices ($2.69, $0.0425 kept to 4 places when tiny). */
+export function fmtCost(n: number | null | undefined): string {
+  if (n == null) return '—'
+  const digits = n !== 0 && Math.abs(n) < 0.1 ? 4 : 2
+  return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: digits })
+}
+
+/** Display transform for a setting: percent stored 0.03 ⇄ shown 3. */
+export function settingToDisplay(value: number, format: SettingFormat): number {
+  return format === 'percent' ? Math.round(value * 10000) / 100 : value
+}
+export function settingFromDisplay(display: number, format: SettingFormat): number {
+  return format === 'percent' ? display / 100 : display
+}
+export function settingSuffix(format: SettingFormat): string {
+  switch (format) {
+    case 'percent': return '%'
+    case 'money': return '$'
+    case 'days': return 'days'
+    case 'miles': return 'mi'
+    case 'lf': return 'LF'
+    case 'factor': return '×'
+    default: return ''
+  }
 }
 
 /** Next job number in YY-### format, continuing from whatever exists this year. */

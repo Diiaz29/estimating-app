@@ -9,6 +9,12 @@ import BidDetail from './pages/BidDetail'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Team from './pages/Team'
+import Settings from './pages/Settings'
+import LibrariesLayout from './components/LibrariesLayout'
+import Materials from './pages/libraries/Materials'
+import Finishes from './pages/libraries/Finishes'
+import Assemblies from './pages/libraries/Assemblies'
+import AssemblyDetail from './pages/libraries/AssemblyDetail'
 
 function Gate() {
   const { session, loading } = useAuth()
@@ -39,6 +45,13 @@ function Gate() {
         <Route path="/bids/:id" element={<BidDetail />} />
         <Route path="/contractors" element={<Customers />} />
         <Route path="/contractors/:id" element={<CustomerDetail />} />
+        <Route path="/libraries" element={<LibrariesLayout />}>
+          <Route index element={<Materials />} />
+          <Route path="finishes" element={<Finishes />} />
+          <Route path="assemblies" element={<Assemblies />} />
+        </Route>
+        <Route path="/libraries/assemblies/:id" element={<AssemblyDetail />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/team" element={<Team />} />
         <Route path="*" element={<Dashboard />} />
       </Route>

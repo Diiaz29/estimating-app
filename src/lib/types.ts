@@ -57,3 +57,70 @@ export interface BidCustomer {
   won_through: boolean
   customer?: Customer
 }
+
+export interface Material {
+  id: string
+  category: string
+  name: string
+  unit: string
+  cost: number | null
+  supplier: string | null
+  notes: string | null
+  active: boolean
+  cost_updated_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Finish {
+  id: string
+  type: string
+  name: string
+  brand: string | null
+  color_code: string | null
+  grade: string | null
+  unit: string
+  cost: number | null
+  supplier: string | null
+  default_slot: string | null
+  active: boolean
+  cost_updated_at: string
+}
+
+export type PricingUnit = 'EA' | 'LF'
+
+export interface Assembly {
+  id: string
+  category: string
+  name: string
+  description: string | null
+  pricing_unit: PricingUnit
+  build_minutes: number
+  install_minutes: number
+  typical_width_in: number | null
+  width_confirmed: boolean
+  active: boolean
+  sort_order: number
+}
+
+export interface AssemblyMaterial {
+  id: string
+  assembly_id: string
+  material_id: string | null
+  slot: string | null
+  label: string | null
+  qty: number
+  waste_pct: number
+  material?: Material | null
+}
+
+export type SettingFormat = 'number' | 'money' | 'percent' | 'factor' | 'days' | 'miles' | 'lf'
+
+export interface Setting {
+  key: string
+  label: string
+  group_name: string
+  value: number
+  format: SettingFormat
+  sort_order: number
+}

@@ -5,8 +5,13 @@ const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
   { to: '/bids', label: 'Bids', icon: '▤' },
   { to: '/contractors', label: 'Contractors', icon: '▧' },
+  { to: '/libraries', label: 'Libraries', icon: '▥' },
 ]
-const adminTabs = [...baseTabs, { to: '/team', label: 'Team', icon: '▩' }]
+const adminTabs = [
+  ...baseTabs,
+  { to: '/settings', label: 'Settings', icon: '▨' },
+  { to: '/team', label: 'Team', icon: '▩' },
+]
 
 export default function Layout() {
   const { session, isAdmin } = useAuth()
