@@ -94,6 +94,12 @@ export default function BidDetail() {
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
+          <Link
+            to={`/bids/${bid.id}/estimate`}
+            className="rounded-md border-2 border-slate-900 px-4 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
+          >
+            Estimate →
+          </Link>
           <button
             onClick={() => void save()}
             disabled={busy}

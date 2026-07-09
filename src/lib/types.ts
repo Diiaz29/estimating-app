@@ -43,6 +43,7 @@ export interface Bid {
   install_heads: number | null
   tax_exempt: boolean
   bid_value: number | null
+  adders: BidAdders
   inclusions: string | null
   exclusions: string | null
   notes: string | null
@@ -112,6 +113,52 @@ export interface AssemblyMaterial {
   qty: number
   waste_pct: number
   material?: Material | null
+}
+
+export interface Area {
+  id: string
+  bid_id: string
+  name: string
+  sheet_ref: string | null
+  multiplier: number
+  is_alternate: boolean
+  sort_order: number
+}
+
+export type LineKind = 'assembly' | 'manual' | 'sub'
+
+export interface LineItem {
+  id: string
+  area_id: string
+  kind: LineKind
+  assembly_id: string | null
+  name: string | null
+  quantity: number
+  entry_mode: 'unit' | 'feet'
+  entry_value: number | null
+  unit_price: number | null
+  unit_cost: number | null
+  rate_override: number | null
+  note: string | null
+  sort_order: number
+}
+
+export interface BidFinish {
+  bid_id: string
+  slot: string
+  finish_id: string
+  finish?: Finish
+}
+
+export interface BidAdders {
+  install: boolean
+  delivery: boolean
+  design: boolean
+  punch: boolean
+  per_diem: boolean
+  lodging: boolean
+  general_conditions: boolean
+  insurance: boolean
 }
 
 export type SettingFormat = 'number' | 'money' | 'percent' | 'factor' | 'days' | 'miles' | 'lf'

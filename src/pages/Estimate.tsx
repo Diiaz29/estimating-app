@@ -1,0 +1,579 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
+import type {
+  Area, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish, Finish, LineItem, Material, Setting,
+} from '../lib/types'
+import { buildContext, priceBid, priceLine } from '../lib/pricing'
+import { fmtCost, fmtMoney } from '../lib/format'
+import ConfirmDialog from '../components/ConfirmDialog'
+
+const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
+
+export default function Estimate() {
+  const { id } = useParams<{ id: string }>()
+  const { isAdmin } = useAuth()
+  const [bid, setBid] = useState<Bid | null>(null)
+  const [areas, setAreas] = useState<Area[]>([])
+  const [lines, setLines] = useState<LineItem[]>([])
+  const [bidFinishes, setBidFinishes] = useState<BidFinish[]>([])
+  const [assemblies, setAssemblies] = useState<Assembly[]>([])
+  const [bom, setBom] = useState<AssemblyMaterial[]>([])
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [finishes, setFinishes] = useState<Finish[]>([])
+  const [settings, setSettings] = useState<Setting[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [removingArea, setRemovingArea] = useState<Area | null>(null)
+
+  async function loadAll() {
+    const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes] = await Promise.all([
+      supabase!.from('bids').select('*').eq('id', id!).single(),
+      supabase!.from('areas').select('*').eq('bid_id', id!).order('sort_order').order('created_at'),
+      supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', id!),
+      supabase!.from('assemblies').select('*').eq('active', true).order('sort_order'),
+      supabase!.from('assembly_materials').select('*'),
+      supabase!.from('materials').select('*'),
+      supabase!.from('finishes').select('*').eq('active', true).order('type').order('name'),
+      supabase!.from('settings').select('*'),
+    ])
+    if (bidRes.error) return setError(bidRes.error.message)
+    setBid(bidRes.data as Bid)
+    const areaRows = (areaRes.data ?? []) as Area[]
+    setAreas(areaRows)
+    if (areaRows.length > 0) {
+      const { data } = await supabase!
+        .from('line_items')
+        .select('*')
+        .in('area_id', areaRows.map((a) => a.id))
+        .order('sort_order')
+        .order('created_at')
+      setLines((data ?? []) as LineItem[])
+    } else setLines([])
+    setBidFinishes((bfRes.data ?? []) as BidFinish[])
+    setAssemblies((asmRes.data ?? []) as Assembly[])
+    setBom((bomRes.data ?? []) as AssemblyMaterial[])
+    setMaterials((matRes.data ?? []) as Material[])
+    setFinishes((finRes.data ?? []) as Finish[])
+    setSettings((setRes.data ?? []) as Setting[])
+  }
+
+  useEffect(() => {
+    void loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  const ctx = useMemo(
+    () => buildContext(settings, assemblies, bom, materials, bidFinishes),
+    [settings, assemblies, bom, materials, bidFinishes],
+  )
+  const linesByArea = useMemo(() => {
+    const map = new Map<string, LineItem[]>()
+    for (const l of lines) {
+      if (!map.has(l.area_id)) map.set(l.area_id, [])
+      map.get(l.area_id)!.push(l)
+    }
+    return map
+  }, [lines])
+  const pricing = useMemo(
+    () => (bid ? priceBid(bid, areas, linesByArea, ctx) : null),
+    [bid, areas, linesByArea, ctx],
+  )
+
+  // which slots does this estimate actually use?
+  const usedSlots = useMemo(() => {
+    const used = new Set<string>()
+    for (const l of lines) {
+      if (!l.assembly_id) continue
+      for (const row of ctx.bomByAssembly.get(l.assembly_id) ?? []) if (row.slot) used.add(row.slot)
+    }
+    return used
+  }, [lines, ctx])
+
+  if (error)
+    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+  if (!bid || !pricing) return <p className="text-sm text-slate-500">Loading…</p>
+
+  // ---------- mutations (optimistic where cheap) ----------
+  async function addArea() {
+    const { data, error } = await supabase!
+      .from('areas')
+      .insert({ bid_id: bid!.id, name: `Area ${areas.length + 1}`, sort_order: areas.length })
+      .select('*')
+      .single()
+    if (error) setError(error.message)
+    else setAreas((prev) => [...prev, data as Area])
+  }
+
+  async function patchArea(area: Area, fields: Partial<Area>) {
+    setAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, ...fields } : a)))
+    const { error } = await supabase!.from('areas').update(fields).eq('id', area.id)
+    if (error) setError(error.message)
+  }
+
+  async function removeArea(area: Area) {
+    setRemovingArea(null)
+    setAreas((prev) => prev.filter((a) => a.id !== area.id))
+    setLines((prev) => prev.filter((l) => l.area_id !== area.id))
+    const { error } = await supabase!.from('areas').delete().eq('id', area.id)
+    if (error) setError(error.message)
+  }
+
+  async function addLine(area: Area, partial: Partial<LineItem>) {
+    const { data, error } = await supabase!
+      .from('line_items')
+      .insert({ area_id: area.id, sort_order: (linesByArea.get(area.id)?.length ?? 0), ...partial })
+      .select('*')
+      .single()
+    if (error) setError(error.message)
+    else setLines((prev) => [...prev, data as LineItem])
+  }
+
+  async function patchLine(line: LineItem, fields: Partial<LineItem>) {
+    setLines((prev) => prev.map((l) => (l.id === line.id ? { ...l, ...fields } : l)))
+    const { error } = await supabase!.from('line_items').update(fields).eq('id', line.id)
+    if (error) setError(error.message)
+  }
+
+  async function removeLine(line: LineItem) {
+    setLines((prev) => prev.filter((l) => l.id !== line.id))
+    const { error } = await supabase!.from('line_items').delete().eq('id', line.id)
+    if (error) setError(error.message)
+  }
+
+  async function assignSlot(slot: string, finishId: string | null) {
+    if (finishId) {
+      await supabase!.from('bid_finishes').upsert({ bid_id: bid!.id, slot, finish_id: finishId })
+    } else {
+      await supabase!.from('bid_finishes').delete().eq('bid_id', bid!.id).eq('slot', slot)
+    }
+    const { data } = await supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', bid!.id)
+    setBidFinishes((data ?? []) as BidFinish[])
+  }
+
+  async function toggleAdder(key: keyof BidAdders) {
+    const adders = { ...bid!.adders, [key]: !bid!.adders[key] }
+    setBid((b) => (b ? { ...b, adders } : b))
+    const { error } = await supabase!.from('bids').update({ adders }).eq('id', bid!.id)
+    if (error) setError(error.message)
+  }
+
+  const uniqueWarnings = [...new Set(pricing.warnings.map((w) => w.message))]
+
+  return (
+    <div className="space-y-5 pb-40">
+      <div className="flex items-center gap-3">
+        <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
+          ← {bid.job_number}
+        </Link>
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+          {bid.name} — estimate
+        </h1>
+      </div>
+
+      {uniqueWarnings.length > 0 && (
+        <details className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <summary className="cursor-pointer font-semibold">
+            ⚠ {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
+          </summary>
+          <ul className="mt-2 list-disc pl-5 space-y-0.5">
+            {uniqueWarnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/* Finish slots */}
+      {usedSlots.size > 0 && (
+        <section className="rounded-lg border-2 border-slate-800 bg-white p-4">
+          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
+            Job finishes — assign a finish to each slot this estimate uses
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {SLOTS.filter((s) => usedSlots.has(s)).map((slot) => {
+              const current = bidFinishes.find((bf) => bf.slot === slot)
+              return (
+                <label key={slot} className="block">
+                  <span className={`font-mono text-[11px] uppercase tracking-widest ${current ? 'text-slate-500' : 'text-amber-700 font-semibold'}`}>
+                    {slot} {!current && '— unassigned'}
+                  </span>
+                  <select
+                    value={current?.finish_id ?? ''}
+                    onChange={(e) => void assignSlot(slot, e.target.value || null)}
+                    className="input"
+                  >
+                    <option value="">— pick a finish —</option>
+                    {finishes
+                      .filter((f) => (slot.startsWith('SS') ? f.type === 'Solid surface' : f.type === 'Laminate'))
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                          {f.brand ? ` · ${f.brand}` : ''} ({fmtCost(f.cost)}/{f.unit})
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Areas */}
+      {areas.map((area) => (
+        <AreaCard
+          key={area.id}
+          area={area}
+          lines={linesByArea.get(area.id) ?? []}
+          assemblies={assemblies}
+          ctx={ctx}
+          areaTotal={pricing.areaTotals.get(area.id)?.price ?? 0}
+          onPatch={(f) => void patchArea(area, f)}
+          onRemove={() => setRemovingArea(area)}
+          onAddLine={(partial) => void addLine(area, partial)}
+          onPatchLine={(l, f) => void patchLine(l, f)}
+          onRemoveLine={(l) => void removeLine(l)}
+        />
+      ))}
+
+      <button
+        onClick={() => void addArea()}
+        className="w-full rounded-lg border-2 border-dashed border-slate-400 bg-white px-4 py-3 text-sm font-medium text-slate-500 hover:border-slate-800 hover:text-slate-900"
+      >
+        + Add area (room)
+      </button>
+
+      {/* Adders */}
+      <section className="rounded-lg border-2 border-slate-800 bg-white">
+        <h2 className="border-b-2 border-slate-800 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-slate-500">
+          Job adders — {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
+          {Number(bid.distance_miles ?? 0)} mi
+        </h2>
+        {pricing.adders.map((a) => (
+          <div key={a.key} className="flex items-center gap-3 border-t border-slate-100 px-4 py-2 first:border-t-0">
+            <button
+              onClick={() => void toggleAdder(a.key)}
+              className={`h-5 w-9 rounded-full transition-colors ${a.enabled ? 'bg-slate-900' : 'bg-slate-300'}`}
+              title={a.enabled ? 'Included — tap to exclude' : 'Excluded — tap to include'}
+            >
+              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${a.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            <span className={`flex-1 text-sm ${a.enabled ? '' : 'text-slate-400 line-through'}`}>{a.label}</span>
+            <span className={`tabular-nums text-sm ${a.enabled ? '' : 'text-slate-400'}`}>{fmtMoney(a.price)}</span>
+          </div>
+        ))}
+      </section>
+
+      {/* Pinned title-block totals bar */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-slate-800 bg-white sm:bottom-0">
+        <div className="mx-auto flex max-w-6xl items-stretch divide-x-2 divide-slate-800 overflow-x-auto border-x-2 border-slate-800 font-mono">
+          <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
+          <TotalCell label="Adders" value={fmtMoney(pricing.addersTotal)} />
+          <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
+          <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
+          {pricing.alternatesTotal > 0 && <TotalCell label="Alternates" value={fmtMoney(pricing.alternatesTotal)} />}
+          {isAdmin && (
+            <>
+              <TotalCell label="True cost" value={fmtMoney(pricing.trueCost)} muted />
+              <TotalCell
+                label="Proj. profit"
+                value={fmtMoney(pricing.profit)}
+                strong
+                tone={pricing.profit < 0 ? 'bad' : pricing.marginPct != null && pricing.marginPct < 0.1 ? 'warn' : 'good'}
+              />
+              <TotalCell
+                label="Margin"
+                value={pricing.marginPct == null ? '—' : `${(pricing.marginPct * 100).toFixed(1)}%`}
+                strong
+                tone={pricing.marginPct != null && pricing.marginPct < 0 ? 'bad' : pricing.marginPct != null && pricing.marginPct < 0.1 ? 'warn' : 'good'}
+                title={`Projected profit ${fmtMoney(pricing.profit)} (overhead allocation ${fmtMoney(pricing.overhead)} is carried by salaried labor in the cost lines)`}
+              />
+            </>
+          )}
+        </div>
+      </div>
+
+      {removingArea && (
+        <ConfirmDialog
+          title="Delete area"
+          message={`Delete ${removingArea.name} and its ${linesByArea.get(removingArea.id)?.length ?? 0} line items?`}
+          onConfirm={() => void removeArea(removingArea)}
+          onCancel={() => setRemovingArea(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function TotalCell({
+  label, value, strong, muted, tone, title,
+}: {
+  label: string; value: string; strong?: boolean; muted?: boolean; tone?: 'good' | 'warn' | 'bad'; title?: string
+}) {
+  const toneCls = tone === 'bad' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-emerald-700' : ''
+  return (
+    <div className={`flex min-w-[7.5rem] flex-1 flex-col px-3 py-2 ${muted ? 'bg-slate-50' : ''}`} title={title}>
+      <span className="text-[9px] uppercase tracking-widest text-slate-400">{label}</span>
+      <span className={`tabular-nums ${strong ? 'text-lg font-semibold' : 'text-sm'} ${toneCls}`}>{value}</span>
+    </div>
+  )
+}
+
+// ---------------- Area card ----------------
+
+function AreaCard({
+  area, lines, assemblies, ctx, areaTotal, onPatch, onRemove, onAddLine, onPatchLine, onRemoveLine,
+}: {
+  area: Area
+  lines: LineItem[]
+  assemblies: Assembly[]
+  ctx: ReturnType<typeof buildContext>
+  areaTotal: number
+  onPatch: (fields: Partial<Area>) => void
+  onRemove: () => void
+  onAddLine: (partial: Partial<LineItem>) => void
+  onPatchLine: (line: LineItem, fields: Partial<LineItem>) => void
+  onRemoveLine: (line: LineItem) => void
+}) {
+  const [name, setName] = useState(area.name)
+  const [sheetRef, setSheetRef] = useState(area.sheet_ref ?? '')
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  useEffect(() => setName(area.name), [area.name])
+  useEffect(() => setSheetRef(area.sheet_ref ?? ''), [area.sheet_ref])
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Assembly[]>()
+    for (const a of assemblies) {
+      if (!map.has(a.category)) map.set(a.category, [])
+      map.get(a.category)!.push(a)
+    }
+    return [...map.entries()]
+  }, [assemblies])
+
+  return (
+    <section className={`rounded-lg border-2 bg-white ${area.is_alternate ? 'border-violet-700' : 'border-slate-800'}`}>
+      <div className={`flex flex-wrap items-center gap-2 border-b-2 px-4 py-2 ${area.is_alternate ? 'border-violet-700 bg-violet-50' : 'border-slate-800'}`}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name !== area.name && onPatch({ name })}
+          className="min-w-0 flex-1 basis-40 border-0 bg-transparent p-0 text-sm font-semibold focus:outline-none"
+        />
+        <input
+          value={sheetRef}
+          onChange={(e) => setSheetRef(e.target.value)}
+          onBlur={() => (sheetRef || null) !== area.sheet_ref && onPatch({ sheet_ref: sheetRef || null })}
+          placeholder="Sheet / elev."
+          className="w-28 rounded border border-slate-200 px-2 py-0.5 font-mono text-xs focus:border-slate-800 focus:outline-none"
+        />
+        <label className="flex items-center gap-1 font-mono text-xs text-slate-500">
+          typ ×
+          <input
+            type="number"
+            min="1"
+            value={Number(area.multiplier)}
+            onChange={(e) => onPatch({ multiplier: Math.max(1, Number(e.target.value) || 1) })}
+            className="w-14 rounded border border-slate-200 px-1.5 py-0.5 text-right text-xs focus:border-slate-800 focus:outline-none"
+          />
+        </label>
+        <button
+          onClick={() => onPatch({ is_alternate: !area.is_alternate })}
+          className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+            area.is_alternate
+              ? 'border-violet-700 bg-violet-700 text-white'
+              : 'border-slate-300 text-slate-400 hover:border-violet-700 hover:text-violet-700'
+          }`}
+          title="Alternates are priced separately and excluded from the base bid"
+        >
+          Alt
+        </button>
+        <span className="ml-auto text-sm font-semibold tabular-nums">
+          {fmtMoney(areaTotal)}
+          {Number(area.multiplier) > 1 && <span className="ml-1 text-xs font-normal text-slate-400">(×{Number(area.multiplier)})</span>}
+        </span>
+        <button onClick={onRemove} className="text-slate-300 hover:text-red-600" title="Delete area">
+          ×
+        </button>
+      </div>
+
+      {lines.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <tbody>
+              {lines.map((line) => (
+                <LineRow
+                  key={line.id}
+                  line={line}
+                  area={area}
+                  ctx={ctx}
+                  onPatch={(f) => onPatchLine(line, f)}
+                  onRemove={() => onRemoveLine(line)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2">
+        {!pickerOpen ? (
+          <>
+            <button onClick={() => setPickerOpen(true)} className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">
+              + Cabinet / countertop
+            </button>
+            <button
+              onClick={() => onAddLine({ kind: 'manual', name: 'One-off item', quantity: 1 })}
+              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+            >
+              + One-off item
+            </button>
+            <button
+              onClick={() => onAddLine({ kind: 'sub', name: 'Sub-contract (quote)', quantity: 1 })}
+              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+            >
+              + Sub quote
+            </button>
+          </>
+        ) : (
+          <select
+            autoFocus
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) onAddLine({ kind: 'assembly', assembly_id: e.target.value, quantity: 1 })
+              setPickerOpen(false)
+            }}
+            onBlur={() => setPickerOpen(false)}
+            className="input mt-0 max-w-md"
+          >
+            <option value="">Pick from the library…</option>
+            {grouped.map(([cat, items]) => (
+              <optgroup key={cat} label={cat}>
+                {items.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.pricing_unit})
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ---------------- Line row ----------------
+
+function LineRow({
+  line, area, ctx, onPatch, onRemove,
+}: {
+  line: LineItem
+  area: Area
+  ctx: ReturnType<typeof buildContext>
+  onPatch: (fields: Partial<LineItem>) => void
+  onRemove: () => void
+}) {
+  const assembly = line.assembly_id ? ctx.assemblies.get(line.assembly_id) : undefined
+  const p = priceLine(line, area, ctx)
+  const [qtyDraft, setQtyDraft] = useState('')
+  const [nameDraft, setNameDraft] = useState(line.name ?? '')
+  const [priceDraft, setPriceDraft] = useState(line.unit_price == null ? '' : String(line.unit_price))
+
+  useEffect(() => setNameDraft(line.name ?? ''), [line.name])
+  useEffect(() => setPriceDraft(line.unit_price == null ? '' : String(line.unit_price)), [line.unit_price])
+
+  const isFeet = line.entry_mode === 'feet'
+  const widthFt = assembly?.typical_width_in ? Number(assembly.typical_width_in) / 12 : 2
+  const displayQty = isFeet ? (line.entry_value ?? Number(line.quantity) * widthFt) : Number(line.quantity)
+
+  useEffect(() => setQtyDraft(String(Math.round(displayQty * 1000) / 1000)), [displayQty])
+
+  function commitQty() {
+    const v = Number(qtyDraft)
+    if (Number.isNaN(v) || v < 0) return
+    if (isFeet) onPatch({ entry_value: v, quantity: v / widthFt })
+    else onPatch({ quantity: v, entry_value: null })
+  }
+
+  const canUseFeet = line.kind === 'assembly' && assembly?.pricing_unit === 'EA'
+  const unitLabel =
+    line.kind === 'assembly' ? (isFeet ? 'FT' : assembly?.pricing_unit ?? 'EA') : line.kind === 'sub' ? 'quote' : 'EA'
+
+  return (
+    <tr className="border-t border-slate-100">
+      <td className="px-4 py-1.5">
+        {line.kind === 'assembly' ? (
+          <span>
+            {assembly?.name ?? '?'}
+            <span className="ml-1.5 font-mono text-[10px] uppercase text-slate-400">{assembly?.category}</span>
+          </span>
+        ) : (
+          <input
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={() => nameDraft !== line.name && onPatch({ name: nameDraft })}
+            className="w-full min-w-32 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-800 focus:outline-none"
+          />
+        )}
+        {p.warnings.length > 0 && (
+          <span className="ml-1.5 cursor-help text-amber-500" title={p.warnings.map((w) => w.message).join('\n')}>
+            ⚠
+          </span>
+        )}
+      </td>
+      <td className="w-36 px-2 py-1.5 text-right whitespace-nowrap">
+        <input
+          type="number" step="any" min="0"
+          value={qtyDraft}
+          onChange={(e) => setQtyDraft(e.target.value)}
+          onBlur={commitQty}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          className="w-20 rounded border border-slate-200 px-1.5 py-1 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none"
+        />
+        {canUseFeet ? (
+          <button
+            onClick={() => {
+              if (isFeet) onPatch({ entry_mode: 'unit', entry_value: null, quantity: Math.round(Number(line.quantity) * 1000) / 1000 })
+              else onPatch({ entry_mode: 'feet', entry_value: Number(line.quantity) * widthFt })
+            }}
+            className="ml-1 w-8 rounded border border-slate-300 px-1 py-1 font-mono text-[10px] uppercase text-slate-500 hover:border-slate-800"
+            title={isFeet ? `Entered in feet — converts at ${assembly!.typical_width_in}″ per box. Tap for boxes.` : 'Tap to enter this run in feet instead'}
+          >
+            {unitLabel}
+          </button>
+        ) : (
+          <span className="ml-1 inline-block w-8 text-center font-mono text-[10px] uppercase text-slate-400">{unitLabel}</span>
+        )}
+        {isFeet && (
+          <div className="mt-0.5 font-mono text-[10px] text-slate-400">= {(Number(line.quantity)).toFixed(2)} boxes</div>
+        )}
+      </td>
+      <td className="w-28 px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+        {line.kind === 'assembly' ? (
+          <span className="text-xs text-slate-500" title="Computed: materials × markup + shop labor">
+            {Number(line.quantity) > 0 ? fmtCost(p.linePrice / (Number(line.quantity) * Number(area.multiplier))) : '—'}
+            /{assembly?.pricing_unit ?? 'EA'}
+          </span>
+        ) : (
+          <input
+            type="number" step="any" min="0"
+            value={priceDraft}
+            onChange={(e) => setPriceDraft(e.target.value)}
+            onBlur={() => onPatch({ unit_price: priceDraft === '' ? null : Number(priceDraft) })}
+            placeholder={line.kind === 'sub' ? 'quote $' : 'price $'}
+            className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none"
+          />
+        )}
+      </td>
+      <td className="w-28 px-2 py-1.5 text-right font-medium tabular-nums whitespace-nowrap">
+        {fmtMoney(p.linePrice)}
+        {line.kind === 'sub' && <div className="font-mono text-[10px] font-normal text-slate-400">quote × markup</div>}
+      </td>
+      <td className="w-8 px-3 py-1.5 text-right">
+        <button onClick={onRemove} className="text-slate-300 hover:text-red-600">×</button>
+      </td>
+    </tr>
+  )
+}

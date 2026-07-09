@@ -10,6 +10,7 @@ import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Team from './pages/Team'
 import Settings from './pages/Settings'
+import Estimate from './pages/Estimate'
 import LibrariesLayout from './components/LibrariesLayout'
 import Materials from './pages/libraries/Materials'
 import Finishes from './pages/libraries/Finishes'
@@ -43,6 +44,7 @@ function Gate() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/bids" element={<Bids />} />
         <Route path="/bids/:id" element={<BidDetail />} />
+        <Route path="/bids/:id/estimate" element={<Estimate />} />
         <Route path="/contractors" element={<Customers />} />
         <Route path="/contractors/:id" element={<CustomerDetail />} />
         <Route path="/libraries" element={<LibrariesLayout />}>
