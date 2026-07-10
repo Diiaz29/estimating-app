@@ -3,17 +3,18 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
-  Area, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish, Finish, LineItem, Material, Setting,
+  Area, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish, BidMaterialOverride, Finish,
+  LineItem, Material, Revision, Setting,
 } from '../lib/types'
 import { buildContext, priceBid, priceLine } from '../lib/pricing'
-import { fmtCost, fmtMoney } from '../lib/format'
+import { fmtCost, fmtDueDate, fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
 export default function Estimate() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin } = useAuth()
+  const { isAdmin, session } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
@@ -23,11 +24,15 @@ export default function Estimate() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [settings, setSettings] = useState<Setting[]>([])
+  const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
+  const [revisions, setRevisions] = useState<Revision[]>([])
   const [error, setError] = useState<string | null>(null)
   const [removingArea, setRemovingArea] = useState<Area | null>(null)
+  const [removingRevision, setRemovingRevision] = useState<Revision | null>(null)
+  const [snapshotting, setSnapshotting] = useState(false)
 
   async function loadAll() {
-    const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes] = await Promise.all([
+    const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes] = await Promise.all([
       supabase!.from('bids').select('*').eq('id', id!).single(),
       supabase!.from('areas').select('*').eq('bid_id', id!).order('sort_order').order('created_at'),
       supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', id!),
@@ -36,6 +41,8 @@ export default function Estimate() {
       supabase!.from('materials').select('*'),
       supabase!.from('finishes').select('*').eq('active', true).order('type').order('name'),
       supabase!.from('settings').select('*'),
+      supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
+      supabase!.from('revisions').select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at').eq('bid_id', id!).order('rev_number', { ascending: false }),
     ])
     if (bidRes.error) return setError(bidRes.error.message)
     setBid(bidRes.data as Bid)
@@ -56,6 +63,8 @@ export default function Estimate() {
     setMaterials((matRes.data ?? []) as Material[])
     setFinishes((finRes.data ?? []) as Finish[])
     setSettings((setRes.data ?? []) as Setting[])
+    setOverrides((ovrRes.data ?? []) as BidMaterialOverride[])
+    setRevisions((revRes.data ?? []) as Revision[])
   }
 
   useEffect(() => {
@@ -64,8 +73,12 @@ export default function Estimate() {
   }, [id])
 
   const ctx = useMemo(
-    () => buildContext(settings, assemblies, bom, materials, bidFinishes),
-    [settings, assemblies, bom, materials, bidFinishes],
+    () =>
+      buildContext(
+        settings, assemblies, bom, materials, bidFinishes,
+        new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
+      ),
+    [settings, assemblies, bom, materials, bidFinishes, overrides],
   )
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
@@ -151,6 +164,126 @@ export default function Estimate() {
     setBidFinishes((data ?? []) as BidFinish[])
   }
 
+  async function duplicateArea(area: Area) {
+    const { data: newArea, error } = await supabase!
+      .from('areas')
+      .insert({
+        bid_id: bid!.id,
+        name: `${area.name} (copy)`,
+        sheet_ref: area.sheet_ref,
+        multiplier: area.multiplier,
+        is_alternate: area.is_alternate,
+        sort_order: areas.length,
+      })
+      .select('*')
+      .single()
+    if (error) return setError(error.message)
+    const source = linesByArea.get(area.id) ?? []
+    if (source.length > 0) {
+      await supabase!.from('line_items').insert(
+        source.map(({ id: _id, area_id: _a, ...rest }) => ({ ...rest, area_id: newArea.id })),
+      )
+    }
+    void loadAll()
+  }
+
+  async function setOverride(fromId: string, toId: string | null) {
+    if (toId) {
+      await supabase!
+        .from('bid_material_overrides')
+        .upsert({ bid_id: bid!.id, from_material_id: fromId, to_material_id: toId })
+    } else {
+      await supabase!
+        .from('bid_material_overrides')
+        .delete()
+        .eq('bid_id', bid!.id)
+        .eq('from_material_id', fromId)
+    }
+    const { data } = await supabase!.from('bid_material_overrides').select('*').eq('bid_id', bid!.id)
+    setOverrides((data ?? []) as BidMaterialOverride[])
+  }
+
+  async function snapshotRevision() {
+    if (!pricing) return
+    setSnapshotting(true)
+    const revNumber = (revisions[0]?.rev_number ?? 0) + 1
+    // Display-ready copy of every line as priced right now — the viewer renders
+    // this verbatim, so a snapshot never recalculates.
+    const displayAreas = areas.map((area) => {
+      const areaLines = (linesByArea.get(area.id) ?? []).map((line) => {
+        const p = priceLine(line, area, ctx)
+        const assembly = line.assembly_id ? ctx.assemblies.get(line.assembly_id) : undefined
+        return {
+          label: line.kind === 'assembly' ? assembly?.name ?? '?' : line.name ?? '',
+          category: assembly?.category ?? (line.kind === 'sub' ? 'Sub-contract' : 'One-off'),
+          qty: Number(line.quantity),
+          entry: line.entry_mode === 'feet' ? `${line.entry_value} FT` : null,
+          unit: line.kind === 'assembly' ? assembly?.pricing_unit ?? 'EA' : 'EA',
+          linePrice: p.linePrice,
+          note: line.note,
+        }
+      })
+      return {
+        name: area.name,
+        sheet_ref: area.sheet_ref,
+        multiplier: Number(area.multiplier),
+        is_alternate: area.is_alternate,
+        total: pricing.areaTotals.get(area.id)?.price ?? 0,
+        lines: areaLines,
+      }
+    })
+    const { error } = await supabase!.from('revisions').insert({
+      bid_id: bid!.id,
+      rev_number: revNumber,
+      contract_amount: pricing.contractAmount,
+      tax: pricing.tax,
+      true_cost: pricing.trueCost,
+      profit: pricing.profit,
+      margin_pct: pricing.marginPct,
+      created_by: session?.user.email ?? null,
+      snapshot: {
+        display: {
+          job_number: bid!.job_number,
+          bid_name: bid!.name,
+          areas: displayAreas,
+          adders: pricing.adders.map((a) => ({ label: a.label, price: a.price, enabled: a.enabled })),
+          finishes: bidFinishes.map((bf) => ({ slot: bf.slot, name: bf.finish?.name ?? '?' })),
+        },
+        bid: bid,
+        areas,
+        lines,
+        bid_finishes: bidFinishes.map(({ finish, ...bf }) => ({ ...bf, finish_name: finish?.name, finish_cost: finish?.cost })),
+        overrides,
+        adders: pricing.adders,
+        totals: {
+          cabinetTotal: pricing.cabinetTotal,
+          addersTotal: pricing.addersTotal,
+          contractAmount: pricing.contractAmount,
+          tax: pricing.tax,
+          alternatesTotal: pricing.alternatesTotal,
+        },
+        settings: Object.fromEntries(settings.map((s) => [s.key, Number(s.value)])),
+      },
+    })
+    setSnapshotting(false)
+    if (error) setError(error.message)
+    else {
+      const { data } = await supabase!
+        .from('revisions')
+        .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
+        .eq('bid_id', bid!.id)
+        .order('rev_number', { ascending: false })
+      setRevisions((data ?? []) as Revision[])
+    }
+  }
+
+  async function removeRevision(rev: Revision) {
+    setRemovingRevision(null)
+    const { error } = await supabase!.from('revisions').delete().eq('id', rev.id)
+    if (error) setError(error.message)
+    else setRevisions((prev) => prev.filter((r) => r.id !== rev.id))
+  }
+
   async function toggleAdder(key: keyof BidAdders) {
     const adders = { ...bid!.adders, [key]: !bid!.adders[key] }
     setBid((b) => (b ? { ...b, adders } : b))
@@ -220,6 +353,9 @@ export default function Estimate() {
         </section>
       )}
 
+      {/* Job material swaps */}
+      <MaterialSwaps materials={materials} overrides={overrides} onSet={(f, t) => void setOverride(f, t)} />
+
       {/* Areas */}
       {areas.map((area) => (
         <AreaCard
@@ -231,6 +367,7 @@ export default function Estimate() {
           areaTotal={pricing.areaTotals.get(area.id)?.price ?? 0}
           onPatch={(f) => void patchArea(area, f)}
           onRemove={() => setRemovingArea(area)}
+          onDuplicate={() => void duplicateArea(area)}
           onAddLine={(partial) => void addLine(area, partial)}
           onPatchLine={(l, f) => void patchLine(l, f)}
           onRemoveLine={(l) => void removeLine(l)}
@@ -263,6 +400,59 @@ export default function Estimate() {
             <span className={`tabular-nums text-sm ${a.enabled ? '' : 'text-slate-400'}`}>{fmtMoney(a.price)}</span>
           </div>
         ))}
+      </section>
+
+      {/* Revisions */}
+      <section className="rounded-lg border-2 border-slate-800 bg-white">
+        <div className="flex items-center border-b-2 border-slate-800 px-4 py-2.5">
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
+            Revisions — the price you sent, locked in
+          </h2>
+          <button
+            onClick={() => void snapshotRevision()}
+            disabled={snapshotting}
+            className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+          >
+            {snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}
+          </button>
+        </div>
+        {revisions.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-slate-500">
+            No snapshots yet. Take one every time you send this bid — the recorded price never
+            changes, even when library prices do.
+          </p>
+        ) : (
+          revisions.map((r, i) => (
+            <Link
+              key={r.id}
+              to={`/bids/${bid.id}/revisions/${r.id}`}
+              className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2.5 hover:bg-slate-50 ${i > 0 ? 'border-t border-slate-100' : ''}`}
+            >
+              <span className="font-mono text-xs font-semibold">R{r.rev_number}</span>
+              <span className="text-xs text-slate-500">{fmtDueDate(r.created_at)}</span>
+              <span className="text-xs text-slate-400">{r.created_by}</span>
+              <span className="text-xs text-slate-400 underline decoration-dotted">open</span>
+              <span className="ml-auto text-sm font-semibold tabular-nums">{fmtMoney(Number(r.contract_amount))}</span>
+              {isAdmin && r.margin_pct != null && (
+                <span className="w-14 text-right text-xs text-slate-500 tabular-nums">
+                  {(Number(r.margin_pct) * 100).toFixed(1)}%
+                </span>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setRemovingRevision(r)
+                  }}
+                  className="text-slate-300 hover:text-red-600"
+                  title="Delete this snapshot"
+                >
+                  ×
+                </button>
+              )}
+            </Link>
+          ))
+        )}
       </section>
 
       {/* Pinned title-block totals bar */}
@@ -302,6 +492,14 @@ export default function Estimate() {
           onCancel={() => setRemovingArea(null)}
         />
       )}
+      {removingRevision && (
+        <ConfirmDialog
+          title="Delete snapshot"
+          message={`Delete R${removingRevision.rev_number} (${fmtMoney(Number(removingRevision.contract_amount))})? If this price was sent to a customer, you lose your record of it.`}
+          onConfirm={() => void removeRevision(removingRevision)}
+          onCancel={() => setRemovingRevision(null)}
+        />
+      )}
     </div>
   )
 }
@@ -320,10 +518,110 @@ function TotalCell({
   )
 }
 
+// ---------------- Job material swaps ----------------
+
+function MaterialSwaps({
+  materials, overrides, onSet,
+}: {
+  materials: Material[]
+  overrides: BidMaterialOverride[]
+  onSet: (fromId: string, toId: string | null) => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [fromId, setFromId] = useState('')
+  const byId = new Map(materials.map((m) => [m.id, m]))
+  const active = materials.filter((m) => m.active)
+
+  if (overrides.length === 0 && !adding) {
+    return (
+      <button
+        onClick={() => setAdding(true)}
+        className="text-left text-xs text-slate-500 hover:text-slate-900 hover:underline"
+      >
+        + Material swap for this job (e.g. prefinished ply boxes instead of melamine)
+      </button>
+    )
+  }
+
+  return (
+    <section className="rounded-lg border-2 border-slate-800 bg-white p-4">
+      <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
+        Material swaps — this job only
+      </h2>
+      <div className="space-y-2">
+        {overrides.map((o) => (
+          <div key={o.from_material_id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs">
+              {byId.get(o.from_material_id)?.name ?? '?'}
+            </span>
+            <span className="text-slate-400">→</span>
+            <select
+              value={o.to_material_id}
+              onChange={(e) => onSet(o.from_material_id, e.target.value)}
+              className="input mt-0 w-auto py-1.5"
+            >
+              {active.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({fmtCost(m.cost)})
+                </option>
+              ))}
+            </select>
+            <button onClick={() => onSet(o.from_material_id, null)} className="text-xs text-slate-400 hover:text-red-600">
+              remove
+            </button>
+          </div>
+        ))}
+        {adding ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <select value={fromId} onChange={(e) => setFromId(e.target.value)} className="input mt-0 w-auto py-1.5">
+              <option value="">Swap out…</option>
+              {active
+                .filter((m) => !overrides.some((o) => o.from_material_id === m.id))
+                .map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+            </select>
+            {fromId && (
+              <>
+                <span className="text-slate-400">→</span>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onSet(fromId, e.target.value)
+                      setFromId('')
+                      setAdding(false)
+                    }
+                  }}
+                  className="input mt-0 w-auto py-1.5"
+                >
+                  <option value="">Swap in…</option>
+                  {active
+                    .filter((m) => m.id !== fromId)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({fmtCost(m.cost)})</option>
+                    ))}
+                </select>
+              </>
+            )}
+            <button onClick={() => { setAdding(false); setFromId('') }} className="text-xs text-slate-400 hover:text-slate-700">
+              cancel
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setAdding(true)} className="text-xs text-slate-500 hover:text-slate-900 hover:underline">
+            + Add another swap
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ---------------- Area card ----------------
 
 function AreaCard({
-  area, lines, assemblies, ctx, areaTotal, onPatch, onRemove, onAddLine, onPatchLine, onRemoveLine,
+  area, lines, assemblies, ctx, areaTotal, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
 }: {
   area: Area
   lines: LineItem[]
@@ -332,6 +630,7 @@ function AreaCard({
   areaTotal: number
   onPatch: (fields: Partial<Area>) => void
   onRemove: () => void
+  onDuplicate: () => void
   onAddLine: (partial: Partial<LineItem>) => void
   onPatchLine: (line: LineItem, fields: Partial<LineItem>) => void
   onRemoveLine: (line: LineItem) => void
@@ -359,15 +658,20 @@ function AreaCard({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name !== area.name && onPatch({ name })}
-          className="min-w-0 flex-1 basis-40 border-0 bg-transparent p-0 text-sm font-semibold focus:outline-none"
+          title="Room name — click to edit"
+          className="min-w-0 flex-1 basis-40 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-sm font-semibold underline decoration-dotted decoration-slate-300 underline-offset-4 hover:border-slate-300 hover:bg-white focus:border-slate-800 focus:bg-white focus:no-underline focus:outline-none"
         />
-        <input
-          value={sheetRef}
-          onChange={(e) => setSheetRef(e.target.value)}
-          onBlur={() => (sheetRef || null) !== area.sheet_ref && onPatch({ sheet_ref: sheetRef || null })}
-          placeholder="Sheet / elev."
-          className="w-28 rounded border border-slate-200 px-2 py-0.5 font-mono text-xs focus:border-slate-800 focus:outline-none"
-        />
+        <label className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Dwg</span>
+          <input
+            value={sheetRef}
+            onChange={(e) => setSheetRef(e.target.value)}
+            onBlur={() => (sheetRef || null) !== area.sheet_ref && onPatch({ sheet_ref: sheetRef || null })}
+            placeholder="02/I6.01"
+            title="Which drawing / elevation this room comes from"
+            className="w-24 rounded border border-slate-300 px-2 py-0.5 font-mono text-xs focus:border-slate-800 focus:outline-none"
+          />
+        </label>
         <label className="flex items-center gap-1 font-mono text-xs text-slate-500">
           typ ×
           <input
@@ -393,6 +697,9 @@ function AreaCard({
           {fmtMoney(areaTotal)}
           {Number(area.multiplier) > 1 && <span className="ml-1 text-xs font-normal text-slate-400">(×{Number(area.multiplier)})</span>}
         </span>
+        <button onClick={onDuplicate} className="text-slate-400 hover:text-slate-900" title="Duplicate this area with all its lines">
+          ⧉
+        </button>
         <button onClick={onRemove} className="text-slate-300 hover:text-red-600" title="Delete area">
           ×
         </button>

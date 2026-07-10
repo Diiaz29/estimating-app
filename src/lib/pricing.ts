@@ -19,6 +19,8 @@ export interface PricingContext {
   bomByAssembly: Map<string, AssemblyMaterial[]>
   materials: Map<string, Material>
   finishBySlot: Map<string, Finish>
+  /** job-level spec swaps: from_material_id → to_material_id */
+  materialOverrides: Map<string, string>
   staleDays: number
 }
 
@@ -28,6 +30,7 @@ export function buildContext(
   bom: AssemblyMaterial[],
   materials: Material[],
   bidFinishes: BidFinish[],
+  materialOverrides: Map<string, string> = new Map(),
 ): PricingContext {
   const s: Record<string, number> = {}
   for (const row of settings) s[row.key] = Number(row.value)
@@ -44,6 +47,7 @@ export function buildContext(
     bomByAssembly: bomMap,
     materials: new Map(materials.map((m) => [m.id, m])),
     finishBySlot,
+    materialOverrides,
     staleDays: s.price_staleness_days ?? 90,
   }
 }
@@ -116,7 +120,9 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       sourceName = finish.name
       costUpdatedAt = finish.cost_updated_at
     } else if (row.material_id) {
-      const material = ctx.materials.get(row.material_id)
+      // job-level spec swap (e.g. prefinished ply instead of white melamine)
+      const effectiveId = ctx.materialOverrides.get(row.material_id) ?? row.material_id
+      const material = ctx.materials.get(effectiveId)
       cost = material?.cost == null ? null : Number(material.cost)
       sourceName = material?.name ?? sourceName
       costUpdatedAt = material?.cost_updated_at ?? null

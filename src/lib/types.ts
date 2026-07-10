@@ -161,6 +161,26 @@ export interface BidAdders {
   insurance: boolean
 }
 
+export interface Revision {
+  id: string
+  bid_id: string
+  rev_number: number
+  note: string | null
+  contract_amount: number
+  tax: number
+  true_cost: number | null
+  profit: number | null
+  margin_pct: number | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface BidMaterialOverride {
+  bid_id: string
+  from_material_id: string
+  to_material_id: string
+}
+
 export interface OverheadItem {
   id: string
   name: string
