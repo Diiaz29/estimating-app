@@ -57,6 +57,15 @@ export interface Warning {
   message: string
 }
 
+export interface BomDetailRow {
+  label: string
+  source: string          // resolved material/finish name
+  qty: number             // per pricing unit
+  wastePct: number
+  unitCost: number | null
+  rowCost: number         // qty × (1+waste) × unitCost, per pricing unit
+}
+
 export interface LinePricing {
   materialCost: number
   materialPrice: number
@@ -66,6 +75,8 @@ export interface LinePricing {
   linePrice: number
   lineCost: number
   lfEquivalent: number
+  unitMaterialCost: number
+  bomDetail: BomDetailRow[]
   warnings: Warning[]
 }
 
@@ -80,7 +91,8 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     if (line.unit_price == null) warnings.push({ kind: 'no-cost', message: `${line.name}: no price entered` })
     return {
       materialCost: 0, materialPrice: 0, laborPrice: 0, laborCost: 0, installHours: 0,
-      linePrice: unit * mult, lineCost: unitCost * mult, lfEquivalent: 0, warnings,
+      linePrice: unit * mult, lineCost: unitCost * mult, lfEquivalent: 0,
+      unitMaterialCost: 0, bomDetail: [], warnings,
     }
   }
 
@@ -91,7 +103,8 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     // entered forward: quote × markup — no back-division (plan §5)
     return {
       materialCost: 0, materialPrice: 0, laborPrice: 0, laborCost: 0, installHours: 0,
-      linePrice: quote * markup * mult, lineCost: quote * mult, lfEquivalent: 0, warnings,
+      linePrice: quote * markup * mult, lineCost: quote * mult, lfEquivalent: 0,
+      unitMaterialCost: 0, bomDetail: [], warnings,
     }
   }
 
@@ -100,12 +113,14 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     return {
       materialCost: 0, materialPrice: 0, laborPrice: 0, laborCost: 0, installHours: 0,
       linePrice: 0, lineCost: 0, lfEquivalent: 0,
+      unitMaterialCost: 0, bomDetail: [],
       warnings: [{ kind: 'no-assembly', message: 'Line has no assembly' }],
     }
   }
 
   // per-unit material cost from the BOM, slots resolved through the job's finish assignments
   let unitMaterialCost = 0
+  const bomDetail: BomDetailRow[] = []
   for (const row of ctx.bomByAssembly.get(assembly.id) ?? []) {
     let cost: number | null = null
     let sourceName = row.label ?? ''
@@ -129,12 +144,15 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     }
     if (cost == null) {
       warnings.push({ kind: 'no-cost', message: `${sourceName}: no cost in the library` })
+      bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unitCost: null, rowCost: 0 })
       continue
     }
     if (costUpdatedAt && daysSince(costUpdatedAt) >= ctx.staleDays) {
       warnings.push({ kind: 'stale', message: `${sourceName}: price is ${daysSince(costUpdatedAt)} days old` })
     }
-    unitMaterialCost += Number(row.qty) * (1 + Number(row.waste_pct)) * cost
+    const rowCost = Number(row.qty) * (1 + Number(row.waste_pct)) * cost
+    bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unitCost: cost, rowCost })
+    unitMaterialCost += rowCost
   }
 
   const s = ctx.settings
@@ -159,6 +177,8 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     linePrice,
     lineCost: materialCost + laborCost,
     lfEquivalent,
+    unitMaterialCost,
+    bomDetail,
     warnings,
   }
 }

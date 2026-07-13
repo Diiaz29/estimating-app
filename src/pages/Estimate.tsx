@@ -302,6 +302,13 @@ export default function Estimate() {
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — estimate
         </h1>
+        <Link
+          to={`/bids/${bid.id}/math`}
+          className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
+          title="See every calculation behind these numbers"
+        >
+          Show the math
+        </Link>
       </div>
 
       {uniqueWarnings.length > 0 && (
