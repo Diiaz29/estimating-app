@@ -8,8 +8,10 @@ import { GroupTitle, StaleBadge } from '../../components/LibraryBits'
 import ConfirmDialog from '../../components/ConfirmDialog'
 
 export const MATERIAL_UNITS = ['EACH', 'SHEET', 'SQ/FT', 'LF', 'GALLON']
+const GENERAL_CATEGORIES = ['WOOD PANEL', 'QUARTZ', 'CONSUMABLES']
+const HARDWARE_CATEGORIES = ['HARDWARE', 'EQUIPMENT']
 
-export default function Materials() {
+export default function Materials({ mode = 'general' }: { mode?: 'general' | 'hardware' }) {
   const { isAdmin } = useAuth()
   const [materials, setMaterials] = useState<Material[] | null>(null)
   const [staleDays, setStaleDays] = useState(90)
@@ -34,11 +36,13 @@ export default function Materials() {
   const grouped = useMemo(() => {
     const map = new Map<string, Material[]>()
     for (const m of materials ?? []) {
+      const isHardware = HARDWARE_CATEGORIES.includes(m.category)
+      if (mode === 'hardware' ? !isHardware : isHardware) continue
       if (!map.has(m.category)) map.set(m.category, [])
       map.get(m.category)!.push(m)
     }
     return [...map.entries()]
-  }, [materials])
+  }, [materials, mode])
 
   async function saveCost(m: Material, cost: number | null) {
     const { error } = await supabase!.from('materials').update({ cost }).eq('id', m.id)
@@ -61,7 +65,9 @@ export default function Materials() {
     <div>
       <div className="flex items-center">
         <p className="text-sm text-slate-500">
-          Raw material prices. Every cabinet price is built from these — keep them current.
+          {mode === 'hardware'
+            ? 'Pulls, hinges, slides, and the rest. Each job picks its hardware from this list.'
+            : 'Raw material prices. Every cabinet price is built from these — keep them current.'}
           {isAdmin && ' Click a price to change just the number, or "edit" for everything else.'}
         </p>
         {isAdmin && (
@@ -69,7 +75,7 @@ export default function Materials() {
             onClick={() => setFormTarget('new')}
             className="ml-auto shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
           >
-            + Add material
+            {mode === 'hardware' ? '+ Add hardware' : '+ Add material'}
           </button>
         )}
       </div>
@@ -124,7 +130,13 @@ export default function Materials() {
       {formTarget && (
         <MaterialForm
           material={formTarget === 'new' ? null : formTarget}
-          categories={[...new Set(materials.map((m) => m.category))]}
+          categories={
+            mode === 'hardware'
+              ? HARDWARE_CATEGORIES
+              : [...new Set([...GENERAL_CATEGORIES, ...materials.map((m) => m.category)])].filter(
+                  (c) => !HARDWARE_CATEGORIES.includes(c),
+                )
+          }
           onClose={() => setFormTarget(null)}
           onSaved={() => {
             setFormTarget(null)

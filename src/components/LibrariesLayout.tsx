@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 
 const subTabs = [
   { to: '/libraries', label: 'Materials' },
+  { to: '/libraries/hardware', label: 'Hardware' },
   { to: '/libraries/finishes', label: 'Finishes' },
   { to: '/libraries/assemblies', label: 'Assemblies' },
 ]

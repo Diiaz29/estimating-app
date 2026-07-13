@@ -12,6 +12,28 @@ import ConfirmDialog from '../components/ConfirmDialog'
 
 const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
+function slotLabel(slot: string): string {
+  if (slot === 'CABINET_LAM') return 'Cabinet laminate'
+  if (slot.startsWith('PLAM')) return `Countertop laminate ${slot.slice(5)}`
+  if (slot.startsWith('SS')) return `Solid surface ${slot.slice(3)}`
+  return slot
+}
+
+/** Plain word for a piece of hardware, from its library name. */
+function hardwareLabel(name: string): string {
+  const n = name.toUpperCase()
+  if (n.includes('PLATE')) return 'Hinge plate'
+  if (n.includes('HINGE')) return 'Hinge'
+  if (n.includes('SLIDE')) return 'Slide'
+  if (n.includes('PULL') || n.includes('KNOB')) return 'Pull'
+  if (n.includes('LOCK')) return 'Lock'
+  if (n.includes('POST')) return 'Partition post'
+  if (n.includes('BRACE')) return 'Speed brace'
+  if (n.includes('BRACKET')) return 'Bracket'
+  if (n.includes('STANDARD')) return 'Standards'
+  return name
+}
+
 export default function Estimate() {
   const { id } = useParams<{ id: string }>()
   const { isAdmin, session } = useAuth()
@@ -102,6 +124,22 @@ export default function Estimate() {
     }
     return used
   }, [lines, ctx])
+
+  // which hardware do this estimate's cabinets call for (by their standard/default material)?
+  const usedHardware = useMemo(() => {
+    const ids = new Set<string>()
+    for (const l of lines) {
+      if (!l.assembly_id) continue
+      for (const row of ctx.bomByAssembly.get(l.assembly_id) ?? []) {
+        if (!row.material_id) continue
+        const m = materials.find((x) => x.id === row.material_id)
+        if (m?.category === 'HARDWARE') ids.add(m.id)
+      }
+    }
+    return [...ids]
+      .map((mid) => materials.find((m) => m.id === mid)!)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [lines, ctx, materials])
 
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -223,6 +261,16 @@ export default function Estimate() {
           note: line.note,
         }
       })
+      const hardware = [
+        ...new Set(
+          (linesByArea.get(area.id) ?? [])
+            .flatMap((l) => (l.assembly_id ? ctx.bomByAssembly.get(l.assembly_id) ?? [] : []))
+            .filter((r) => r.material_id)
+            .map((r) => ctx.materials.get(ctx.materialOverrides.get(r.material_id!) ?? r.material_id!))
+            .filter((m) => m && (m.category === 'HARDWARE' || m.category === 'EQUIPMENT'))
+            .map((m) => m!.name),
+        ),
+      ]
       return {
         name: area.name,
         sheet_ref: area.sheet_ref,
@@ -230,6 +278,7 @@ export default function Estimate() {
         is_alternate: area.is_alternate,
         total: pricing.areaTotals.get(area.id)?.price ?? 0,
         lines: areaLines,
+        hardware,
       }
     })
     const { error } = await supabase!.from('revisions').insert({
@@ -246,7 +295,7 @@ export default function Estimate() {
           job_number: bid!.job_number,
           bid_name: bid!.name,
           areas: displayAreas,
-          adders: pricing.adders.map((a) => ({ label: a.label, price: a.price, enabled: a.enabled })),
+          adders: pricing.adders.map((a) => ({ key: a.key, label: a.label, price: a.price, enabled: a.enabled })),
           finishes: bidFinishes.map((bf) => ({ slot: bf.slot, name: bf.finish?.name ?? '?' })),
         },
         bid: bid,
@@ -324,19 +373,19 @@ export default function Estimate() {
         </details>
       )}
 
-      {/* Finish slots */}
-      {usedSlots.size > 0 && (
+      {/* Finish slots + job hardware */}
+      {(usedSlots.size > 0 || usedHardware.length > 0) && (
         <section className="rounded-lg border-2 border-slate-800 bg-white p-4">
           <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-            Job finishes — assign a finish to each slot this estimate uses
+            Job finishes & hardware — what this whole job uses
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {SLOTS.filter((s) => usedSlots.has(s)).map((slot) => {
               const current = bidFinishes.find((bf) => bf.slot === slot)
               return (
-                <label key={slot} className="block">
+                <label key={slot} className="block" title={slot}>
                   <span className={`font-mono text-[11px] uppercase tracking-widest ${current ? 'text-slate-500' : 'text-amber-700 font-semibold'}`}>
-                    {slot} {!current && '— unassigned'}
+                    {slotLabel(slot)} {!current && '— unassigned'}
                   </span>
                   <select
                     value={current?.finish_id ?? ''}
@@ -356,7 +405,37 @@ export default function Estimate() {
                 </label>
               )
             })}
+            {usedHardware.map((std) => {
+              const override = overrides.find((o) => o.from_material_id === std.id)
+              const current = override?.to_material_id ?? std.id
+              const options = materials
+                .filter((m) => m.active && m.category === 'HARDWARE')
+                .sort((a, b) => a.name.localeCompare(b.name))
+              return (
+                <label key={std.id} className="block" title={`Standard: ${std.name}`}>
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
+                    {hardwareLabel(std.name)}
+                    {override && <span className="ml-1 text-violet-700 font-semibold">— swapped</span>}
+                  </span>
+                  <select
+                    value={current}
+                    onChange={(e) => void setOverride(std.id, e.target.value === std.id ? null : e.target.value)}
+                    className="input"
+                  >
+                    {options.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id === std.id ? `${m.name} (standard)` : m.name} — {fmtCost(m.cost)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )
+            })}
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Hardware picks apply to the whole job — pricing, order sheet, and proposal all follow.
+            New hardware (a spec'd pull, a soft-close hinge) gets added in Libraries → Materials first.
+          </p>
         </section>
       )}
 
@@ -538,14 +617,16 @@ function MaterialSwaps({
   const [fromId, setFromId] = useState('')
   const byId = new Map(materials.map((m) => [m.id, m]))
   const active = materials.filter((m) => m.active)
+  // hardware swaps live in the "Job finishes & hardware" panel; this section covers the rest
+  const nonHardware = overrides.filter((o) => byId.get(o.from_material_id)?.category !== 'HARDWARE')
 
-  if (overrides.length === 0 && !adding) {
+  if (nonHardware.length === 0 && !adding) {
     return (
       <button
         onClick={() => setAdding(true)}
         className="text-left text-xs text-slate-500 hover:text-slate-900 hover:underline"
       >
-        + Material swap for this job (e.g. prefinished ply boxes instead of melamine)
+        + Sheet-material swap for this job (e.g. prefinished ply boxes instead of melamine)
       </button>
     )
   }
@@ -553,10 +634,10 @@ function MaterialSwaps({
   return (
     <section className="rounded-lg border-2 border-slate-800 bg-white p-4">
       <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-        Material swaps — this job only
+        Sheet-material swaps — this job only
       </h2>
       <div className="space-y-2">
-        {overrides.map((o) => (
+        {nonHardware.map((o) => (
           <div key={o.from_material_id} className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs">
               {byId.get(o.from_material_id)?.name ?? '?'}
@@ -583,7 +664,7 @@ function MaterialSwaps({
             <select value={fromId} onChange={(e) => setFromId(e.target.value)} className="input mt-0 w-auto py-1.5">
               <option value="">Swap out…</option>
               {active
-                .filter((m) => !overrides.some((o) => o.from_material_id === m.id))
+                .filter((m) => m.category !== 'HARDWARE' && !overrides.some((o) => o.from_material_id === m.id))
                 .map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}

@@ -24,8 +24,8 @@ export default function Layout() {
     }`
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-16 sm:pb-0">
-      <header className="sticky top-0 z-20 border-b-2 border-slate-800 bg-white">
+    <div className="min-h-screen bg-slate-100 pb-16 sm:pb-0 print:bg-white print:pb-0">
+      <header className="sticky top-0 z-20 border-b-2 border-slate-800 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
           <div className="leading-tight">
             <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
@@ -57,7 +57,7 @@ export default function Layout() {
       </main>
 
       {/* Bottom tabs on phones */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t-2 border-slate-800 bg-white sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t-2 border-slate-800 bg-white sm:hidden print:hidden">
         {tabs.map((t) => (
           <NavLink
             key={t.to}

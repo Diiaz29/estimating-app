@@ -105,6 +105,13 @@ export default function BidDetail() {
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
           <Link
+            to={`/bids/${bid.id}/proposal`}
+            className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            title="Customer-facing proposal + work authorization, ready to print"
+          >
+            Proposal
+          </Link>
+          <Link
             to={`/bids/${bid.id}/order`}
             className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
             title="Purchase list built from the estimate"
