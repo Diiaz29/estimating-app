@@ -13,6 +13,8 @@ import Settings from './pages/Settings'
 import Overhead from './pages/Overhead'
 import Estimate from './pages/Estimate'
 import RevisionView from './pages/RevisionView'
+import OrderSheet from './pages/OrderSheet'
+import Reports from './pages/Reports'
 import LibrariesLayout from './components/LibrariesLayout'
 import Materials from './pages/libraries/Materials'
 import Finishes from './pages/libraries/Finishes'
@@ -48,6 +50,8 @@ function Gate() {
         <Route path="/bids/:id" element={<BidDetail />} />
         <Route path="/bids/:id/estimate" element={<Estimate />} />
         <Route path="/bids/:id/revisions/:revId" element={<RevisionView />} />
+        <Route path="/bids/:id/order" element={<OrderSheet />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/contractors" element={<Customers />} />
         <Route path="/contractors/:id" element={<CustomerDetail />} />
         <Route path="/libraries" element={<LibrariesLayout />}>

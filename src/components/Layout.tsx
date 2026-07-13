@@ -9,6 +9,7 @@ const baseTabs = [
 ]
 const adminTabs = [
   ...baseTabs,
+  { to: '/reports', label: 'Reports', icon: '▣' },
   { to: '/settings', label: 'Settings', icon: '▨' },
   { to: '/team', label: 'Team', icon: '▩' },
 ]

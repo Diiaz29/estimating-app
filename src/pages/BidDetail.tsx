@@ -57,6 +57,16 @@ export default function BidDetail() {
     }
   }
 
+  // Refresh only the GC links — never the bid itself, so unsaved edits
+  // (like a status change waiting on Save) don't get wiped.
+  async function loadGcs() {
+    const { data } = await supabase!
+      .from('bid_customers')
+      .select('*, customer:customers(*)')
+      .eq('bid_id', id!)
+    if (data) setGcs(data as BidCustomer[])
+  }
+
   async function toggleGC(customerId: string) {
     const existing = gcs.find((g) => g.customer_id === customerId)
     if (existing) {
@@ -64,7 +74,7 @@ export default function BidDetail() {
     } else {
       await supabase!.from('bid_customers').insert({ bid_id: bid!.id, customer_id: customerId })
     }
-    void load()
+    void loadGcs()
   }
 
   async function setWonThrough(customerId: string) {
@@ -74,7 +84,7 @@ export default function BidDetail() {
       .update({ won_through: true })
       .eq('bid_id', bid!.id)
       .eq('customer_id', customerId)
-    void load()
+    void loadGcs()
   }
 
   async function remove() {
@@ -94,6 +104,13 @@ export default function BidDetail() {
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
+          <Link
+            to={`/bids/${bid.id}/order`}
+            className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            title="Purchase list built from the estimate"
+          >
+            Order sheet
+          </Link>
           <Link
             to={`/bids/${bid.id}/estimate`}
             className="rounded-md border-2 border-slate-900 px-4 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
