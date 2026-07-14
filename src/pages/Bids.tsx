@@ -28,8 +28,9 @@ export default function Bids() {
     void load()
   }, [])
 
+  // Won work lives on the Jobs page, not here
   const visible = useMemo(
-    () => (bids ?? []).filter((b) => !filter || b.status === filter),
+    () => (bids ?? []).filter((b) => (filter ? b.status === filter : b.status !== 'won')),
     [bids, filter],
   )
 
@@ -40,7 +41,7 @@ export default function Bids() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <FilterChip label="All" active={!filter} onClick={() => setParams({})} />
-        {STATUSES.map((s) => (
+        {STATUSES.filter((s) => s.value !== 'won').map((s) => (
           <FilterChip
             key={s.value}
             label={s.label}

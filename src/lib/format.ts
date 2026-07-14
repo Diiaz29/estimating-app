@@ -30,7 +30,12 @@ export function isOverdue(bid: { due_at: string | null; status: BidStatus }): bo
 
 export function fmtMoney(n: number | null | undefined): string {
   if (n == null) return '—'
-  return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+  return n.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 /** Formats a phone number as (000) 000-0000 while typing; extra characters are dropped. */

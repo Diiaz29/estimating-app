@@ -104,6 +104,15 @@ export default function BidDetail() {
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
+          {isAdmin && bid.status === 'won' && (
+            <Link
+              to={`/bids/${bid.id}/actuals`}
+              className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              title="Estimated vs actual job cost"
+            >
+              Actuals
+            </Link>
+          )}
           <Link
             to={`/bids/${bid.id}/proposal`}
             className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"

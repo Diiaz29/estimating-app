@@ -105,7 +105,7 @@ export default function Dashboard() {
       <section>
         <SectionTitle>Track record</SectionTitle>
         <div className="flex gap-2">
-          <Stat label="Won" value={String(won)} to="/bids?status=won" />
+          <Stat label="Won" value={String(won)} to="/jobs" />
           <Stat label="Lost" value={String(lost)} to="/bids?status=lost" />
           <Stat label="Win rate" value={winRate === null ? '—' : `${winRate}%`} />
         </div>

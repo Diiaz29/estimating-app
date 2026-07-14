@@ -191,6 +191,18 @@ export interface AdderBreakdown {
   enabled: boolean
 }
 
+/** Cost side split into buckets that can be compared against real job actuals. */
+export interface CostBreakdown {
+  materials: number
+  shopLabor: number
+  shopHours: number
+  install: number       // install labor + trip fuel, at cost basis
+  delivery: number
+  travel: number        // per diem + lodging
+  subs: number          // sub quotes at cost
+  other: number         // one-off items at cost + punch/GC/insurance cost side
+}
+
 export interface BidPricing {
   areaTotals: Map<string, { price: number; warnings: Warning[] }>
   cabinetTotal: number
@@ -206,6 +218,7 @@ export interface BidPricing {
   overhead: number
   profit: number
   marginPct: number | null
+  costBreakdown: CostBreakdown
   warnings: Warning[]
 }
 
@@ -228,6 +241,11 @@ export function priceBid(
   // Assembly-built work only (V9's percentage adders apply to this, not to
   // one-off items or sub quotes)
   let assemblyTotal = 0
+  let costMaterials = 0
+  let costShopLabor = 0
+  let costShopHours = 0
+  let costSubs = 0
+  let costOneOffs = 0
 
   for (const area of areas) {
     let areaPrice = 0
@@ -240,7 +258,17 @@ export function priceBid(
         installHours += p.installHours
         lfTotal += p.lfEquivalent
         baseCost += p.lineCost
-        if (line.kind === 'assembly') assemblyTotal += p.linePrice
+        if (line.kind === 'assembly') {
+          assemblyTotal += p.linePrice
+          costMaterials += p.materialCost
+          costShopLabor += p.laborCost
+          const rate = ctx.settings.cost_shop_rate ?? 0
+          costShopHours += rate > 0 ? p.laborCost / rate : 0
+        } else if (line.kind === 'sub') {
+          costSubs += p.lineCost
+        } else {
+          costOneOffs += p.lineCost
+        }
       }
     }
     areaTotals.set(area.id, { price: areaPrice, warnings: areaWarnings })
@@ -321,6 +349,21 @@ export function priceBid(
   const profit = contractAmount - trueCost
   const marginPct = contractAmount > 0 ? profit / contractAmount : null
 
+  const costBreakdown: CostBreakdown = {
+    materials: costMaterials,
+    shopLabor: costShopLabor,
+    shopHours: costShopHours,
+    install: enabled.install ? installCost : 0,
+    delivery: enabled.delivery ? delivery : 0,
+    travel: (enabled.per_diem ? perDiem : 0) + (enabled.lodging ? lodging : 0),
+    subs: costSubs,
+    other:
+      costOneOffs +
+      (enabled.punch ? punchCost : 0) +
+      (enabled.general_conditions ? gcCost : 0) +
+      (enabled.insurance ? insurance : 0),
+  }
+
   return {
     areaTotals,
     cabinetTotal,
@@ -336,6 +379,7 @@ export function priceBid(
     overhead,
     profit,
     marginPct,
+    costBreakdown,
     warnings,
   }
 }
