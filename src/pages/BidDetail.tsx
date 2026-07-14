@@ -5,11 +5,12 @@ import { useAuth } from '../lib/auth'
 import type { Bid, BidCustomer, BidStatus, Customer } from '../lib/types'
 import { STATUSES } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ViewOnlyBanner from '../components/ViewOnlyBanner'
 
 export default function BidDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, canEdit } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [gcs, setGcs] = useState<BidCustomer[]>([])
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])
@@ -133,15 +134,19 @@ export default function BidDetail() {
           >
             Estimate →
           </Link>
-          <button
-            onClick={() => void save()}
-            disabled={busy}
-            className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {busy ? 'Saving…' : 'Save'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => void save()}
+              disabled={busy}
+              className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          )}
         </div>
       </div>
+
+      {!canEdit && <ViewOnlyBanner />}
 
       <input
         value={bid.name}

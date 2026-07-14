@@ -1,6 +1,6 @@
 export type BidStatus = 'received' | 'takeoff' | 'pricing' | 'sent' | 'won' | 'lost'
 
-export type Role = 'admin' | 'estimator'
+export type Role = 'admin' | 'estimator' | 'pm' | 'viewer'
 
 export interface Profile {
   id: string

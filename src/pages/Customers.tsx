@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import type { Customer, CustomerType } from '../lib/types'
 
 const TYPE_LABEL: Record<CustomerType, string> = {
@@ -11,6 +12,7 @@ const TYPE_LABEL: Record<CustomerType, string> = {
 }
 
 export default function Customers() {
+  const { canEdit } = useAuth()
   const [customers, setCustomers] = useState<Customer[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
@@ -32,12 +34,14 @@ export default function Customers() {
     <div className="space-y-4">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold tracking-tight">Contractors & clients</h1>
-        <button
-          onClick={() => setShowNew(true)}
-          className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
-        >
-          + Add
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            + Add
+          </button>
+        )}
       </div>
 
       {!customers ? (

@@ -11,7 +11,7 @@ import { fmtDueDate, formatPhone } from '../lib/format'
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, canEdit } = useAuth()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [bids, setBids] = useState<Bid[]>([])
@@ -76,13 +76,15 @@ export default function CustomerDetail() {
         </Link>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
-          <button
-            onClick={() => void save()}
-            disabled={busy}
-            className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {busy ? 'Saving…' : 'Save'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => void save()}
+              disabled={busy}
+              className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          )}
         </div>
       </div>
 

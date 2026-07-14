@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
+import type { Role } from '../lib/types'
 
 const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -17,7 +18,7 @@ const adminTabs = [
 ]
 
 export default function Layout() {
-  const { session, isAdmin } = useAuth()
+  const { session, isAdmin, realRole, viewAs, setViewAs } = useAuth()
   const tabs = isAdmin ? adminTabs : baseTabs
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -43,6 +44,23 @@ export default function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
+            {realRole === 'admin' && (
+              <label className="flex items-center gap-1.5" title="Preview the app as another role (screen only — you keep your admin powers)">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">view as</span>
+                <select
+                  value={viewAs ?? 'admin'}
+                  onChange={(e) => setViewAs(e.target.value === 'admin' ? null : (e.target.value as Role))}
+                  className={`rounded-md border px-1.5 py-1 text-xs focus:outline-none ${
+                    viewAs ? 'border-violet-500 bg-violet-50 text-violet-800 font-semibold' : 'border-slate-300 text-slate-600'
+                  }`}
+                >
+                  <option value="admin">admin</option>
+                  <option value="estimator">estimator</option>
+                  <option value="pm">pm</option>
+                  <option value="viewer">viewer</option>
+                </select>
+              </label>
+            )}
             <span className="hidden sm:block text-xs text-slate-500">{session?.user.email}</span>
             <button
               onClick={() => void signOut()}

@@ -9,6 +9,7 @@ import type {
 import { buildContext, priceBid, priceLine } from '../lib/pricing'
 import { fmtCost, fmtDueDate, fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ViewOnlyBanner from '../components/ViewOnlyBanner'
 
 const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
@@ -36,7 +37,7 @@ function hardwareLabel(name: string): string {
 
 export default function Estimate() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, session } = useAuth()
+  const { isAdmin, canEdit, session } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
@@ -351,6 +352,7 @@ export default function Estimate() {
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — estimate
         </h1>
+        {!canEdit && <ViewOnlyBanner />}
         <Link
           to={`/bids/${bid.id}/math`}
           className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
@@ -460,12 +462,14 @@ export default function Estimate() {
         />
       ))}
 
-      <button
-        onClick={() => void addArea()}
-        className="w-full rounded-lg border-2 border-dashed border-slate-400 bg-white px-4 py-3 text-sm font-medium text-slate-500 hover:border-slate-800 hover:text-slate-900"
-      >
-        + Add area (room)
-      </button>
+      {canEdit && (
+        <button
+          onClick={() => void addArea()}
+          className="w-full rounded-lg border-2 border-dashed border-slate-400 bg-white px-4 py-3 text-sm font-medium text-slate-500 hover:border-slate-800 hover:text-slate-900"
+        >
+          + Add area (room)
+        </button>
+      )}
 
       {/* Adders */}
       <section className="rounded-lg border-2 border-slate-800 bg-white">
@@ -494,13 +498,15 @@ export default function Estimate() {
           <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
             Revisions — the price you sent, locked in
           </h2>
-          <button
-            onClick={() => void snapshotRevision()}
-            disabled={snapshotting}
-            className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => void snapshotRevision()}
+              disabled={snapshotting}
+              className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}
+            </button>
+          )}
         </div>
         {revisions.length === 0 ? (
           <p className="px-4 py-3 text-sm text-slate-500">

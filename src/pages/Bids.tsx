@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus, Customer } from '../lib/types'
 import { STATUSES, fmtDueDate, fmtMoney, isOverdue, nextJobNumber } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 
 export default function Bids() {
+  const { canEdit } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -49,12 +51,14 @@ export default function Bids() {
             onClick={() => setParams({ status: s.value })}
           />
         ))}
-        <button
-          onClick={() => setShowNew(true)}
-          className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
-        >
-          + New bid
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            + New bid
+          </button>
+        )}
       </div>
 
       {!bids ? (

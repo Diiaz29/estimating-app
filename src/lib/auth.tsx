@@ -2,12 +2,21 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import type { Profile } from './types'
+import type { Profile, Role } from './types'
 
 interface AuthState {
   session: Session | null
   profile: Profile | null
   isAdmin: boolean
+  /** admin or estimator — may create/edit bids, estimates, contractors */
+  canEdit: boolean
+  /** admin, estimator, or PM — may manage schedules, order checks, receipts */
+  canSchedule: boolean
+  /** the account's true role (ignores view-as) */
+  realRole: Role | null
+  /** admin-only preview: see the app as another role (UI only) */
+  viewAs: Role | null
+  setViewAs: (role: Role | null) => void
   loading: boolean
 }
 
@@ -15,6 +24,11 @@ const AuthContext = createContext<AuthState>({
   session: null,
   profile: null,
   isAdmin: false,
+  canEdit: false,
+  canSchedule: false,
+  realRole: null,
+  viewAs: null,
+  setViewAs: () => {},
   loading: true,
 })
 
@@ -61,9 +75,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session])
 
+  const [viewAs, setViewAs] = useState<Role | null>(null)
+  const realRole = profile?.role ?? null
+  // view-as only applies to real admins, and only changes what the UI shows
+  const role = realRole === 'admin' && viewAs ? viewAs : realRole
   return (
     <AuthContext.Provider
-      value={{ session, profile, isAdmin: profile?.role === 'admin', loading }}
+      value={{
+        session,
+        profile,
+        isAdmin: role === 'admin',
+        canEdit: role === 'admin' || role === 'estimator',
+        canSchedule: role === 'admin' || role === 'estimator' || role === 'pm',
+        realRole,
+        viewAs: realRole === 'admin' ? viewAs : null,
+        setViewAs,
+        loading,
+      }}
     >
       {children}
     </AuthContext.Provider>

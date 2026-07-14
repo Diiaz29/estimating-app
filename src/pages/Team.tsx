@@ -65,9 +65,12 @@ export default function Team() {
       <div>
         <h1 className="text-lg font-semibold tracking-tight">Team</h1>
         <p className="mt-1 text-sm text-slate-500">
-          <span className="font-medium">Admins</span> can do everything, including deleting bids
-          and contractors and managing this page. <span className="font-medium">Estimators</span>{' '}
-          can create and edit, but not delete. New people start as estimators.
+          <span className="font-medium">Admin</span> — everything.{' '}
+          <span className="font-medium">Estimator</span> — create and edit bids, estimates,
+          contractors; no deleting. <span className="font-medium">PM</span> — manage schedules,
+          order checkboxes, and receipts; everything else view-only.{' '}
+          <span className="font-medium">Viewer</span> — look, don't touch. New people start as
+          estimators.
         </p>
       </div>
 
@@ -86,12 +89,12 @@ export default function Team() {
                 {p.id === me?.id && <span className="ml-2 text-xs text-slate-400">(you)</span>}
               </span>
               <div className="flex gap-1.5">
-                {(['estimator', 'admin'] as Role[]).map((r) => (
+                {(['viewer', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button
                     key={r}
-                    disabled={lastAdmin && r === 'estimator'}
+                    disabled={lastAdmin && r !== 'admin'}
                     title={
-                      lastAdmin && r === 'estimator'
+                      lastAdmin && r !== 'admin'
                         ? 'The last admin can’t be demoted — promote someone else first.'
                         : undefined
                     }

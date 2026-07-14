@@ -8,9 +8,12 @@ import { buildContext, priceLine } from '../lib/pricing'
 import type { JobTask } from '../lib/schedule'
 import { completionDate, fmtDay, nextWorkday, parseDay, toDay } from '../lib/schedule'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ViewOnlyBanner from '../components/ViewOnlyBanner'
+import { useAuth } from '../lib/auth'
 
 export default function JobSchedule() {
   const { id } = useParams<{ id: string }>()
+  const { canSchedule } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [tasks, setTasks] = useState<JobTask[] | null>(null)
   const [holidays, setHolidays] = useState<Set<string>>(new Set())
@@ -173,6 +176,8 @@ export default function JobSchedule() {
         )}
       </div>
 
+      {!canSchedule && <ViewOnlyBanner />}
+
       {tasks.length === 0 ? (
         <div className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center">
           <p className="text-sm text-slate-500">
@@ -180,13 +185,15 @@ export default function JobSchedule() {
             estimated shop hours and your crew size ({Number(bid.labor_heads ?? 1)} shop /{' '}
             {Number(bid.install_heads ?? 1)} install heads).
           </p>
-          <button
-            onClick={() => void seed()}
-            disabled={seeding}
-            className="mt-3 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {seeding ? 'Building…' : 'Seed standard tasks'}
-          </button>
+          {canSchedule && (
+            <button
+              onClick={() => void seed()}
+              disabled={seeding}
+              className="mt-3 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {seeding ? 'Building…' : 'Seed standard tasks'}
+            </button>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
@@ -253,7 +260,7 @@ export default function JobSchedule() {
         </div>
       )}
 
-      {tasks.length > 0 && (
+      {tasks.length > 0 && canSchedule && (
         <button
           onClick={() => void addTask()}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"

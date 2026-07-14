@@ -23,7 +23,7 @@ const WHOLE_UNITS = new Set(['EACH', 'SHEET', 'GALLON', 'PER BOX'])
 
 export default function OrderSheet() {
   const { id } = useParams<{ id: string }>()
-  const { session } = useAuth()
+  const { session, canSchedule } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
@@ -195,8 +195,9 @@ export default function OrderSheet() {
                           <input
                             type="checkbox"
                             checked={ordered}
+                            disabled={!canSchedule}
                             onChange={() => void toggleCheck(r.key)}
-                            className="h-4 w-4 accent-emerald-600"
+                            className="h-4 w-4 accent-emerald-600 disabled:opacity-40"
                             title={ordered ? 'Ordered — untick to undo' : 'Tick when ordered'}
                           />
                         </td>
