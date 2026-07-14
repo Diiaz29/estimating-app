@@ -18,6 +18,7 @@ import MathView from './pages/MathView'
 import Proposal from './pages/Proposal'
 import Actuals from './pages/Actuals'
 import Jobs from './pages/Jobs'
+import PlanRoom from './pages/PlanRoom'
 import Schedule from './pages/Schedule'
 import JobSchedule from './pages/JobSchedule'
 import Reports from './pages/Reports'
@@ -63,6 +64,7 @@ function Gate() {
         <Route path="/bids/:id/math" element={<MathView />} />
         <Route path="/bids/:id/proposal" element={<Proposal />} />
         <Route path="/bids/:id/actuals" element={<Actuals />} />
+        <Route path="/bids/:id/plans" element={<PlanRoom />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/contractors" element={<Customers />} />
         <Route path="/contractors/:id" element={<CustomerDetail />} />

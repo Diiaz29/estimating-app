@@ -6,6 +6,7 @@ import type { Bid, BidCustomer, BidStatus, Customer } from '../lib/types'
 import { STATUSES } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
+import PlansSection from '../components/PlansSection'
 
 export default function BidDetail() {
   const { id } = useParams<{ id: string }>()
@@ -342,6 +343,8 @@ export default function BidDetail() {
           className="input"
         />
       </Field>
+
+      <PlansSection bidId={bid.id} />
 
       {isAdmin && (
         <div className="border-t border-slate-200 pt-4">

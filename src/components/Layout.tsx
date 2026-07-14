@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
 import type { Role } from '../lib/types'
 
@@ -20,6 +20,8 @@ const adminTabs = [
 export default function Layout() {
   const { session, isAdmin, realRole, viewAs, setViewAs } = useAuth()
   const tabs = isAdmin ? adminTabs : baseTabs
+  // the plan room wants every pixel of a big monitor
+  const fullWidth = useLocation().pathname.endsWith('/plans')
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1.5 rounded-md text-sm font-medium ${
@@ -72,7 +74,7 @@ export default function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className={`mx-auto px-4 py-6 ${fullWidth ? 'max-w-none' : 'max-w-6xl'}`}>
         <Outlet />
       </main>
 
