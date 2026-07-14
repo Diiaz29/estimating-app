@@ -18,6 +18,8 @@ import MathView from './pages/MathView'
 import Proposal from './pages/Proposal'
 import Actuals from './pages/Actuals'
 import Jobs from './pages/Jobs'
+import Schedule from './pages/Schedule'
+import JobSchedule from './pages/JobSchedule'
 import Reports from './pages/Reports'
 import LibrariesLayout from './components/LibrariesLayout'
 import Materials from './pages/libraries/Materials'
@@ -52,6 +54,8 @@ function Gate() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/bids" element={<Bids />} />
         <Route path="/jobs" element={<Jobs />} />
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/bids/:id/schedule" element={<JobSchedule />} />
         <Route path="/bids/:id" element={<BidDetail />} />
         <Route path="/bids/:id/estimate" element={<Estimate />} />
         <Route path="/bids/:id/revisions/:revId" element={<RevisionView />} />

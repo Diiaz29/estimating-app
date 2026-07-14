@@ -88,6 +88,9 @@ export default function Jobs() {
                 {gc && <span className="text-xs text-slate-500">{gc}</span>}
                 <span className="text-sm font-semibold tabular-nums">{value == null ? '—' : fmtMoney(value)}</span>
                 <span className="flex items-center gap-2">
+                  <Link to={`/bids/${b.id}/schedule`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Schedule
+                  </Link>
                   <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Order sheet
                   </Link>

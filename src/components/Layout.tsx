@@ -5,6 +5,7 @@ const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
   { to: '/bids', label: 'Bids', icon: '▤' },
   { to: '/jobs', label: 'Jobs', icon: '▬' },
+  { to: '/schedule', label: 'Schedule', icon: '▦' },
   { to: '/contractors', label: 'Contractors', icon: '▧' },
   { to: '/libraries', label: 'Libraries', icon: '▥' },
 ]
