@@ -387,9 +387,9 @@ export default function PlanRoom() {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3">
-        {/* file list */}
-        <aside className="w-48 shrink-0 overflow-y-auto rounded-lg border-2 border-slate-800 bg-white">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 sm:flex-row">
+        {/* file list — full-width strip on phones, sidebar on desktop */}
+        <aside className="max-h-28 shrink-0 overflow-y-auto rounded-lg border-2 border-slate-800 bg-white sm:max-h-none sm:w-48">
           <div className="border-b-2 border-slate-800 px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
             {plans.length} file{plans.length === 1 ? '' : 's'}
           </div>

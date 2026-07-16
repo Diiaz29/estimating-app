@@ -547,8 +547,8 @@ export default function Estimate() {
         )}
       </section>
 
-      {/* Pinned title-block totals bar */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-slate-800 bg-white sm:bottom-0">
+      {/* Pinned title-block totals bar (sits above the phone tab bar) */}
+      <div className="fixed inset-x-0 bottom-[3.4rem] z-20 border-t-2 border-slate-800 bg-white sm:bottom-0">
         <div className="mx-auto flex max-w-6xl items-stretch divide-x-2 divide-slate-800 overflow-x-auto border-x-2 border-slate-800 font-mono">
           <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
           <TotalCell label="Adders" value={fmtMoney(pricing.addersTotal)} />

@@ -146,8 +146,8 @@ export default function RevisionView() {
         </>
       )}
 
-      {/* Frozen totals bar */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-amber-500 bg-amber-50">
+      {/* Frozen totals bar (sits above the phone tab bar) */}
+      <div className="fixed inset-x-0 bottom-[3.4rem] z-20 border-t-2 border-amber-500 bg-amber-50 sm:bottom-0">
         <div className="mx-auto flex max-w-6xl items-stretch divide-x divide-amber-300 overflow-x-auto font-mono">
           {totals && <Cell label="Base bid" value={fmtMoney(totals.cabinetTotal)} />}
           {totals && <Cell label="Adders" value={fmtMoney(totals.addersTotal)} />}

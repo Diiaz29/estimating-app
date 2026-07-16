@@ -78,15 +78,15 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      {/* Bottom tabs on phones */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t-2 border-slate-800 bg-white sm:hidden print:hidden">
+      {/* Bottom tabs on phones — scrolls sideways when there are many */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex overflow-x-auto border-t-2 border-slate-800 bg-white sm:hidden print:hidden">
         {tabs.map((t) => (
           <NavLink
             key={t.to}
             to={t.to}
             end={t.to === '/'}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${
+              `flex min-w-[4.2rem] flex-1 shrink-0 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${
                 isActive ? 'text-slate-900' : 'text-slate-400'
               }`
             }

@@ -6,6 +6,15 @@
   body {
     @apply font-sans text-slate-900 antialiased;
   }
+
+  /* iPhones auto-zoom into inputs smaller than 16px — keep fields 16px on phones */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer components {
