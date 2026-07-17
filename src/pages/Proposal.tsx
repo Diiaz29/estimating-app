@@ -257,6 +257,14 @@ export default function Proposal() {
     }
   }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes])
 
+  // Saved-PDF filename comes from the page title: "ESTIMATE 26-002 R1 - JOB NAME"
+  useEffect(() => {
+    if (bid && data) document.title = `ESTIMATE ${data.refLabel} - ${bid.name.toUpperCase()}`
+    return () => {
+      document.title = 'ZAID Millwork — Estimating'
+    }
+  }, [bid, data])
+
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!bid || !data) return <p className="text-sm text-slate-500">Loading…</p>
