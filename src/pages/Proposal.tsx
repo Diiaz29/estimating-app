@@ -424,88 +424,92 @@ export default function Proposal() {
           </div>
         )}
 
-        {/* ---------- Work Authorization (new page when printed) ---------- */}
-        <div className="mt-8 break-before-page">
-          <header className="border-b-4 border-slate-900 pb-2">
-            <div className="text-xl font-bold tracking-tight">WORK AUTHORIZATION AGREEMENT</div>
-            <div className="mt-0.5 text-[11px] text-slate-500">
-              {COMPANY.name} · {COMPANY.address} · {COMPANY.phone} · {COMPANY.email}
+        {/* ---------- Work Authorization (one printed page) ---------- */}
+        <div className="mt-8 break-before-page text-[10.5px] leading-tight">
+          <header className="flex items-baseline justify-between border-b-4 border-slate-900 pb-1.5">
+            <div className="text-lg font-bold tracking-tight">WORK AUTHORIZATION AGREEMENT</div>
+            <div className="text-[9px] text-slate-500">
+              {COMPANY.name} · {COMPANY.address} · {COMPANY.phone}
             </div>
           </header>
 
-          <table className="mt-3 w-full text-[12px]">
-            <tbody>
-              <WaRow k="Date" v={today} />
-              <WaRow k="Agreement No." v={data.refLabel} />
-              <WaRow k="Issued To" v={gc?.company ?? '[GC NAME]'} />
-              <WaRow k="GC Address" v={gc?.address ?? '—'} />
-              <WaRow k="GC Contact" v={contact ? [contact.name, contact.email, contact.phone].filter(Boolean).join(' / ') : '—'} />
-              <WaRow k="Project" v={bid.name} />
-              <WaRow k="Project Address" v={bid.address ?? '—'} />
-              <WaRow k="Estimate Ref" v={`ZAID Est. # ${data.refLabel}, ${today}`} />
-            </tbody>
-          </table>
+          {/* parties + contract amount side by side */}
+          <div className="mt-2 grid grid-cols-2 gap-4">
+            <table className="w-full">
+              <tbody>
+                <WaRow k="Date" v={today} />
+                <WaRow k="Agreement No." v={data.refLabel} />
+                <WaRow k="Issued To" v={gc?.company ?? '[GC NAME]'} />
+                <WaRow k="GC Contact" v={contact ? [contact.name, contact.phone].filter(Boolean).join(' / ') : '—'} />
+              </tbody>
+            </table>
+            <table className="w-full">
+              <tbody>
+                <WaRow k="Project" v={bid.name} />
+                <WaRow k="Project Address" v={bid.address ?? '—'} />
+                <WaRow k="Estimate Ref" v={`ZAID Est. # ${data.refLabel}, ${today}`} />
+                <tr className="border-b border-slate-200">
+                  <td className="w-28 py-0.5 pr-2 font-mono text-[8.5px] uppercase tracking-wider text-slate-500">Contract Amount</td>
+                  <td className="py-0.5 font-semibold tabular-nums">
+                    {fmtMoney(data.contract)} lump sum · tax {data.taxExempt ? 'exempt' : fmtMoney(data.tax)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <SectionTitle>Scope of Work</SectionTitle>
-          <p className="text-[12px]">
+          <SectionTitle small>Scope of Work</SectionTitle>
+          <p>
             Vendor shall furnish all labor, materials, equipment, fabrication, delivery, and
             installation as described in the referenced ZAID Millwork estimate (incorporated by
-            reference){data.inclusions ? ' and as further described here:' : '.'}
+            reference){data.inclusions ? ' and as further described here: ' : '.'}
+            {data.inclusions && <span className="whitespace-pre-wrap">{data.inclusions}</span>}
           </p>
-          {data.inclusions && <p className="mt-1 whitespace-pre-wrap text-[12px]">{data.inclusions}</p>}
           {data.exclusions && (
-            <p className="mt-1 text-[12px]">
+            <p className="mt-0.5">
               <b>Exclusions:</b> <span className="whitespace-pre-wrap">{data.exclusions}</span>
             </p>
           )}
 
-          <SectionTitle>Contract Amount</SectionTitle>
-          <table className="w-full border-2 border-slate-900 text-[12px]">
-            <tbody>
-              <tr className="border-b border-slate-300">
-                <td className="px-2 py-1.5 font-semibold">Contract Amount (Lump Sum)</td>
-                <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{fmtMoney(data.contract)}</td>
-              </tr>
-              <tr>
-                <td className="px-2 py-1">Tax</td>
-                <td className="px-2 py-1 text-right tabular-nums">{data.taxExempt ? 'exempt' : fmtMoney(data.tax)}</td>
-              </tr>
-            </tbody>
-          </table>
+          {/* terms + conditions in two columns */}
+          <div className="mt-1 grid grid-cols-2 gap-4">
+            <div>
+              <SectionTitle small>Payment Terms</SectionTitle>
+              <ul className="list-disc pl-4 space-y-px">
+                <li>Invoicing: lump-sum invoice on completion or periodic pay apps for work in place, stored materials, and approved change orders.</li>
+                <li>Payment: NET 30 days from invoice date. No retainage withheld.</li>
+                <li>Late payment: amounts unpaid after 30 days accrue interest at 1.5%/month or the maximum rate permitted by Texas law.</li>
+                <li>Not pay-when-paid: payment is not contingent on Contractor receiving payment from any third party.</li>
+                <li>Change orders: any change to scope, materials, schedule, or price must be approved in writing by both parties before the affected work proceeds.</li>
+              </ul>
+            </div>
+            <div>
+              <SectionTitle small>Conditions</SectionTitle>
+              <ul className="list-disc pl-4 space-y-px">
+                <li>Pricing valid for 30 days. Cancellation or postponement within 2 weeks of scheduled start may incur charges for materials, labor, and shop time committed.</li>
+                <li>Site readiness: space must be ready when Vendor arrives. Delays caused by others may trigger mobilization, storage, and standby charges.</li>
+                <li>Contractor provides on-site dumpster, reasonable access, adequate lighting, and protection of finished surfaces from other trades.</li>
+                <li>Shop drawings and product literature submitted for written approval prior to fabrication.</li>
+                <li>Title to materials remains with Vendor until full payment; Vendor reserves all lien rights under Texas law.</li>
+                <li>Insurance: commercial general liability and workers' compensation maintained; COI on request.</li>
+                <li>Warranty: one (1) year from substantial completion against defects in materials and workmanship; excludes misuse and normal wear.</li>
+                <li>Governing law: State of Texas; venue in the county of Vendor's principal office.</li>
+              </ul>
+            </div>
+          </div>
 
-          <SectionTitle>Payment Terms</SectionTitle>
-          <ul className="list-disc pl-5 text-[12px] space-y-0.5">
-            <li>Invoicing: lump-sum invoice on completion or periodic pay apps for work in place, stored materials, and approved change orders.</li>
-            <li>Payment: NET 30 days from invoice date. No retainage withheld.</li>
-            <li>Late payment: amounts unpaid after 30 days accrue interest at 1.5%/month or the maximum rate permitted by Texas law.</li>
-            <li>Not pay-when-paid: payment is not contingent on Contractor receiving payment from any third party.</li>
-            <li>Change orders: any change to scope, materials, schedule, or price must be approved in writing by both parties before the affected work proceeds.</li>
-          </ul>
-
-          <SectionTitle>Conditions</SectionTitle>
-          <ul className="list-disc pl-5 text-[12px] space-y-0.5">
-            <li>Pricing valid for 30 days. Cancellation or postponement within 2 weeks of scheduled start may incur charges for materials, labor, and shop time committed.</li>
-            <li>Site readiness: project space must be ready when Vendor arrives. Delays caused by others may trigger mobilization, storage, and standby charges at then-current rates.</li>
-            <li>Site conditions: Contractor provides on-site dumpster, reasonable access, adequate lighting, and protection of finished surfaces from other trades.</li>
-            <li>Shop drawings and product literature submitted for written approval prior to fabrication.</li>
-            <li>Title to materials remains with Vendor until full payment is received. Vendor reserves all lien rights afforded under Texas law.</li>
-            <li>Insurance: Vendor maintains commercial general liability and workers' compensation coverage; COI furnished upon request.</li>
-            <li>Warranty: one (1) year from substantial completion against defects in materials and workmanship; excludes misuse and normal wear.</li>
-            <li>Governing law: State of Texas; venue in the county of Vendor's principal office.</li>
-          </ul>
-
-          <SectionTitle>Acceptance</SectionTitle>
-          <p className="text-[12px]">By signing below, both parties accept the terms set forth in this Work Authorization Agreement.</p>
-          <div className="mt-6 grid grid-cols-2 gap-8 break-inside-avoid text-[12px]">
+          <SectionTitle small>Acceptance</SectionTitle>
+          <p>By signing below, both parties accept the terms set forth in this Work Authorization Agreement.</p>
+          <div className="mt-3 grid grid-cols-2 gap-8 break-inside-avoid">
             <div>
               <div className="font-semibold">VENDOR — {COMPANY.name}</div>
-              <div className="mt-10 border-t-2 border-slate-900 pt-1 text-[10px] uppercase tracking-wider text-slate-500">
+              <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[8.5px] uppercase tracking-wider text-slate-500">
                 Signature / Printed Name / Title / Date
               </div>
             </div>
             <div>
               <div className="font-semibold">CONTRACTOR — {gc?.company ?? '[GC NAME]'}</div>
-              <div className="mt-10 border-t-2 border-slate-900 pt-1 text-[10px] uppercase tracking-wider text-slate-500">
+              <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[8.5px] uppercase tracking-wider text-slate-500">
                 Signature / Printed Name / Title / Date
               </div>
             </div>
@@ -528,15 +532,19 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 function WaRow({ k, v }: { k: string; v: string }) {
   return (
     <tr className="border-b border-slate-200">
-      <td className="w-40 py-1 pr-3 font-mono text-[10px] uppercase tracking-wider text-slate-500">{k}</td>
-      <td className="py-1">{v}</td>
+      <td className="w-28 py-0.5 pr-2 font-mono text-[8.5px] uppercase tracking-wider text-slate-500">{k}</td>
+      <td className="py-0.5">{v}</td>
     </tr>
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children, small }: { children: React.ReactNode; small?: boolean }) {
   return (
-    <h3 className="mb-1 mt-4 border-b border-slate-900 pb-0.5 font-mono text-[11px] font-semibold uppercase tracking-widest">
+    <h3
+      className={`border-b border-slate-900 font-mono font-semibold uppercase tracking-widest ${
+        small ? 'mb-0.5 mt-2 pb-px text-[9px]' : 'mb-1 mt-4 pb-0.5 text-[11px]'
+      }`}
+    >
       {children}
     </h3>
   )
