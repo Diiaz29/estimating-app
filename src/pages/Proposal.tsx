@@ -382,6 +382,10 @@ export default function Proposal() {
               </td>
               <td className="px-2 py-1 text-right tabular-nums">{data.taxExempt ? '—' : fmtMoney(data.tax)}</td>
             </tr>
+            <tr className="border-t-2 border-slate-900 bg-slate-100 font-semibold">
+              <td className="px-2 py-1.5">TOTAL INCLUDING TAX</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{fmtMoney(data.contract + (data.taxExempt ? 0 : data.tax))}</td>
+            </tr>
           </tbody>
         </table>
 
@@ -475,9 +479,13 @@ export default function Proposal() {
                 <td className="px-2 py-1 font-semibold">Contract Amount (Lump Sum)</td>
                 <td className="px-2 py-1 text-right font-semibold tabular-nums">{fmtMoney(data.contract)}</td>
               </tr>
-              <tr>
+              <tr className="border-b border-slate-300">
                 <td className="px-2 py-0.5">Tax</td>
                 <td className="px-2 py-0.5 text-right tabular-nums">{data.taxExempt ? 'exempt' : fmtMoney(data.tax)}</td>
+              </tr>
+              <tr className="bg-slate-100 font-semibold">
+                <td className="px-2 py-1">Total including tax</td>
+                <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(data.contract + (data.taxExempt ? 0 : data.tax))}</td>
               </tr>
             </tbody>
           </table>
