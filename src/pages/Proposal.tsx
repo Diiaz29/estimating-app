@@ -7,6 +7,7 @@ import type {
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtDueDate, fmtMoney } from '../lib/format'
+import { LOGO_URL } from '../lib/branding'
 
 const COMPANY = {
   name: 'ZAID Millwork',
@@ -97,6 +98,7 @@ export default function Proposal() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [revisions, setRevisions] = useState<SnapshotRevision[]>([])
   const [source, setSource] = useState<string | null>(null) // revision id or 'live'
+  const [logoOk, setLogoOk] = useState(true) // logo carries the name, so text name hides when it loads
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -300,10 +302,23 @@ export default function Proposal() {
       <div className="mx-auto max-w-[7.7in] bg-white p-8 text-[13px] leading-snug text-slate-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">
         {/* ---------- Letterhead ---------- */}
         <header className="flex items-start justify-between border-b-4 border-slate-900 pb-3">
-          <div>
-            <div className="text-2xl font-bold tracking-tight">{COMPANY.name}</div>
-            <div className="mt-0.5 text-[11px] text-slate-500">
-              {COMPANY.address} · {COMPANY.phone} · {COMPANY.email} · {COMPANY.web}
+          <div className="flex items-center gap-4">
+            {logoOk && LOGO_URL ? (
+              <img
+                src={LOGO_URL}
+                alt={COMPANY.name}
+                className="h-24 w-auto max-w-[20rem] object-contain"
+                onError={() => setLogoOk(false)}
+              />
+            ) : (
+              <div className="text-2xl font-bold tracking-tight">{COMPANY.name}</div>
+            )}
+            <div className="text-[11px] leading-relaxed text-slate-500">
+              {COMPANY.address}
+              <br />
+              {COMPANY.phone} · {COMPANY.email}
+              <br />
+              {COMPANY.web}
             </div>
           </div>
           <div className="text-right">
@@ -439,10 +454,15 @@ export default function Proposal() {
 
         {/* ---------- Work Authorization (one printed page) ---------- */}
         <div className="mt-8 break-before-page text-[11px] leading-snug">
-          <header className="border-b-4 border-slate-900 pb-1.5">
-            <div className="text-lg font-bold tracking-tight">WORK AUTHORIZATION AGREEMENT</div>
-            <div className="mt-0.5 text-[10px] text-slate-500">
-              {COMPANY.name} · {COMPANY.address} · {COMPANY.phone} · {COMPANY.email}
+          <header className="flex items-center gap-3 border-b-4 border-slate-900 pb-1.5">
+            {logoOk && LOGO_URL && (
+              <img src={LOGO_URL} alt="" className="h-24 w-auto max-w-[20rem] object-contain" onError={() => setLogoOk(false)} />
+            )}
+            <div>
+              <div className="text-lg font-bold tracking-tight">WORK AUTHORIZATION AGREEMENT</div>
+              <div className="mt-0.5 text-[10px] text-slate-500">
+                {logoOk && LOGO_URL ? '' : `${COMPANY.name} · `}{COMPANY.address} · {COMPANY.phone} · {COMPANY.email}
+              </div>
             </div>
           </header>
 
