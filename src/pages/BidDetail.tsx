@@ -274,6 +274,14 @@ export default function BidDetail() {
             />
           </Field>
         </div>
+        <Field label="Architect drawings dated">
+          <input
+            type="date"
+            value={bid.drawings_date ?? ''}
+            onChange={(e) => patch({ drawings_date: e.target.value || null })}
+            className="input"
+          />
+        </Field>
         <Field label="Distance (mi)">
           <input
             type="number"

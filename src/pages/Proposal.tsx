@@ -73,6 +73,7 @@ interface ProposalData {
   taxExempt: boolean
   inclusions: string | null
   exclusions: string | null
+  drawingsDate: string | null
 }
 
 const INSTALLISH = new Set(['install', 'per_diem', 'lodging'])
@@ -195,6 +196,7 @@ export default function Proposal() {
         taxExempt: snapBid?.tax_exempt ?? bid.tax_exempt,
         inclusions: snapBid?.inclusions ?? bid.inclusions,
         exclusions: snapBid?.exclusions ?? bid.exclusions,
+        drawingsDate: snapBid?.drawings_date ?? bid.drawings_date,
       }
     }
     // live
@@ -249,6 +251,7 @@ export default function Proposal() {
       taxExempt: bid.tax_exempt,
       inclusions: bid.inclusions,
       exclusions: bid.exclusions,
+      drawingsDate: bid.drawings_date,
     }
   }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes])
 
@@ -345,9 +348,16 @@ export default function Proposal() {
           </tbody>
         </table>
 
-        <div className="mt-2 flex justify-between text-[12px]">
+        <div className="mt-2 flex flex-wrap justify-between gap-x-6 text-[12px]">
           <span>
             <b>Presented on:</b> {today}
+            {data.drawingsDate && (
+              <>
+                {' · '}
+                <b>Proposal based on:</b> architect's drawing set dated{' '}
+                {new Date(data.drawingsDate + 'T12:00').toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+              </>
+            )}
           </span>
           <span className="font-semibold">{data.isLocked ? data.refLabel.replace(bid.job_number, 'Revision').trim() : 'Draft (live)'}</span>
         </div>

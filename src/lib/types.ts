@@ -43,6 +43,7 @@ export interface Bid {
   install_heads: number | null
   tax_exempt: boolean
   bid_value: number | null
+  drawings_date: string | null
   adders: BidAdders
   inclusions: string | null
   exclusions: string | null
