@@ -355,14 +355,13 @@ export default function Proposal() {
         {/* ---------- Price summary ---------- */}
         <table className="mt-3 w-full border-2 border-slate-900 text-[12px]">
           <tbody>
-            <SummaryRow label="Millwork base bid" value={fmtMoney(data.base)} />
-            <SummaryRow label="Millwork installation" value={fmtMoney(data.install)} />
-            <SummaryRow label="Packaging & delivery" value={fmtMoney(data.delivery)} />
             {data.alternates > 0 && (
               <SummaryRow label="Alternates (priced separately below)" value={fmtMoney(data.alternates)} />
             )}
-            <tr className="border-t-2 border-slate-900 bg-slate-100 font-semibold">
-              <td className="px-2 py-1.5">ESTIMATED TOTAL — NOT INCLUDING TAXES</td>
+            <tr className="bg-slate-100 font-semibold">
+              <td className="px-2 py-1.5">
+                ESTIMATED TOTAL — millwork furnished, delivered & installed — NOT INCLUDING TAXES
+              </td>
               <td className="px-2 py-1.5 text-right tabular-nums">{fmtMoney(data.contract)}</td>
             </tr>
             <tr className="border-t border-slate-300 text-[11px] text-slate-600">
