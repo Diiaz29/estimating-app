@@ -75,6 +75,16 @@ interface ProposalData {
   inclusions: string | null
   exclusions: string | null
   drawingsDate: string | null
+  installIncluded: boolean
+  deliveryIncluded: boolean
+}
+
+/** Wording follows the bid's install/delivery toggles. */
+function scopeWording(install: boolean, delivery: boolean): string {
+  if (install && delivery) return 'millwork furnished, delivered & installed'
+  if (!install && delivery) return 'millwork furnished & delivered — installation by others'
+  if (install && !delivery) return 'millwork furnished & installed — delivery by others'
+  return 'millwork furnished only — customer pickup at our shop, installation by others'
 }
 
 const INSTALLISH = new Set(['install', 'per_diem', 'lodging'])
@@ -199,6 +209,8 @@ export default function Proposal() {
         inclusions: snapBid?.inclusions ?? bid.inclusions,
         exclusions: snapBid?.exclusions ?? bid.exclusions,
         drawingsDate: snapBid?.drawings_date ?? bid.drawings_date,
+        installIncluded: (snapBid?.adders ?? bid.adders).install,
+        deliveryIncluded: (snapBid?.adders ?? bid.adders).delivery,
       }
     }
     // live
@@ -254,6 +266,8 @@ export default function Proposal() {
       inclusions: bid.inclusions,
       exclusions: bid.exclusions,
       drawingsDate: bid.drawings_date,
+      installIncluded: bid.adders.install,
+      deliveryIncluded: bid.adders.delivery,
     }
   }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes])
 
@@ -393,7 +407,7 @@ export default function Proposal() {
             )}
             <tr className="bg-slate-100 font-semibold">
               <td className="px-2 py-1.5">
-                ESTIMATED TOTAL — millwork furnished, delivered & installed — NOT INCLUDING TAXES
+                ESTIMATED TOTAL — {scopeWording(data.installIncluded, data.deliveryIncluded)} — NOT INCLUDING TAXES
               </td>
               <td className="px-2 py-1.5 text-right tabular-nums">{fmtMoney(data.contract)}</td>
             </tr>
