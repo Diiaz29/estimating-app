@@ -21,7 +21,15 @@ export interface PricingContext {
   finishBySlot: Map<string, Finish>
   /** job-level spec swaps: from_material_id → to_material_id */
   materialOverrides: Map<string, string>
+  /** per-area swaps, keyed by area id — beat the job-level swap */
+  areaOverrides: Map<string, Map<string, string>>
   staleDays: number
+}
+
+/** A room's pick beats the job-wide pick, which beats the standard material. */
+export function resolveMaterialId(ctx: PricingContext, areaId: string | null, materialId: string): string {
+  const areaHit = areaId ? ctx.areaOverrides.get(areaId)?.get(materialId) : undefined
+  return areaHit ?? ctx.materialOverrides.get(materialId) ?? materialId
 }
 
 export function buildContext(
@@ -31,6 +39,7 @@ export function buildContext(
   materials: Material[],
   bidFinishes: BidFinish[],
   materialOverrides: Map<string, string> = new Map(),
+  areaOverrides: Map<string, Map<string, string>> = new Map(),
 ): PricingContext {
   const s: Record<string, number> = {}
   for (const row of settings) s[row.key] = Number(row.value)
@@ -48,6 +57,7 @@ export function buildContext(
     materials: new Map(materials.map((m) => [m.id, m])),
     finishBySlot,
     materialOverrides,
+    areaOverrides,
     staleDays: s.price_staleness_days ?? 90,
   }
 }
@@ -135,8 +145,8 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       sourceName = finish.name
       costUpdatedAt = finish.cost_updated_at
     } else if (row.material_id) {
-      // job-level spec swap (e.g. prefinished ply instead of white melamine)
-      const effectiveId = ctx.materialOverrides.get(row.material_id) ?? row.material_id
+      // spec swaps: this room's pick → job-wide pick → standard
+      const effectiveId = resolveMaterialId(ctx, area.id, row.material_id)
       const material = ctx.materials.get(effectiveId)
       cost = material?.cost == null ? null : Number(material.cost)
       sourceName = material?.name ?? sourceName

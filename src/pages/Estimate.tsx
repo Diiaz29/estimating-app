@@ -3,10 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
-  Area, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish, BidMaterialOverride, Finish,
-  LineItem, Material, Revision, Setting,
+  Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish,
+  BidMaterialOverride, Finish, LineItem, Material, Revision, Setting,
 } from '../lib/types'
-import { buildContext, priceBid, priceLine } from '../lib/pricing'
+import { buildContext, priceBid, priceLine, resolveMaterialId } from '../lib/pricing'
 import { fmtCost, fmtDueDate, fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
@@ -48,6 +48,7 @@ export default function Estimate() {
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [settings, setSettings] = useState<Setting[]>([])
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
+  const [areaOverrides, setAreaOverridesState] = useState<AreaMaterialOverride[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [error, setError] = useState<string | null>(null)
   const [removingArea, setRemovingArea] = useState<Area | null>(null)
@@ -72,14 +73,24 @@ export default function Estimate() {
     const areaRows = (areaRes.data ?? []) as Area[]
     setAreas(areaRows)
     if (areaRows.length > 0) {
-      const { data } = await supabase!
-        .from('line_items')
-        .select('*')
-        .in('area_id', areaRows.map((a) => a.id))
-        .order('sort_order')
-        .order('created_at')
-      setLines((data ?? []) as LineItem[])
-    } else setLines([])
+      const [lineRes, aoRes] = await Promise.all([
+        supabase!
+          .from('line_items')
+          .select('*')
+          .in('area_id', areaRows.map((a) => a.id))
+          .order('sort_order')
+          .order('created_at'),
+        supabase!
+          .from('area_material_overrides')
+          .select('*')
+          .in('area_id', areaRows.map((a) => a.id)),
+      ])
+      setLines((lineRes.data ?? []) as LineItem[])
+      setAreaOverridesState((aoRes.data ?? []) as AreaMaterialOverride[])
+    } else {
+      setLines([])
+      setAreaOverridesState([])
+    }
     setBidFinishes((bfRes.data ?? []) as BidFinish[])
     setAssemblies((asmRes.data ?? []) as Assembly[])
     setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -95,14 +106,18 @@ export default function Estimate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  const ctx = useMemo(
-    () =>
-      buildContext(
-        settings, assemblies, bom, materials, bidFinishes,
-        new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
-      ),
-    [settings, assemblies, bom, materials, bidFinishes, overrides],
-  )
+  const ctx = useMemo(() => {
+    const areaMap = new Map<string, Map<string, string>>()
+    for (const o of areaOverrides) {
+      if (!areaMap.has(o.area_id)) areaMap.set(o.area_id, new Map())
+      areaMap.get(o.area_id)!.set(o.from_material_id, o.to_material_id)
+    }
+    return buildContext(
+      settings, assemblies, bom, materials, bidFinishes,
+      new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
+      areaMap,
+    )
+  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides])
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
     for (const l of lines) {
@@ -223,7 +238,33 @@ export default function Estimate() {
         source.map(({ id: _id, area_id: _a, ...rest }) => ({ ...rest, area_id: newArea.id })),
       )
     }
+    // room-specific hardware picks come along too
+    const roomOvr = areaOverrides.filter((o) => o.area_id === area.id)
+    if (roomOvr.length > 0) {
+      await supabase!.from('area_material_overrides').insert(
+        roomOvr.map((o) => ({ area_id: newArea.id, from_material_id: o.from_material_id, to_material_id: o.to_material_id })),
+      )
+    }
     void loadAll()
+  }
+
+  async function setAreaOverride(areaId: string, fromId: string, toId: string | null) {
+    if (toId) {
+      await supabase!
+        .from('area_material_overrides')
+        .upsert({ area_id: areaId, from_material_id: fromId, to_material_id: toId })
+    } else {
+      await supabase!
+        .from('area_material_overrides')
+        .delete()
+        .eq('area_id', areaId)
+        .eq('from_material_id', fromId)
+    }
+    const { data } = await supabase!
+      .from('area_material_overrides')
+      .select('*')
+      .in('area_id', areas.map((a) => a.id))
+    setAreaOverridesState((data ?? []) as AreaMaterialOverride[])
   }
 
   async function setOverride(fromId: string, toId: string | null) {
@@ -267,7 +308,7 @@ export default function Estimate() {
           (linesByArea.get(area.id) ?? [])
             .flatMap((l) => (l.assembly_id ? ctx.bomByAssembly.get(l.assembly_id) ?? [] : []))
             .filter((r) => r.material_id)
-            .map((r) => ctx.materials.get(ctx.materialOverrides.get(r.material_id!) ?? r.material_id!))
+            .map((r) => ctx.materials.get(resolveMaterialId(ctx, area.id, r.material_id!)))
             .filter((m) => m && (m.category === 'HARDWARE' || m.category === 'EQUIPMENT'))
             .map((m) => m!.name),
         ),
@@ -459,6 +500,8 @@ export default function Estimate() {
           onAddLine={(partial) => void addLine(area, partial)}
           onPatchLine={(l, f) => void patchLine(l, f)}
           onRemoveLine={(l) => void removeLine(l)}
+          onSetAreaOverride={(from, to) => void setAreaOverride(area.id, from, to)}
+          allMaterials={materials}
         />
       ))}
 
@@ -716,6 +759,7 @@ function MaterialSwaps({
 
 function AreaCard({
   area, lines, assemblies, ctx, areaTotal, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
+  onSetAreaOverride, allMaterials,
 }: {
   area: Area
   lines: LineItem[]
@@ -728,10 +772,29 @@ function AreaCard({
   onAddLine: (partial: Partial<LineItem>) => void
   onPatchLine: (line: LineItem, fields: Partial<LineItem>) => void
   onRemoveLine: (line: LineItem) => void
+  onSetAreaOverride: (fromId: string, toId: string | null) => void
+  allMaterials: Material[]
 }) {
   const [name, setName] = useState(area.name)
   const [sheetRef, setSheetRef] = useState(area.sheet_ref ?? '')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [hardwareOpen, setHardwareOpen] = useState(false)
+
+  // hardware this room's cabinets call for (by standard material)
+  const roomHardware = useMemo(() => {
+    const ids = new Set<string>()
+    for (const l of lines) {
+      if (!l.assembly_id) continue
+      for (const row of ctx.bomByAssembly.get(l.assembly_id) ?? []) {
+        if (!row.material_id) continue
+        const m = ctx.materials.get(row.material_id)
+        if (m && (m.category === 'HARDWARE' || m.category === 'EQUIPMENT')) ids.add(m.id)
+      }
+    }
+    return [...ids].map((id) => ctx.materials.get(id)!).sort((a, b) => a.name.localeCompare(b.name))
+  }, [lines, ctx])
+  const areaOvr = ctx.areaOverrides.get(area.id)
+  const roomSwapCount = roomHardware.filter((std) => areaOvr?.has(std.id)).length
 
   useEffect(() => setName(area.name), [area.name])
   useEffect(() => setSheetRef(area.sheet_ref ?? ''), [area.sheet_ref])
@@ -818,12 +881,60 @@ function AreaCard({
         </div>
       )}
 
+      {hardwareOpen && roomHardware.length > 0 && (
+        <div className="border-t border-slate-100 bg-slate-50 px-4 py-2.5">
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+            Hardware in this room — overrides the job pick
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {roomHardware.map((std) => {
+              const jobDefault = ctx.materialOverrides.get(std.id) ?? std.id
+              const current = areaOvr?.get(std.id) ?? jobDefault
+              const options = allMaterials
+                .filter((m) => m.active && (m.category === 'HARDWARE' || m.category === 'EQUIPMENT'))
+                .sort((a, b) => a.name.localeCompare(b.name))
+              return (
+                <label key={std.id} className="block" title={`Standard: ${std.name}`}>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                    {std.name}
+                    {areaOvr?.has(std.id) && <span className="ml-1 font-semibold text-violet-700">— this room</span>}
+                  </span>
+                  <select
+                    value={current}
+                    onChange={(e) => onSetAreaOverride(std.id, e.target.value === jobDefault ? null : e.target.value)}
+                    className="input mt-0.5 py-1.5 text-sm"
+                  >
+                    {options.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id === jobDefault ? `${m.name} (job default)` : m.name} — {fmtCost(m.cost)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2">
         {!pickerOpen ? (
           <>
             <button onClick={() => setPickerOpen(true)} className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">
               + Cabinet / countertop
             </button>
+            {roomHardware.length > 0 && (
+              <button
+                onClick={() => setHardwareOpen((v) => !v)}
+                className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                  roomSwapCount > 0
+                    ? 'border-violet-500 bg-violet-50 text-violet-800'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Hardware{roomSwapCount > 0 ? ` (${roomSwapCount} custom)` : ''} {hardwareOpen ? '▴' : '▾'}
+              </button>
+            )}
             <button
               onClick={() => onAddLine({ kind: 'manual', name: 'One-off item', quantity: 1 })}
               className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"

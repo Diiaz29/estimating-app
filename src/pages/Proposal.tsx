@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type {
-  Area, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish, BidMaterialOverride, Contact,
-  LineItem, Material, Setting,
+  Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish,
+  BidMaterialOverride, Contact, LineItem, Material, Setting,
 } from '../lib/types'
-import { buildContext, priceBid } from '../lib/pricing'
+import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
 import { fmtDueDate, fmtMoney } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 
@@ -103,6 +103,7 @@ export default function Proposal() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [bidFinishes, setBidFinishes] = useState<BidFinish[]>([])
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
+  const [areaOverrides, setAreaOverrides] = useState<AreaMaterialOverride[]>([])
   const [settings, setSettings] = useState<Setting[]>([])
   const [gcs, setGcs] = useState<BidCustomer[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -131,9 +132,12 @@ export default function Proposal() {
       const areaRows = (areaRes.data ?? []) as Area[]
       setAreas(areaRows)
       if (areaRows.length > 0) {
-        const { data } = await supabase!
-          .from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)).order('sort_order')
-        setLines((data ?? []) as LineItem[])
+        const [lineRes, aoRes] = await Promise.all([
+          supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)).order('sort_order'),
+          supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
+        ])
+        setLines((lineRes.data ?? []) as LineItem[])
+        setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
       }
       setAssemblies((asmRes.data ?? []) as Assembly[])
       setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -155,14 +159,18 @@ export default function Proposal() {
     })()
   }, [id])
 
-  const ctx = useMemo(
-    () =>
-      buildContext(
-        settings, assemblies, bom, materials, bidFinishes,
-        new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
-      ),
-    [settings, assemblies, bom, materials, bidFinishes, overrides],
-  )
+  const ctx = useMemo(() => {
+    const areaMap = new Map<string, Map<string, string>>()
+    for (const o of areaOverrides) {
+      if (!areaMap.has(o.area_id)) areaMap.set(o.area_id, new Map())
+      areaMap.get(o.area_id)!.set(o.from_material_id, o.to_material_id)
+    }
+    return buildContext(
+      settings, assemblies, bom, materials, bidFinishes,
+      new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
+      areaMap,
+    )
+  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides])
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
     for (const l of lines) {
@@ -231,7 +239,7 @@ export default function Proposal() {
             areaLines
               .flatMap((l) => (l.assembly_id ? ctx.bomByAssembly.get(l.assembly_id) ?? [] : []))
               .filter((r) => r.material_id)
-              .map((r) => ctx.materials.get(ctx.materialOverrides.get(r.material_id!) ?? r.material_id!))
+              .map((r) => ctx.materials.get(resolveMaterialId(ctx, area.id, r.material_id!)))
               .filter((m) => m && (m.category === 'HARDWARE' || m.category === 'EQUIPMENT'))
               .map((m) => m!.name),
           ),

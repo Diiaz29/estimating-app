@@ -182,6 +182,12 @@ export interface BidMaterialOverride {
   to_material_id: string
 }
 
+export interface AreaMaterialOverride {
+  area_id: string
+  from_material_id: string
+  to_material_id: string
+}
+
 export interface OverheadItem {
   id: string
   name: string
