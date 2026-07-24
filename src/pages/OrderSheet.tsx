@@ -172,7 +172,7 @@ export default function OrderSheet() {
 
       <p className="text-sm text-slate-500">
         Everything the base bid needs, from the cabinet recipes × your quantities. Whole-unit
-        items are rounded up to what you can actually buy. Alternates and one-off items aren't
+        items are rounded up to what you can actually buy. Option areas and one-off items aren't
         included.
       </p>
 

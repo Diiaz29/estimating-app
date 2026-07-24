@@ -411,7 +411,7 @@ export default function Proposal() {
         <table className="mt-3 w-full border-2 border-slate-900 text-[12px]">
           <tbody>
             {data.alternates > 0 && (
-              <SummaryRow label="Alternates (priced separately below)" value={fmtMoney(data.alternates)} />
+              <SummaryRow label="Options (priced separately below)" value={fmtMoney(data.alternates)} />
             )}
             <tr className="bg-slate-100 font-semibold">
               <td className="px-2 py-1.5">
@@ -440,7 +440,7 @@ export default function Proposal() {
             <div key={i} className="break-inside-avoid border-2 border-slate-900">
               <div className="flex items-center gap-2 border-b border-slate-400 bg-slate-100 px-2 py-1 text-[12px] font-semibold">
                 Item {i + 1} | {area.name} | {area.multiplier} Unit{area.multiplier > 1 ? 's' : ''}
-                {area.is_alternate && <span className="font-normal text-violet-700">(ALTERNATE)</span>}
+                {area.is_alternate && <span className="font-normal text-violet-700">(OPTION)</span>}
                 <span className="ml-auto font-normal">
                   Drawing Ref: <b>{area.sheet_ref ?? '—'}</b>
                 </span>
@@ -466,7 +466,7 @@ export default function Proposal() {
                 )}
                 {area.is_alternate && (
                   <div className="mt-0.5">
-                    <b>Alternate price:</b> {fmtMoney(area.total)}
+                    <b>Option price:</b> {fmtMoney(area.total)}
                   </div>
                 )}
               </div>

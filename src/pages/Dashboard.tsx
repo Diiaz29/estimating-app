@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import type { Bid } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 
 export default function Dashboard() {
+  const { isAdmin } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
   const [revValues, setRevValues] = useState<Map<string, number>>(new Map())
@@ -45,9 +47,15 @@ export default function Dashboard() {
   if (!bids) return <p className="text-sm text-slate-500">Loading…</p>
 
   const active = bids.filter((b) => ACTIVE_STATUSES.includes(b.status))
+  // dated bids first (soonest on top), then the ones with no due date so nothing hides
   const dueList = active
-    .filter((b) => b.due_at && b.status !== 'sent')
-    .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())
+    .filter((b) => b.status !== 'sent')
+    .sort((a, b) => {
+      if (!a.due_at && !b.due_at) return 0
+      if (!a.due_at) return 1
+      if (!b.due_at) return -1
+      return new Date(a.due_at).getTime() - new Date(b.due_at).getTime()
+    })
     .slice(0, 8)
   const sentList = active
     .filter((b) => b.status === 'sent')
@@ -100,7 +108,7 @@ export default function Dashboard() {
         <SectionTitle>Due soon</SectionTitle>
         {dueList.length === 0 ? (
           <EmptyNote>
-            Nothing with a due date in the pipeline.{' '}
+            Nothing in the pipeline.{' '}
             <Link to="/bids" className="underline">
               Add a bid
             </Link>
@@ -111,15 +119,19 @@ export default function Dashboard() {
             {dueList.map((b, i) => {
               const overdue = isOverdue(b)
               return (
-                <Link
+                <div
                   key={b.id}
-                  to={`/bids/${b.id}`}
-                  className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 ${
+                  className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${
                     i > 0 ? 'border-t border-slate-200' : ''
                   }`}
                 >
-                  <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                    <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  </Link>
+                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Estimate
+                  </Link>
                   <StatusBadge status={b.status} />
                   <span
                     className={`whitespace-nowrap text-xs tabular-nums ${
@@ -127,9 +139,9 @@ export default function Dashboard() {
                     }`}
                   >
                     {overdue ? '⚠ ' : ''}
-                    {fmtDueDate(b.due_at)}
+                    {b.due_at ? fmtDueDate(b.due_at) : 'no due date'}
                   </span>
-                </Link>
+                </div>
               )
             })}
           </div>
@@ -145,15 +157,22 @@ export default function Dashboard() {
               const followUp = followUpAt(b, followupDays)
               const followUpDue = followUp !== null && followUp.getTime() <= Date.now()
               return (
-                <Link
+                <div
                   key={b.id}
-                  to={`/bids/${b.id}`}
-                  className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 ${
+                  className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${
                     i > 0 ? 'border-t border-slate-200' : ''
                   }`}
                 >
-                  <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                    <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  </Link>
+                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Estimate
+                  </Link>
+                  <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Proposal
+                  </Link>
                   <span className="hidden sm:block text-xs tabular-nums text-slate-500">
                     {fmtMoney(b.bid_value)}
                   </span>
@@ -168,7 +187,7 @@ export default function Dashboard() {
                         : `follow up ${fmtFollowUp(followUp)}`
                       : '—'}
                   </span>
-                </Link>
+                </div>
               )
             })}
           </div>
@@ -186,19 +205,36 @@ export default function Dashboard() {
           </div>
           <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
             {jobs.map((b, i) => (
-              <Link
+              <div
                 key={b.id}
-                to={`/bids/${b.id}`}
-                className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 ${
+                className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${
                   i > 0 ? 'border-t border-slate-200' : ''
                 }`}
               >
-                <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                  <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                </Link>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Estimate
+                  </Link>
+                  <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Proposal
+                  </Link>
+                  <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                    Order sheet
+                  </Link>
+                  {isAdmin && (
+                    <Link to={`/bids/${b.id}/actuals`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Actuals
+                    </Link>
+                  )}
+                </span>
                 <span className="text-sm font-semibold tabular-nums">
                   {jobValue(b) == null ? '—' : fmtMoney(jobValue(b))}
                 </span>
-              </Link>
+              </div>
             ))}
           </div>
         </section>
