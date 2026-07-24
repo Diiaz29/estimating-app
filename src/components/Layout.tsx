@@ -60,16 +60,18 @@ export default function Layout() {
     <div className={`min-h-screen bg-slate-100 pb-16 sm:pb-0 print:bg-white print:pb-0 ${dark ? 'dark' : ''}`}>
       <header className="sticky top-0 z-20 border-b-2 border-slate-800 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
-          {logoOk && LOGO_URL ? (
-            <img
-              src={LOGO_URL}
-              alt={companyName}
-              className="h-20 w-auto max-w-[24rem] object-contain"
-              onError={() => setLogoOk(false)}
-            />
-          ) : (
-            <div className="text-lg font-semibold tracking-tight">{companyName}</div>
-          )}
+          <NavLink to="/" title="Dashboard">
+            {logoOk && LOGO_URL ? (
+              <img
+                src={LOGO_URL}
+                alt={companyName}
+                className="h-20 w-auto max-w-[24rem] object-contain"
+                onError={() => setLogoOk(false)}
+              />
+            ) : (
+              <span className="text-lg font-semibold tracking-tight">{companyName}</span>
+            )}
+          </NavLink>
           <nav className="hidden sm:flex items-center gap-1 ml-6">
             {tabs.map((t) => (
               <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass}>
