@@ -109,35 +109,6 @@ export default function BidDetail() {
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
-          {isAdmin && bid.status === 'won' && (
-            <Link
-              to={`/bids/${bid.id}/actuals`}
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
-              title="Estimated vs actual job cost"
-            >
-              Actuals
-            </Link>
-          )}
-          <Link
-            to={`/bids/${bid.id}/proposal`}
-            className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            title="Customer-facing proposal + work authorization, ready to print"
-          >
-            Proposal
-          </Link>
-          <Link
-            to={`/bids/${bid.id}/order`}
-            className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            title="Purchase list built from the estimate"
-          >
-            Order sheet
-          </Link>
-          <Link
-            to={`/bids/${bid.id}/estimate`}
-            className="rounded-md border-2 border-slate-900 px-4 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
-          >
-            Estimate →
-          </Link>
           {canEdit && (
             <button
               onClick={() => void save()}

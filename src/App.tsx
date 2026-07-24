@@ -23,6 +23,7 @@ import Schedule from './pages/Schedule'
 import JobSchedule from './pages/JobSchedule'
 import Reports from './pages/Reports'
 import LibrariesLayout from './components/LibrariesLayout'
+import BidLayout from './components/BidLayout'
 import Materials from './pages/libraries/Materials'
 import Finishes from './pages/libraries/Finishes'
 import Assemblies from './pages/libraries/Assemblies'
@@ -56,15 +57,17 @@ function Gate() {
         <Route path="/bids" element={<Bids />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/schedule" element={<Schedule />} />
-        <Route path="/bids/:id/schedule" element={<JobSchedule />} />
-        <Route path="/bids/:id" element={<BidDetail />} />
-        <Route path="/bids/:id/estimate" element={<Estimate />} />
-        <Route path="/bids/:id/revisions/:revId" element={<RevisionView />} />
-        <Route path="/bids/:id/order" element={<OrderSheet />} />
-        <Route path="/bids/:id/math" element={<MathView />} />
-        <Route path="/bids/:id/proposal" element={<Proposal />} />
-        <Route path="/bids/:id/actuals" element={<Actuals />} />
-        <Route path="/bids/:id/plans" element={<PlanRoom />} />
+        <Route path="/bids/:id" element={<BidLayout />}>
+          <Route index element={<BidDetail />} />
+          <Route path="estimate" element={<Estimate />} />
+          <Route path="revisions/:revId" element={<RevisionView />} />
+          <Route path="order" element={<OrderSheet />} />
+          <Route path="math" element={<MathView />} />
+          <Route path="proposal" element={<Proposal />} />
+          <Route path="actuals" element={<Actuals />} />
+          <Route path="schedule" element={<JobSchedule />} />
+          <Route path="plans" element={<PlanRoom />} />
+        </Route>
         <Route path="/reports" element={<Reports />} />
         <Route path="/contractors" element={<Customers />} />
         <Route path="/contractors/:id" element={<CustomerDetail />} />
