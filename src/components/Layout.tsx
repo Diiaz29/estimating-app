@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
+import { LOGO_URL } from '../lib/branding'
 import type { Role } from '../lib/types'
 
 const baseTabs = [
@@ -25,6 +26,9 @@ export default function Layout() {
   // the plan room wants every pixel of a big monitor
   const fullWidth = pathname.endsWith('/plans')
 
+  // logo replaces the text name when one is uploaded; onError falls back to text
+  const [logoOk, setLogoOk] = useState(true)
+
   const [theme, setTheme] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'),
   )
@@ -44,12 +48,16 @@ export default function Layout() {
     <div className={`min-h-screen bg-slate-100 pb-16 sm:pb-0 print:bg-white print:pb-0 ${dark ? 'dark' : ''}`}>
       <header className="sticky top-0 z-20 border-b-2 border-slate-800 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
-          <div className="leading-tight">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
-              ZAID Millwork
-            </div>
-            <div className="text-sm font-semibold tracking-tight">Estimating</div>
-          </div>
+          {logoOk && LOGO_URL ? (
+            <img
+              src={LOGO_URL}
+              alt="ZAID Millwork"
+              className="h-20 w-auto max-w-[24rem] object-contain"
+              onError={() => setLogoOk(false)}
+            />
+          ) : (
+            <div className="text-lg font-semibold tracking-tight">ZAID Millwork</div>
+          )}
           <nav className="hidden sm:flex items-center gap-1 ml-6">
             {tabs.map((t) => (
               <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass}>
