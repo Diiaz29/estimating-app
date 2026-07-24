@@ -6,7 +6,7 @@ import type { Setting } from '../lib/types'
 import { settingFromDisplay, settingSuffix, settingToDisplay } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 
-const GROUP_ORDER = ['Markups', 'Labor', 'Delivery', 'Travel', 'Job adders', 'Company', 'Tax', 'App']
+const GROUP_ORDER = ['Markups', 'Labor', 'Delivery', 'Travel', 'Added costs', 'Company', 'Tax', 'App']
 
 function LogoCard() {
   const [version, setVersion] = useState(0)

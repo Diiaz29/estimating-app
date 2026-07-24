@@ -517,7 +517,7 @@ export default function Estimate() {
       {/* Adders */}
       <section className="rounded-lg border-2 border-slate-800 bg-white">
         <h2 className="border-b-2 border-slate-800 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-          Job adders — {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
+          Added costs — {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
           {Number(bid.distance_miles ?? 0)} mi
         </h2>
         {pricing.adders.map((a) => (
@@ -594,7 +594,7 @@ export default function Estimate() {
       <div className="fixed inset-x-0 bottom-[3.4rem] z-20 border-t-2 border-slate-800 bg-white sm:bottom-0">
         <div className="mx-auto flex max-w-6xl items-stretch divide-x-2 divide-slate-800 overflow-x-auto border-x-2 border-slate-800 font-mono">
           <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
-          <TotalCell label="Adders" value={fmtMoney(pricing.addersTotal)} />
+          <TotalCell label="Added costs" value={fmtMoney(pricing.addersTotal)} />
           <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
           <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
           {pricing.alternatesTotal > 0 && <TotalCell label="Alternates" value={fmtMoney(pricing.alternatesTotal)} />}

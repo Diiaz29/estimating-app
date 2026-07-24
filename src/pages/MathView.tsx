@@ -188,7 +188,7 @@ export default function MathView() {
                         )}
                       </MathStep>
 
-                      <MathStep label="Also counted for adders" muted>
+                      <MathStep label="Also counted for added costs" muted>
                         install {n(Number(assembly!.install_minutes))} min ÷ 60 × {n(mult, 3)} = {n(p.installHours)} hrs ·{' '}
                         {n(p.lfEquivalent)} LF
                       </MathStep>
@@ -215,12 +215,12 @@ export default function MathView() {
 
       {/* Adders */}
       <section className="space-y-3">
-        <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Adders</h2>
+        <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Added costs</h2>
         <div className="rounded-lg border-2 border-slate-800 bg-white p-4 text-sm space-y-3">
-          <MathStep label="Job facts the adders use" muted>
+          <MathStep label="Job facts the added costs use" muted>
             {n(pricing.installHours)} install hrs · {n(pricing.lfTotal)} LF · {n(Number(bid.distance_miles ?? 0))} miles ·{' '}
             {Number(bid.install_heads ?? 1)} install heads. "Cabinet work" below means assembly
-            lines only — one-offs and subs don't get the percentage adders.
+            lines only — one-offs and subs don't get the percentage added costs.
           </MathStep>
           {pricing.adders.map((a) => (
             <MathStep key={a.key} label={a.label + (a.enabled ? '' : ' (OFF)')}>
@@ -236,7 +236,7 @@ export default function MathView() {
         <div className="rounded-lg border-2 border-slate-800 bg-white p-4 text-sm space-y-2">
           <MathStep label="Base bid">all line totals added up = <b>{fmtMoney(pricing.cabinetTotal)}</b></MathStep>
           <MathStep label="Contract">
-            {fmtMoney(pricing.cabinetTotal)} + {fmtMoney(pricing.addersTotal)} adders = <b>{fmtMoney(pricing.contractAmount)}</b>
+            {fmtMoney(pricing.cabinetTotal)} + {fmtMoney(pricing.addersTotal)} added costs = <b>{fmtMoney(pricing.contractAmount)}</b>
           </MathStep>
           <MathStep label="Tax">
             {bid.tax_exempt ? 'tax exempt = $0' : <>{fmtMoney(pricing.contractAmount)} × {n((s.tax_rate ?? 0) * 100)}% = <b>{fmtMoney(pricing.tax)}</b></>}
@@ -294,7 +294,7 @@ function AdderFormula({
     case 'general_conditions':
       return <>cabinet work × {n((s.gc_pct_price ?? 0) * 100)}%</>
     case 'insurance':
-      return <>(cabinet work + adders above, minus one-offs/per diem/lodging) × {n((s.insurance_pct ?? 0) * 100)}%</>
+      return <>(cabinet work + added costs above, minus one-offs/per diem/lodging) × {n((s.insurance_pct ?? 0) * 100)}%</>
     default:
       return null
   }

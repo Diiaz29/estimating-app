@@ -134,7 +134,7 @@ export default function RevisionView() {
 
           <section className="rounded-lg border-2 border-slate-800 bg-white">
             <h2 className="border-b border-slate-200 px-4 py-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-              Adders
+              Added costs
             </h2>
             {d.adders.map((a, i) => (
               <div key={i} className={`flex items-center gap-3 px-4 py-1.5 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
@@ -150,7 +150,7 @@ export default function RevisionView() {
       <div className="fixed inset-x-0 bottom-[3.4rem] z-20 border-t-2 border-amber-500 bg-amber-50 sm:bottom-0">
         <div className="mx-auto flex max-w-6xl items-stretch divide-x divide-amber-300 overflow-x-auto font-mono">
           {totals && <Cell label="Base bid" value={fmtMoney(totals.cabinetTotal)} />}
-          {totals && <Cell label="Adders" value={fmtMoney(totals.addersTotal)} />}
+          {totals && <Cell label="Added costs" value={fmtMoney(totals.addersTotal)} />}
           <Cell label={`Contract (R${rev.rev_number})`} value={fmtMoney(Number(rev.contract_amount))} strong />
           <Cell label="Tax" value={fmtMoney(Number(rev.tax))} />
           {totals && totals.alternatesTotal > 0 && <Cell label="Alternates" value={fmtMoney(totals.alternatesTotal)} />}
