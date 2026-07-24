@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Bid, BidCustomer, BidStatus, Customer } from '../lib/types'
-import { STATUSES } from '../lib/format'
+import { STATUSES, fmtFollowUp, followUpAt } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
 import PlansSection from '../components/PlansSection'
@@ -19,17 +19,20 @@ export default function BidDetail() {
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [followupDefault, setFollowupDefault] = useState(7)
 
   async function load() {
-    const [bidRes, gcRes, custRes] = await Promise.all([
+    const [bidRes, gcRes, custRes, setRes] = await Promise.all([
       supabase!.from('bids').select('*').eq('id', id!).single(),
       supabase!.from('bid_customers').select('*, customer:customers(*)').eq('bid_id', id!),
       supabase!.from('customers').select('*').order('company'),
+      supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
     ])
     if (bidRes.error) setError(bidRes.error.message)
     else setBid(bidRes.data as Bid)
     if (gcRes.data) setGcs(gcRes.data as BidCustomer[])
     if (custRes.data) setAllCustomers(custRes.data as Customer[])
+    if (setRes.data) setFollowupDefault(Number(setRes.data.value))
   }
 
   useEffect(() => {
@@ -161,7 +164,11 @@ export default function BidDetail() {
           <button
             key={s.value}
             onClick={() => {
-              patch({ status: s.value as BidStatus })
+              patch({
+                status: s.value as BidStatus,
+                // moving to Sent (re)starts the follow-up clock
+                ...(s.value === 'sent' ? { sent_at: new Date().toISOString() } : {}),
+              })
               // Won with a single GC: no ambiguity about who it was won through
               if (s.value === 'won' && gcs.length === 1 && !gcs[0].won_through) {
                 void setWonThrough(gcs[0].customer_id)
@@ -177,6 +184,31 @@ export default function BidDetail() {
           </button>
         ))}
       </div>
+
+      {bid.status === 'sent' && (
+        <div className="flex flex-wrap items-end gap-4">
+          <Field label="Follow up after (days)">
+            <input
+              type="number"
+              min="1"
+              value={bid.followup_days ?? ''}
+              placeholder={String(followupDefault)}
+              onChange={(e) => patch({ followup_days: e.target.value ? Number(e.target.value) : null })}
+              className="input w-32"
+            />
+          </Field>
+          {(() => {
+            const f = followUpAt(bid, followupDefault)
+            if (!f) return null
+            const due = f.getTime() <= Date.now()
+            return (
+              <span className={`pb-2 text-sm ${due ? 'font-semibold text-amber-600' : 'text-slate-500'}`}>
+                {due ? '☎ Follow up now' : `Follow up ${fmtFollowUp(f)}`}
+              </span>
+            )
+          })()}
+        </div>
+      )}
 
       {bid.status === 'lost' && (
         <Field label="Why did we lose it?">

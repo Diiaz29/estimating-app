@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus, Customer } from '../lib/types'
-import { STATUSES, fmtDueDate, fmtMoney, isOverdue, nextJobNumber } from '../lib/format'
+import { STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue, nextJobNumber } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 
 export default function Bids() {
@@ -15,15 +15,18 @@ export default function Bids() {
   const [showNew, setShowNew] = useState(false)
   const [params, setParams] = useSearchParams()
   const filter = (params.get('status') as BidStatus | null) ?? null
+  const [followupDays, setFollowupDays] = useState(7)
 
   async function load() {
-    const [bidsRes, custRes] = await Promise.all([
+    const [bidsRes, custRes, setRes] = await Promise.all([
       supabase!.from('bids').select('*').order('created_at', { ascending: false }),
       supabase!.from('customers').select('*').order('company'),
+      supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
     ])
     if (bidsRes.error) setError(bidsRes.error.message)
     else setBids(bidsRes.data as Bid[])
     if (custRes.data) setCustomers(custRes.data as Customer[])
+    if (setRes.data) setFollowupDays(Number(setRes.data.value))
   }
 
   useEffect(() => {
@@ -69,29 +72,43 @@ export default function Bids() {
         </p>
       ) : (
         <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-          {visible.map((b, i) => (
-            <Link
-              key={b.id}
-              to={`/bids/${b.id}`}
-              className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-slate-50 ${
-                i > 0 ? 'border-t border-slate-200' : ''
-              }`}
-            >
-              <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-              <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium">{b.name}</span>
-              <span className="hidden sm:block w-24 text-right text-xs tabular-nums text-slate-500">
-                {fmtMoney(b.bid_value)}
-              </span>
-              <StatusBadge status={b.status} />
-              <span
-                className={`w-40 whitespace-nowrap text-right text-xs tabular-nums ${
-                  isOverdue(b) ? 'font-semibold text-red-600' : 'text-slate-500'
+          {visible.map((b, i) => {
+            const followUp = followUpAt(b, followupDays)
+            const followUpDue = followUp !== null && followUp.getTime() <= Date.now()
+            return (
+              <Link
+                key={b.id}
+                to={`/bids/${b.id}`}
+                className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-slate-50 ${
+                  i > 0 ? 'border-t border-slate-200' : ''
                 }`}
               >
-                {fmtDueDate(b.due_at)}
-              </span>
-            </Link>
-          ))}
+                <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium">{b.name}</span>
+                <span className="hidden sm:block w-24 text-right text-xs tabular-nums text-slate-500">
+                  {fmtMoney(b.bid_value)}
+                </span>
+                <StatusBadge status={b.status} />
+                {followUp ? (
+                  <span
+                    className={`w-40 whitespace-nowrap text-right text-xs ${
+                      followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {followUpDue ? '☎ follow up' : `follow up ${fmtFollowUp(followUp)}`}
+                  </span>
+                ) : (
+                  <span
+                    className={`w-40 whitespace-nowrap text-right text-xs tabular-nums ${
+                      isOverdue(b) ? 'font-semibold text-red-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {fmtDueDate(b.due_at)}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
         </div>
       )}
 

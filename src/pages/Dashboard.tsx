@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Bid } from '../lib/types'
-import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtMoney, isOverdue } from '../lib/format'
+import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 
 export default function Dashboard() {
   const [bids, setBids] = useState<Bid[] | null>(null)
+  const [followupDays, setFollowupDays] = useState(7)
+  const [revValues, setRevValues] = useState<Map<string, number>>(new Map())
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -17,6 +19,26 @@ export default function Dashboard() {
         if (error) setError(error.message)
         else setBids(data as Bid[])
       })
+    supabase!
+      .from('settings')
+      .select('value')
+      .eq('key', 'followup_days')
+      .single()
+      .then(({ data }) => {
+        if (data) setFollowupDays(Number(data.value))
+      })
+    // latest revision's contract amount = the real job value (bid_value can lag)
+    supabase!
+      .from('revisions')
+      .select('bid_id, rev_number, contract_amount')
+      .order('rev_number')
+      .then(({ data }) => {
+        if (data) {
+          const m = new Map<string, number>()
+          for (const r of data) m.set(r.bid_id, Number(r.contract_amount))
+          setRevValues(m)
+        }
+      })
   }, [])
 
   if (error) return <ErrorNote message={error} />
@@ -24,11 +46,24 @@ export default function Dashboard() {
 
   const active = bids.filter((b) => ACTIVE_STATUSES.includes(b.status))
   const dueList = active
-    .filter((b) => b.due_at)
+    .filter((b) => b.due_at && b.status !== 'sent')
     .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())
     .slice(0, 8)
+  const sentList = active
+    .filter((b) => b.status === 'sent')
+    .sort((a, b) => {
+      const fa = followUpAt(a, followupDays)?.getTime() ?? 0
+      const fb = followUpAt(b, followupDays)?.getTime() ?? 0
+      return fa - fb
+    })
+    .slice(0, 8)
 
-  const won = bids.filter((b) => b.status === 'won').length
+  const jobs = bids
+    .filter((b) => b.status === 'won')
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  const jobValue = (b: Bid) => revValues.get(b.id) ?? (b.bid_value == null ? null : Number(b.bid_value))
+
+  const won = jobs.length
   const lost = bids.filter((b) => b.status === 'lost').length
   const winRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null
 
@@ -100,6 +135,74 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* Sent — waiting on an answer */}
+      {sentList.length > 0 && (
+        <section>
+          <SectionTitle>Sent — follow up</SectionTitle>
+          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+            {sentList.map((b, i) => {
+              const followUp = followUpAt(b, followupDays)
+              const followUpDue = followUp !== null && followUp.getTime() <= Date.now()
+              return (
+                <Link
+                  key={b.id}
+                  to={`/bids/${b.id}`}
+                  className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 ${
+                    i > 0 ? 'border-t border-slate-200' : ''
+                  }`}
+                >
+                  <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  <span className="hidden sm:block text-xs tabular-nums text-slate-500">
+                    {fmtMoney(b.bid_value)}
+                  </span>
+                  <span
+                    className={`whitespace-nowrap text-xs ${
+                      followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {followUp
+                      ? followUpDue
+                        ? '☎ follow up'
+                        : `follow up ${fmtFollowUp(followUp)}`
+                      : '—'}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Active jobs (won work) */}
+      {jobs.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-baseline">
+            <SectionTitle>Jobs</SectionTitle>
+            <Link to="/jobs" className="ml-auto text-xs text-slate-500 underline hover:text-slate-900">
+              All jobs →
+            </Link>
+          </div>
+          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+            {jobs.map((b, i) => (
+              <Link
+                key={b.id}
+                to={`/bids/${b.id}`}
+                className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 ${
+                  i > 0 ? 'border-t border-slate-200' : ''
+                }`}
+              >
+                <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                <span className="text-sm font-semibold tabular-nums">
+                  {jobValue(b) == null ? '—' : fmtMoney(jobValue(b))}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Win rate */}
       <section>

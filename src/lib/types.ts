@@ -49,6 +49,8 @@ export interface Bid {
   exclusions: string | null
   notes: string | null
   lost_reason: string | null
+  sent_at: string | null
+  followup_days: number | null
   created_at: string
   updated_at: string
 }

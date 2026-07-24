@@ -24,8 +24,23 @@ export function fmtDueDate(iso: string | null): string {
 
 export function isOverdue(bid: { due_at: string | null; status: BidStatus }): boolean {
   if (!bid.due_at) return false
-  if (!ACTIVE_STATUSES.includes(bid.status)) return false
+  // Sent bids are out of our hands — they get a follow-up reminder, not a red date
+  if (!['received', 'takeoff', 'pricing'].includes(bid.status)) return false
   return new Date(bid.due_at).getTime() < Date.now()
+}
+
+/** When a sent bid should be followed up: sent_at + per-bid days (or the Settings default). */
+export function followUpAt(
+  bid: { status: BidStatus; sent_at: string | null; followup_days: number | null },
+  defaultDays: number,
+): Date | null {
+  if (bid.status !== 'sent' || !bid.sent_at) return null
+  const days = bid.followup_days ?? defaultDays
+  return new Date(new Date(bid.sent_at).getTime() + days * 86_400_000)
+}
+
+export function fmtFollowUp(d: Date): string {
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 export function fmtMoney(n: number | null | undefined): string {
