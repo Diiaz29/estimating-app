@@ -68,12 +68,13 @@ export default function PlanRoom() {
   const [renderInfo, setRenderInfo] = useState<{ cssW: number; cssH: number; cssScale: number } | null>(null)
   const [pending, setPending] = useState<Pt | null>(null)          // first click, PDF coords
   const [cursor, setCursor] = useState<Pt | null>(null)            // live mouse, PDF coords
-  const [measurements, setMeasurements] = useState<{ a: Pt; b: Pt }[]>([])
+  const [measurements, setMeasurements] = useState<{ id: string; page: number; a: Pt; b: Pt }[]>([]) // whole plan, saved in DB
   const [scales, setScales] = useState<Map<number, SheetScale>>(new Map()) // page → calibration
   const [calDraft, setCalDraft] = useState<{ a: Pt; b: Pt } | null>(null)
   const [calFeet, setCalFeet] = useState('')
   const [calInches, setCalInches] = useState('')
   const [denom, setDenom] = useState(16) // measurement precision: nearest 1/denom inch
+  const [selectedMark, setSelectedMark] = useState<string | null>(null) // clicked line ('cal' or measurement id) → shows its delete button
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const holderRef = useRef<HTMLDivElement>(null)
@@ -178,6 +179,7 @@ export default function PlanRoom() {
       if (e.key === 'Escape') {
         setCalDraft(null)
         setPending(null)
+        setSelectedMark(null)
         setTool('pan')
         return
       }
@@ -189,7 +191,7 @@ export default function PlanRoom() {
     return () => window.removeEventListener('keydown', onKey)
   }, [doc])
 
-  // load remembered calibrations for this plan; reset tools when switching
+  // load remembered calibrations + saved measurements for this plan; reset tools when switching
   useEffect(() => {
     setMeasurements([])
     setPending(null)
@@ -218,17 +220,34 @@ export default function PlanRoom() {
           ),
         )
       })
+    supabase!
+      .from('plan_measurements')
+      .select('id, page, ax, ay, bx, by')
+      .eq('plan_id', selected.id)
+      .order('created_at')
+      .then(({ data }) => {
+        const rows = (data ?? []) as { id: string; page: number; ax: number; ay: number; bx: number; by: number }[]
+        setMeasurements(
+          rows.map((m) => ({
+            id: m.id,
+            page: m.page,
+            a: { x: Number(m.ax), y: Number(m.ay) },
+            b: { x: Number(m.bx), y: Number(m.by) },
+          })),
+        )
+      })
   }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // measurements are per sheet
+  // half-drawn lines don't carry across sheets
   useEffect(() => {
-    setMeasurements([])
     setPending(null)
     setCalDraft(null)
+    setSelectedMark(null)
   }, [pageNum])
 
   const sheetScale = scales.get(pageNum) ?? null
   const ftPerPt = sheetScale?.ftPerPt ?? null
+  const pageMeasurements = measurements.filter((m) => m.page === pageNum)
 
   function overlayPoint(e: React.MouseEvent<SVGSVGElement>): Pt | null {
     if (!renderInfo) return null
@@ -240,6 +259,7 @@ export default function PlanRoom() {
   }
 
   function overlayClick(e: React.MouseEvent<SVGSVGElement>) {
+    setSelectedMark(null) // clicking empty plan puts the delete button away
     if (tool === 'pan') return
     const pt = overlayPoint(e)
     if (!pt) return
@@ -254,8 +274,44 @@ export default function PlanRoom() {
       setCalInches('')
       setCalDraft(pair)
     } else {
-      setMeasurements((prev) => [...prev, pair])
+      void addMeasurement(pair)
     }
+  }
+
+  async function addMeasurement(pair: { a: Pt; b: Pt }) {
+    if (!selected) return
+    // show it immediately; swap in the DB id once the insert lands
+    const tempId = `tmp-${Date.now()}-${Math.random()}`
+    const page = pageNum
+    setMeasurements((prev) => [...prev, { id: tempId, page, ...pair }])
+    const { data } = await supabase!
+      .from('plan_measurements')
+      .insert({ plan_id: selected.id, page, ax: pair.a.x, ay: pair.a.y, bx: pair.b.x, by: pair.b.y })
+      .select('id')
+      .single()
+    if (data) setMeasurements((prev) => prev.map((m) => (m.id === tempId ? { ...m, id: data.id } : m)))
+  }
+
+  async function deleteMeasurement(mid: string) {
+    setMeasurements((prev) => prev.filter((m) => m.id !== mid))
+    if (!mid.startsWith('tmp-')) await supabase!.from('plan_measurements').delete().eq('id', mid)
+  }
+
+  async function clearMeasurements() {
+    if (!selected) return
+    const page = pageNum
+    setMeasurements((prev) => prev.filter((m) => m.page !== page))
+    await supabase!.from('plan_measurements').delete().eq('plan_id', selected.id).eq('page', page)
+  }
+
+  async function removeCalibration() {
+    if (!selected) return
+    setScales((prev) => {
+      const m = new Map(prev)
+      m.delete(pageNum)
+      return m
+    })
+    await supabase!.from('plan_scales').delete().eq('plan_id', selected.id).eq('page', pageNum)
   }
 
   async function saveCalibration() {
@@ -372,9 +428,10 @@ export default function PlanRoom() {
               <option value={8}>1/8"</option>
               <option value={16}>1/16"</option>
             </select>
-            {measurements.length > 0 && (
+            {pageMeasurements.length > 0 && (
               <button
-                onClick={() => setMeasurements([])}
+                onClick={() => void clearMeasurements()}
+                title="Delete every measurement on this sheet"
                 className="rounded-md border border-slate-300 px-2.5 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
               >
                 Clear
@@ -433,7 +490,7 @@ export default function PlanRoom() {
                   className={`absolute inset-0 ${tool === 'pan' ? 'pointer-events-none' : 'cursor-crosshair'}`}
                 >
                   <MeasureLines
-                    measurements={measurements}
+                    measurements={pageMeasurements}
                     pending={pending}
                     cursor={cursor}
                     calDraft={calDraft}
@@ -443,6 +500,16 @@ export default function PlanRoom() {
                     ftPerPt={ftPerPt}
                     denom={denom}
                     tool={tool}
+                    selected={selectedMark}
+                    onSelect={(mid) => setSelectedMark((cur) => (cur === mid ? null : mid))}
+                    onDeleteMeasurement={(mid) => {
+                      setSelectedMark(null)
+                      void deleteMeasurement(mid)
+                    }}
+                    onDeleteCalibration={() => {
+                      setSelectedMark(null)
+                      void removeCalibration()
+                    }}
                   />
                 </svg>
               )}
@@ -520,8 +587,9 @@ export default function PlanRoom() {
 
 function MeasureLines({
   measurements, pending, cursor, calDraft, calLine, calLabel, cssScale, ftPerPt, denom, tool,
+  selected, onSelect, onDeleteMeasurement, onDeleteCalibration,
 }: {
-  measurements: { a: Pt; b: Pt }[]
+  measurements: { id: string; a: Pt; b: Pt }[]
   pending: Pt | null
   cursor: Pt | null
   calDraft: { a: Pt; b: Pt } | null
@@ -531,8 +599,54 @@ function MeasureLines({
   ftPerPt: number | null
   denom: number
   tool: Tool
+  selected: string | null
+  onSelect: (id: string) => void
+  onDeleteMeasurement: (id: string) => void
+  onDeleteCalibration: () => void
 }) {
   const S = (p: Pt) => ({ x: p.x * cssScale, y: p.y * cssScale })
+
+  // wide invisible stroke over a line so it's easy to click; click selects the mark
+  const hitArea = (a: Pt, b: Pt, id: string, key: string) => {
+    const A = S(a)
+    const B = S(b)
+    return (
+      <line
+        key={key}
+        x1={A.x} y1={A.y} x2={B.x} y2={B.y}
+        stroke="transparent" strokeWidth={14}
+        onClick={(e) => {
+          e.stopPropagation()
+          onSelect(id)
+        }}
+        className="pointer-events-auto cursor-pointer"
+      />
+    )
+  }
+
+  // small × below the line's midpoint; only shows for the selected mark
+  const deleteBtn = (a: Pt, b: Pt, onClick: () => void, key: string, title: string) => {
+    const A = S(a)
+    const B = S(b)
+    const mx = (A.x + B.x) / 2
+    const my = (A.y + B.y) / 2 + 13
+    return (
+      <g
+        key={key}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick()
+        }}
+        className="pointer-events-auto cursor-pointer"
+      >
+        <title>{title}</title>
+        <circle cx={mx} cy={my} r={9} fill="white" stroke="#dc2626" strokeWidth={1.5} />
+        <text x={mx} y={my + 4} textAnchor="middle" fontSize={12} fontWeight={700} fill="#dc2626">
+          ×
+        </text>
+      </g>
+    )
+  }
 
   const segment = (a: Pt, b: Pt, color: string, label: string, key: string | number, dashed = false) => {
     const A = S(a)
@@ -564,7 +678,14 @@ function MeasureLines({
     <>
       {/* the sheet's saved calibration reference, always visible in green */}
       {calLine && segment(calLine.a, calLine.b, '#059669', `⚖ ${calLabel ?? ''}`, 'saved-cal')}
-      {measurements.map((m, i) => segment(m.a, m.b, '#1d4ed8', lengthLabel(m.a, m.b), i))}
+      {calLine && hitArea(calLine.a, calLine.b, 'cal', 'saved-cal-hit')}
+      {calLine && selected === 'cal' &&
+        deleteBtn(calLine.a, calLine.b, onDeleteCalibration, 'saved-cal-x', 'Remove this sheet’s calibration')}
+      {measurements.map((m) => segment(m.a, m.b, '#1d4ed8', lengthLabel(m.a, m.b), m.id))}
+      {measurements.map((m) => hitArea(m.a, m.b, m.id, `hit-${m.id}`))}
+      {measurements.map((m) =>
+        selected === m.id ? deleteBtn(m.a, m.b, () => onDeleteMeasurement(m.id), `x-${m.id}`, 'Delete this measurement') : null,
+      )}
       {calDraft && segment(calDraft.a, calDraft.b, '#d97706', 'set length…', 'cal')}
       {pending && cursor &&
         segment(
