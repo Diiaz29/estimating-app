@@ -597,7 +597,7 @@ export default function Estimate() {
           <TotalCell label="Added costs" value={fmtMoney(pricing.addersTotal)} />
           <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
           <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
-          {pricing.alternatesTotal > 0 && <TotalCell label="Alternates" value={fmtMoney(pricing.alternatesTotal)} />}
+          {pricing.alternatesTotal > 0 && <TotalCell label="Options" value={fmtMoney(pricing.alternatesTotal)} />}
           {isAdmin && (
             <>
               <TotalCell label="True cost" value={fmtMoney(pricing.trueCost)} muted />
@@ -846,9 +846,9 @@ function AreaCard({
               ? 'border-violet-700 bg-violet-700 text-white'
               : 'border-slate-300 text-slate-400 hover:border-violet-700 hover:text-violet-700'
           }`}
-          title="Alternates are priced separately and excluded from the base bid"
+          title="Priced separately as an option — not counted in the base bid"
         >
-          Alt
+          {area.is_alternate ? 'Option — not in base bid' : 'Option'}
         </button>
         <span className="ml-auto text-sm font-semibold tabular-nums">
           {fmtMoney(areaTotal)}
