@@ -134,3 +134,5 @@
   color-scheme: dark;
 }
 .dark input::placeholder, .dark textarea::placeholder { color: #7d7a74; }
+/* title-style inputs (job name) stay see-through */
+.dark input.bg-transparent { background-color: transparent; }
