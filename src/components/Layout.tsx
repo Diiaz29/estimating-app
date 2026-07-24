@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
 import type { Role } from '../lib/types'
@@ -20,8 +21,21 @@ const adminTabs = [
 export default function Layout() {
   const { session, isAdmin, realRole, viewAs, setViewAs } = useAuth()
   const tabs = isAdmin ? adminTabs : baseTabs
+  const { pathname } = useLocation()
   // the plan room wants every pixel of a big monitor
-  const fullWidth = useLocation().pathname.endsWith('/plans')
+  const fullWidth = pathname.endsWith('/plans')
+  // printed documents always stay light
+  const lightDoc = pathname.endsWith('/proposal')
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    () => (localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'),
+  )
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    localStorage.setItem('theme', next)
+  }
+  const dark = theme === 'dark' && !lightDoc
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1.5 rounded-md text-sm font-medium ${
@@ -29,7 +43,7 @@ export default function Layout() {
     }`
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-16 sm:pb-0 print:bg-white print:pb-0">
+    <div className={`min-h-screen bg-slate-100 pb-16 sm:pb-0 print:bg-white print:pb-0 ${dark ? 'dark' : ''}`}>
       <header className="sticky top-0 z-20 border-b-2 border-slate-800 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
           <div className="leading-tight">
@@ -46,6 +60,13 @@ export default function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
+            >
+              {theme === 'dark' ? '☀' : '🌙'}
+            </button>
             {realRole === 'admin' && (
               <label className="flex items-center gap-1.5" title="Preview the app as another role (screen only — you keep your admin powers)">
                 <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">view as</span>
