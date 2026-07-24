@@ -76,6 +76,7 @@ export default function Settings() {
   const { isAdmin } = useAuth()
   const [settings, setSettings] = useState<Setting[] | null>(null)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [active, setActive] = useState('Markups')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -139,8 +140,11 @@ export default function Settings() {
     void load()
   }
 
+  const activeItems = grouped.find(([g]) => g === active)?.[1] ?? grouped[0]?.[1] ?? []
+  const dirtyGroups = new Set(changed.map((s) => s.group_name))
+
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
@@ -161,28 +165,41 @@ export default function Settings() {
         </div>
       </div>
 
-      <LogoCard />
-
-      <Link
-        to="/settings/overhead"
-        className="block rounded-lg border-2 border-slate-800 bg-white p-4 shadow-[3px_3px_0_0_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-transform"
-      >
-        <div className="flex items-center">
-          <div>
-            <div className="font-semibold">Overhead → true cost rate</div>
-            <div className="mt-0.5 text-sm text-slate-500">
-              List real costs (salaries, rent, trucks) and get an honest cost rate per shop hour.
-            </div>
+      <div className="flex flex-col gap-5 sm:flex-row">
+        {/* Category sidebar (horizontal chips on phones) */}
+        <nav className="shrink-0 sm:w-44">
+          <div className="flex gap-1 overflow-x-auto sm:flex-col">
+            {grouped.map(([group]) => (
+              <button
+                key={group}
+                onClick={() => setActive(group)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-left text-sm font-medium ${
+                  active === group
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {group}
+                {dirtyGroups.has(group) && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" title="Unsaved changes" />
+                )}
+              </button>
+            ))}
+            <Link
+              to="/settings/overhead"
+              className="flex shrink-0 items-center rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
+              title="List real costs (salaries, rent, trucks) and get an honest cost rate per shop hour"
+            >
+              Overhead →
+            </Link>
           </div>
-          <span className="ml-auto text-xl text-slate-400">→</span>
-        </div>
-      </Link>
+        </nav>
 
-      {grouped.map(([group, items]) => (
-        <section key={group}>
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">{group}</h2>
+        {/* Selected category */}
+        <div className="min-w-0 max-w-2xl flex-1 space-y-5">
+          {active === 'Company' && <LogoCard />}
           <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-            {items.map((s, i) => {
+            {activeItems.map((s, i) => {
               const suffix = settingSuffix(s.format)
               const isDirty = Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)
               return (
@@ -211,8 +228,8 @@ export default function Settings() {
               )
             })}
           </div>
-        </section>
-      ))}
+        </div>
+      </div>
     </div>
   )
 }

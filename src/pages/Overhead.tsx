@@ -149,7 +149,7 @@ export default function Overhead() {
         <div className="rounded-lg border-2 border-slate-800 bg-white p-4">
           <div className="grid grid-cols-3 gap-3">
             <NumberField
-              label="Crew on jobs"
+              label="Workers building & installing"
               value={heads}
               onChange={(v) => void patchSetting('overhead_heads', v)}
             />
