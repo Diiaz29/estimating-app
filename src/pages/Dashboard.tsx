@@ -80,7 +80,7 @@ export default function Dashboard() {
       {/* Pipeline counts */}
       <section>
         <SectionTitle>Pipeline</SectionTitle>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-3 gap-2">
           {STATUSES.filter((s) => ACTIVE_STATUSES.includes(s.value)).map((s) => {
             const inStage = active.filter((b) => b.status === s.value)
             const value = inStage.reduce((sum, b) => sum + (b.bid_value ?? 0), 0)
@@ -93,9 +93,11 @@ export default function Dashboard() {
                 <div className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
                   {s.label}
                 </div>
-                <div className="mt-1 text-2xl font-semibold tabular-nums">{inStage.length}</div>
-                <div className="text-xs text-slate-500 tabular-nums">
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-semibold tabular-nums">{inStage.length}</span>
+                  <span className="min-w-0 truncate text-xs text-slate-500 tabular-nums">
                   {value > 0 ? fmtMoney(value) : ' '}
+                  </span>
                 </div>
               </Link>
             )
@@ -243,7 +245,7 @@ export default function Dashboard() {
       {/* Win rate */}
       <section>
         <SectionTitle>Track record</SectionTitle>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Stat label="Won" value={String(won)} to="/jobs" />
           <Stat label="Lost" value={String(lost)} to="/bids?status=lost" />
           <Stat label="Win rate" value={winRate === null ? '—' : `${winRate}%`} />
@@ -264,12 +266,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function Stat({ label, value, to }: { label: string; value: string; to?: string }) {
   const inner = (
     <>
-      <div className="text-2xl font-semibold tabular-nums">{value}</div>
       <div className="font-mono text-[11px] uppercase tracking-widest text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
     </>
   )
   const cls =
-    'flex-1 rounded-lg border-2 border-slate-800 bg-white p-3 text-center shadow-[3px_3px_0_0_rgba(15,23,42,0.12)]'
+    'flex-1 rounded-lg border-2 border-slate-800 bg-white p-3 shadow-[3px_3px_0_0_rgba(15,23,42,0.12)]'
   if (to) {
     return (
       <Link to={to} className={`${cls} hover:-translate-y-0.5 transition-transform`}>

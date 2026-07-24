@@ -2,8 +2,7 @@ import type { BidStatus, SettingFormat } from './types'
 
 export const STATUSES: { value: BidStatus; label: string; badge: string }[] = [
   { value: 'received', label: 'Received', badge: 'bg-slate-100 text-slate-700 border-slate-300' },
-  { value: 'takeoff', label: 'Takeoff', badge: 'bg-amber-50 text-amber-800 border-amber-300' },
-  { value: 'pricing', label: 'Pricing', badge: 'bg-blue-50 text-blue-800 border-blue-300' },
+  { value: 'working', label: 'Working', badge: 'bg-amber-50 text-amber-800 border-amber-300' },
   { value: 'sent', label: 'Sent', badge: 'bg-violet-50 text-violet-800 border-violet-300' },
   { value: 'won', label: 'Won', badge: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
   { value: 'lost', label: 'Lost', badge: 'bg-red-50 text-red-700 border-red-300' },
@@ -12,7 +11,7 @@ export const STATUSES: { value: BidStatus; label: string; badge: string }[] = [
 export const statusMeta = (s: BidStatus) => STATUSES.find((x) => x.value === s) ?? STATUSES[0]
 
 /** Statuses that count as "in the pipeline" (not finished). */
-export const ACTIVE_STATUSES: BidStatus[] = ['received', 'takeoff', 'pricing', 'sent']
+export const ACTIVE_STATUSES: BidStatus[] = ['received', 'working', 'sent']
 
 export function fmtDueDate(iso: string | null): string {
   if (!iso) return '—'
@@ -25,7 +24,7 @@ export function fmtDueDate(iso: string | null): string {
 export function isOverdue(bid: { due_at: string | null; status: BidStatus }): boolean {
   if (!bid.due_at) return false
   // Sent bids are out of our hands — they get a follow-up reminder, not a red date
-  if (!['received', 'takeoff', 'pricing'].includes(bid.status)) return false
+  if (!['received', 'working'].includes(bid.status)) return false
   return new Date(bid.due_at).getTime() < Date.now()
 }
 

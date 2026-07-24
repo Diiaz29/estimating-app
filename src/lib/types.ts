@@ -1,4 +1,4 @@
-export type BidStatus = 'received' | 'takeoff' | 'pricing' | 'sent' | 'won' | 'lost'
+export type BidStatus = 'received' | 'working' | 'sent' | 'won' | 'lost'
 
 export type Role = 'admin' | 'estimator' | 'pm' | 'viewer'
 
