@@ -6,11 +6,18 @@ import type { Bid } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 
+interface GcLink {
+  bid_id: string
+  won_through: boolean
+  customer: { company: string } | null
+}
+
 export default function Dashboard() {
   const { isAdmin } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
   const [revValues, setRevValues] = useState<Map<string, number>>(new Map())
+  const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -28,6 +35,12 @@ export default function Dashboard() {
       .single()
       .then(({ data }) => {
         if (data) setFollowupDays(Number(data.value))
+      })
+    supabase!
+      .from('bid_customers')
+      .select('bid_id, won_through, customer:customers(company)')
+      .then(({ data }) => {
+        if (data) setGcLinks(data as unknown as GcLink[])
       })
     // latest revision's contract amount = the real job value (bid_value can lag)
     supabase!
@@ -70,6 +83,14 @@ export default function Dashboard() {
     .filter((b) => b.status === 'won')
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
   const jobValue = (b: Bid) => revValues.get(b.id) ?? (b.bid_value == null ? null : Number(b.bid_value))
+
+  // "won through" GC first; otherwise the first one attached; +N when bidding to several
+  const gcLabel = (bidId: string) => {
+    const links = gcLinks.filter((l) => l.bid_id === bidId && l.customer)
+    if (links.length === 0) return null
+    const primary = links.find((l) => l.won_through) ?? links[0]
+    return `${primary.customer!.company}${links.length > 1 ? ` +${links.length - 1}` : ''}`
+  }
 
   const won = jobs.length
   const lost = bids.filter((b) => b.status === 'lost').length
@@ -129,7 +150,10 @@ export default function Dashboard() {
                 >
                   <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
                     <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                    <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                    {gcLabel(b.id) && (
+                      <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
+                    )}
                   </Link>
                   <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Estimate
@@ -167,7 +191,10 @@ export default function Dashboard() {
                 >
                   <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
                     <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                    <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                    {gcLabel(b.id) && (
+                      <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
+                    )}
                   </Link>
                   <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Estimate
@@ -215,7 +242,10 @@ export default function Dashboard() {
               >
                 <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
                   <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                  {gcLabel(b.id) && (
+                    <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
+                  )}
                 </Link>
                 <span className="flex flex-wrap items-center gap-2">
                   <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">

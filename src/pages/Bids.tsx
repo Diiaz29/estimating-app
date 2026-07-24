@@ -7,10 +7,17 @@ import type { Bid, BidStatus, Customer } from '../lib/types'
 import { STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue, nextJobNumber } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 
+interface GcLink {
+  bid_id: string
+  won_through: boolean
+  customer: { company: string } | null
+}
+
 export default function Bids() {
   const { canEdit } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [params, setParams] = useSearchParams()
@@ -18,15 +25,25 @@ export default function Bids() {
   const [followupDays, setFollowupDays] = useState(7)
 
   async function load() {
-    const [bidsRes, custRes, setRes] = await Promise.all([
+    const [bidsRes, custRes, setRes, gcRes] = await Promise.all([
       supabase!.from('bids').select('*').order('created_at', { ascending: false }),
       supabase!.from('customers').select('*').order('company'),
       supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
+      supabase!.from('bid_customers').select('bid_id, won_through, customer:customers(company)'),
     ])
     if (bidsRes.error) setError(bidsRes.error.message)
     else setBids(bidsRes.data as Bid[])
     if (custRes.data) setCustomers(custRes.data as Customer[])
     if (setRes.data) setFollowupDays(Number(setRes.data.value))
+    if (gcRes.data) setGcLinks(gcRes.data as unknown as GcLink[])
+  }
+
+  // "won through" GC first; otherwise the first one attached; +N when bidding to several
+  const gcLabel = (bidId: string) => {
+    const links = gcLinks.filter((l) => l.bid_id === bidId && l.customer)
+    if (links.length === 0) return null
+    const primary = links.find((l) => l.won_through) ?? links[0]
+    return `${primary.customer!.company}${links.length > 1 ? ` +${links.length - 1}` : ''}`
   }
 
   useEffect(() => {
@@ -84,7 +101,12 @@ export default function Bids() {
                 }`}
               >
                 <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium">{b.name}</span>
+                <span className="flex min-w-0 flex-1 basis-40 items-center gap-3">
+                  <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                  {gcLabel(b.id) && (
+                    <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
+                  )}
+                </span>
                 <span className="hidden sm:block w-24 text-right text-xs tabular-nums text-slate-500">
                   {fmtMoney(b.bid_value)}
                 </span>

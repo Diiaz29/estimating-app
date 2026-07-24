@@ -43,8 +43,10 @@ export default function Jobs() {
   for (const r of revisions) latestRev.set(r.bid_id, r)
 
   const gcFor = (bidId: string) => {
-    const links = gcLinks.filter((l) => l.bid_id === bidId)
-    return (links.find((l) => l.won_through) ?? links[0])?.customer?.company ?? null
+    const links = gcLinks.filter((l) => l.bid_id === bidId && l.customer)
+    if (links.length === 0) return null
+    const primary = links.find((l) => l.won_through) ?? links[0]
+    return `${primary.customer!.company}${links.length > 1 ? ` +${links.length - 1}` : ''}`
   }
   const valueFor = (b: Bid) => {
     const rev = latestRev.get(b.id)
@@ -83,9 +85,11 @@ export default function Jobs() {
               >
                 <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
                   <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
+                  <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                  {gc && (
+                    <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gc}</span>
+                  )}
                 </Link>
-                {gc && <span className="text-xs text-slate-500">{gc}</span>}
                 <span className="flex flex-wrap items-center gap-2">
                   <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Estimate
