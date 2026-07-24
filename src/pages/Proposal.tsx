@@ -9,22 +9,6 @@ import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
 import { fmtDueDate, fmtMoney } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 
-const COMPANY = {
-  name: 'ZAID Millwork',
-  address: '4872 State Highway 276, Royse City, TX 75189',
-  phone: '(972) 722-2322',
-  email: 'info@zaidmillwork.com',
-  web: 'www.ZAIDmillwork.com',
-}
-
-// Summary of the Work Authorization Agreement terms (full text on the WAG page)
-const DEFAULT_TERMS = [
-  'Payment NET 30 days from invoice date; no retainage withheld.',
-  'Lump-sum invoice on completion, or periodic pay apps for work in place.',
-  'Pricing valid for 30 days.',
-  'Change orders approved in writing before work proceeds.',
-]
-
 interface SnapshotRevision {
   id: string
   rev_number: number
@@ -110,11 +94,12 @@ export default function Proposal() {
   const [revisions, setRevisions] = useState<SnapshotRevision[]>([])
   const [source, setSource] = useState<string | null>(null) // revision id or 'live'
   const [logoOk, setLogoOk] = useState(true) // logo carries the name, so text name hides when it loads
+  const [terms, setTerms] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
-      const [bidRes, areaRes, asmRes, bomRes, matRes, bfRes, ovrRes, setRes, gcRes, revRes] =
+      const [bidRes, areaRes, asmRes, bomRes, matRes, bfRes, ovrRes, setRes, gcRes, revRes, termRes] =
         await Promise.all([
           supabase!.from('bids').select('*').eq('id', id!).single(),
           supabase!.from('areas').select('*').eq('bid_id', id!).order('sort_order'),
@@ -126,6 +111,7 @@ export default function Proposal() {
           supabase!.from('settings').select('*'),
           supabase!.from('bid_customers').select('*, customer:customers(*)').eq('bid_id', id!),
           supabase!.from('revisions').select('id, rev_number, contract_amount, tax, created_at, snapshot').eq('bid_id', id!).order('rev_number', { ascending: false }),
+          supabase!.from('text_settings').select('key, value'),
         ])
       if (bidRes.error) return setError(bidRes.error.message)
       setBid(bidRes.data as Bid)
@@ -145,6 +131,7 @@ export default function Proposal() {
       setBidFinishes((bfRes.data ?? []) as BidFinish[])
       setOverrides((ovrRes.data ?? []) as BidMaterialOverride[])
       setSettings((setRes.data ?? []) as Setting[])
+      setTerms(Object.fromEntries(((termRes.data ?? []) as { key: string; value: string }[]).map((t) => [t.key, t.value])))
       const revRows = ((revRes.data ?? []) as SnapshotRevision[]).filter((r) => r.snapshot?.display)
       setRevisions(revRows)
       setSource(revRows[0]?.id ?? 'live')
@@ -279,12 +266,22 @@ export default function Proposal() {
     }
   }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes])
 
+  // Company identity lives in Settings → Company (text_settings table)
+  const COMPANY = {
+    name: terms.company_name ?? '',
+    address: terms.company_address ?? '',
+    phone: terms.company_phone ?? '',
+    email: terms.company_email ?? '',
+    web: terms.company_web ?? '',
+  }
+
   // Saved-PDF filename comes from the page title: "ESTIMATE 26-002 R1 - JOB NAME"
   useEffect(() => {
     if (bid && data) document.title = `ESTIMATE ${data.refLabel} - ${bid.name.toUpperCase()}`
     return () => {
-      document.title = 'ZAID Millwork — Estimating'
+      document.title = COMPANY.name || 'Estimating'
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bid, data])
 
   if (error)
@@ -384,8 +381,8 @@ export default function Proposal() {
               </td>
               <td className="w-1/4 px-2 py-1.5">
                 <ol className="list-decimal pl-4">
-                  {DEFAULT_TERMS.map((t) => (
-                    <li key={t}>{t}</li>
+                  {(terms.proposal_terms_summary ?? '').split('\n').map((t) => t.trim()).filter(Boolean).map((t, i) => (
+                    <li key={i}>{t}</li>
                   ))}
                 </ol>
               </td>
@@ -505,14 +502,14 @@ export default function Proposal() {
               <WaRow k="GC Contact" v={contact ? [contact.name, contact.email, contact.phone].filter(Boolean).join(' / ') : '—'} />
               <WaRow k="Project" v={bid.name} />
               <WaRow k="Project Address" v={bid.address ?? '—'} />
-              <WaRow k="Estimate Ref" v={`ZAID Est. # ${data.refLabel}, ${today}`} />
+              <WaRow k="Estimate Ref" v={`${COMPANY.name} Est. # ${data.refLabel}, ${today}`} />
             </tbody>
           </table>
 
           <SectionTitle small>Scope of Work</SectionTitle>
           <p>
             Vendor shall furnish all labor, materials, equipment, fabrication, delivery, and
-            installation as described in the referenced ZAID Millwork estimate (incorporated by
+            installation as described in the referenced {COMPANY.name} estimate (incorporated by
             reference){data.inclusions ? ' and as further described here:' : '.'}
           </p>
           {data.inclusions && <p className="mt-0.5 whitespace-pre-wrap">{data.inclusions}</p>}
@@ -540,26 +537,27 @@ export default function Proposal() {
             </tbody>
           </table>
 
-          <SectionTitle small>Payment Terms</SectionTitle>
-          <ul className="list-disc pl-5 space-y-px">
-            <li>Invoicing: lump-sum invoice on completion or periodic pay apps for work in place, stored materials, and approved change orders.</li>
-            <li>Payment: NET 30 days from invoice date. No retainage withheld.</li>
-            <li>Late payment: amounts unpaid after 30 days accrue interest at 1.5%/month or the maximum rate permitted by Texas law.</li>
-            <li>Not pay-when-paid: payment is not contingent on Contractor receiving payment from any third party.</li>
-            <li>Change orders: any change to scope, materials, schedule, or price must be approved in writing by both parties before the affected work proceeds.</li>
-          </ul>
+          {(terms.wa_payment_terms ?? '').trim() !== '' && (
+            <>
+              <SectionTitle small>Payment Terms</SectionTitle>
+              <ul className="list-disc pl-5 space-y-px">
+                {terms.wa_payment_terms.split('\n').map((l) => l.trim()).filter(Boolean).map((l, i) => (
+                  <li key={i}>{l}</li>
+                ))}
+              </ul>
+            </>
+          )}
 
-          <SectionTitle small>Conditions</SectionTitle>
-          <ul className="list-disc pl-5 space-y-px">
-            <li>Pricing valid for 30 days. Cancellation or postponement within 2 weeks of scheduled start may incur charges for materials, labor, and shop time committed.</li>
-            <li>Site readiness: project space must be ready when Vendor arrives. Delays caused by others may trigger mobilization, storage, and standby charges at then-current rates.</li>
-            <li>Site conditions: Contractor provides on-site dumpster, reasonable access, adequate lighting, and protection of finished surfaces from other trades.</li>
-            <li>Shop drawings and product literature submitted for written approval prior to fabrication.</li>
-            <li>Title to materials remains with Vendor until full payment is received. Vendor reserves all lien rights afforded under Texas law.</li>
-            <li>Insurance: Vendor maintains commercial general liability and workers' compensation coverage; COI furnished upon request.</li>
-            <li>Warranty: one (1) year from substantial completion against defects in materials and workmanship; excludes misuse and normal wear.</li>
-            <li>Governing law: State of Texas; venue in the county of Vendor's principal office.</li>
-          </ul>
+          {(terms.wa_conditions ?? '').trim() !== '' && (
+            <>
+              <SectionTitle small>Conditions</SectionTitle>
+              <ul className="list-disc pl-5 space-y-px">
+                {terms.wa_conditions.split('\n').map((l) => l.trim()).filter(Boolean).map((l, i) => (
+                  <li key={i}>{l}</li>
+                ))}
+              </ul>
+            </>
+          )}
 
           <SectionTitle small>Acceptance</SectionTitle>
           <p>By signing below, both parties accept the terms set forth in this Work Authorization Agreement.</p>

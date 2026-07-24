@@ -72,6 +72,94 @@ function LogoCard() {
   )
 }
 
+interface TextSetting {
+  key: string
+  label: string
+  value: string
+  sort_order: number
+  group_name: string
+}
+
+function TextRowsCard({ group, intro, multiline }: { group: string; intro: string; multiline: boolean }) {
+  const [rows, setRows] = useState<TextSetting[] | null>(null)
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    supabase!
+      .from('text_settings')
+      .select('*')
+      .eq('group_name', group)
+      .order('sort_order')
+      .then(({ data, error }) => {
+        if (error) setError(error.message)
+        else {
+          const r = data as TextSetting[]
+          setRows(r)
+          setDrafts(Object.fromEntries(r.map((t) => [t.key, t.value])))
+        }
+      })
+  }, [group])
+
+  if (error) return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+  if (!rows) return <p className="text-sm text-slate-500">Loading…</p>
+
+  const changed = rows.filter((t) => drafts[t.key] !== undefined && drafts[t.key] !== t.value)
+
+  async function save() {
+    setBusy(true)
+    for (const t of changed) {
+      const { error } = await supabase!.from('text_settings').update({ value: drafts[t.key] }).eq('key', t.key)
+      if (error) {
+        setError(error.message)
+        setBusy(false)
+        return
+      }
+    }
+    setRows((prev) => prev!.map((t) => ({ ...t, value: drafts[t.key] ?? t.value })))
+    setBusy(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-500">{intro}</p>
+      {rows.map((t) => (
+        <label key={t.key} className="block">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">{t.label}</span>
+          {multiline ? (
+            <textarea
+              rows={Math.max(6, drafts[t.key]?.split('\n').length ?? 6)}
+              value={drafts[t.key] ?? ''}
+              onChange={(e) => setDrafts((d) => ({ ...d, [t.key]: e.target.value }))}
+              className={`input text-sm ${drafts[t.key] !== t.value ? 'border-amber-400 bg-amber-50' : ''}`}
+            />
+          ) : (
+            <input
+              value={drafts[t.key] ?? ''}
+              onChange={(e) => setDrafts((d) => ({ ...d, [t.key]: e.target.value }))}
+              className={`input ${drafts[t.key] !== t.value ? 'border-amber-400 bg-amber-50' : ''}`}
+            />
+          )}
+        </label>
+      ))}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => void save()}
+          disabled={busy || changed.length === 0}
+          className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
+        >
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+        {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { isAdmin } = useAuth()
   const [settings, setSettings] = useState<Setting[] | null>(null)
@@ -169,7 +257,7 @@ export default function Settings() {
         {/* Category sidebar (horizontal chips on phones) */}
         <nav className="shrink-0 sm:w-44">
           <div className="flex gap-1 overflow-x-auto sm:flex-col">
-            {grouped.map(([group]) => (
+            {[...grouped.map(([g]) => g), 'Terms'].map((group) => (
               <button
                 key={group}
                 onClick={() => setActive(group)}
@@ -197,8 +285,24 @@ export default function Settings() {
 
         {/* Selected category */}
         <div className="min-w-0 max-w-2xl flex-1 space-y-5">
-          {active === 'Company' && <LogoCard />}
-          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+          {active === 'Company' && (
+            <>
+              <LogoCard />
+              <TextRowsCard
+                group="Company"
+                intro="Shows on the proposal, work authorization, and app header. Everything customer-facing pulls from here."
+                multiline={false}
+              />
+            </>
+          )}
+          {active === 'Terms' && (
+            <TextRowsCard
+              group="Terms"
+              intro="This wording prints on the proposal cover and the Work Authorization Agreement. One bullet per line. Have a lawyer look these over — the app just prints what you write."
+              multiline={true}
+            />
+          )}
+          <div className={`overflow-hidden rounded-lg border-2 border-slate-800 bg-white ${active === 'Terms' ? 'hidden' : ''}`}>
             {activeItems.map((s, i) => {
               const suffix = settingSuffix(s.format)
               const isDirty = Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)

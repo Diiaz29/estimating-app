@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
+import { supabase } from '../lib/supabase'
 import type { Role } from '../lib/types'
 
 const baseTabs = [
@@ -28,6 +29,17 @@ export default function Layout() {
 
   // logo replaces the text name when one is uploaded; onError falls back to text
   const [logoOk, setLogoOk] = useState(true)
+  const [companyName, setCompanyName] = useState('')
+  useEffect(() => {
+    supabase
+      ?.from('text_settings')
+      .select('value')
+      .eq('key', 'company_name')
+      .single()
+      .then(({ data }) => {
+        if (data) setCompanyName(data.value)
+      })
+  }, [])
 
   const [theme, setTheme] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'),
@@ -51,12 +63,12 @@ export default function Layout() {
           {logoOk && LOGO_URL ? (
             <img
               src={LOGO_URL}
-              alt="ZAID Millwork"
+              alt={companyName}
               className="h-20 w-auto max-w-[24rem] object-contain"
               onError={() => setLogoOk(false)}
             />
           ) : (
-            <div className="text-lg font-semibold tracking-tight">ZAID Millwork</div>
+            <div className="text-lg font-semibold tracking-tight">{companyName}</div>
           )}
           <nav className="hidden sm:flex items-center gap-1 ml-6">
             {tabs.map((t) => (

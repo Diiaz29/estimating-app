@@ -24,9 +24,9 @@ export default function Login() {
         <div className="rounded-xl border-2 border-slate-800 bg-white shadow-[4px_4px_0_0_rgba(15,23,42,0.15)]">
           <div className="border-b-2 border-slate-800 px-6 py-4">
             <div className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
-              ZAID Millwork
+              SpotOnBid
             </div>
-            <h1 className="text-xl font-semibold tracking-tight">Estimating</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <label className="block">
