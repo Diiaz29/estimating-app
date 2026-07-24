@@ -17,6 +17,7 @@ import OrderSheet from './pages/OrderSheet'
 import MathView from './pages/MathView'
 import Proposal from './pages/Proposal'
 import Actuals from './pages/Actuals'
+import Budget from './pages/Budget'
 import Jobs from './pages/Jobs'
 import PlanRoom from './pages/PlanRoom'
 import Schedule from './pages/Schedule'
@@ -65,6 +66,7 @@ function Gate() {
           <Route path="math" element={<MathView />} />
           <Route path="proposal" element={<Proposal />} />
           <Route path="actuals" element={<Actuals />} />
+          <Route path="budget" element={<Budget />} />
           <Route path="schedule" element={<JobSchedule />} />
           <Route path="plans" element={<PlanRoom />} />
         </Route>

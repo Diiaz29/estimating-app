@@ -14,7 +14,7 @@ export default function BidLayout() {
     { to: `${base}/order`, label: 'Order sheet' },
     { to: `${base}/schedule`, label: 'Schedule' },
     { to: `${base}/plans`, label: 'Plans' },
-    ...(isAdmin ? [{ to: `${base}/actuals`, label: 'Actuals' }] : []),
+    ...(isAdmin ? [{ to: `${base}/budget`, label: 'Budget' }, { to: `${base}/actuals`, label: 'Actuals' }] : []),
   ]
 
   return (
