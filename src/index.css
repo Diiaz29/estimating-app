@@ -110,6 +110,23 @@
 .dark .border-violet-700, .dark .border-violet-500 { border-color: #8b68c4; }
 .dark .bg-violet-700 { background-color: #6d4bab; }
 
+/* The proposal document is a sheet of paper — always light, even in dark mode */
+.dark .light-doc { background-color: #fff; color: #0f172a; }
+.dark .light-doc .bg-white { background-color: #fff; }
+.dark .light-doc .bg-slate-100 { background-color: #f1f5f9; }
+.dark .light-doc .text-slate-900 { color: #0f172a; }
+.dark .light-doc .text-slate-600 { color: #475569; }
+.dark .light-doc .text-slate-500 { color: #64748b; }
+.dark .light-doc .text-slate-400 { color: #94a3b8; }
+.dark .light-doc .border-slate-900 { border-color: #0f172a; }
+.dark .light-doc .border-slate-800 { border-color: #1e293b; }
+.dark .light-doc .border-slate-400 { border-color: #94a3b8; }
+.dark .light-doc .border-slate-300 { border-color: #cbd5e1; }
+.dark .light-doc .border-slate-200 { border-color: #e2e8f0; }
+.dark .light-doc .border-slate-100 { border-color: #f1f5f9; }
+.dark .light-doc .divide-slate-900 > * + * { border-color: #0f172a; }
+.dark .light-doc .text-violet-700 { color: #6d28d9; }
+
 /* form fields keep their own surface */
 .dark input, .dark select, .dark textarea {
   background-color: var(--d-panel-2);

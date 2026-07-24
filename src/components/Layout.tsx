@@ -24,8 +24,6 @@ export default function Layout() {
   const { pathname } = useLocation()
   // the plan room wants every pixel of a big monitor
   const fullWidth = pathname.endsWith('/plans')
-  // printed documents always stay light
-  const lightDoc = pathname.endsWith('/proposal')
 
   const [theme, setTheme] = useState<'light' | 'dark'>(
     () => (localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'),
@@ -35,7 +33,7 @@ export default function Layout() {
     setTheme(next)
     localStorage.setItem('theme', next)
   }
-  const dark = theme === 'dark' && !lightDoc
+  const dark = theme === 'dark'
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1.5 rounded-md text-sm font-medium ${

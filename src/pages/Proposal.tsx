@@ -329,7 +329,7 @@ export default function Proposal() {
         </button>
       </div>
 
-      <div className="mx-auto max-w-[7.7in] bg-white p-8 text-[13px] leading-snug text-slate-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">
+      <div className="light-doc mx-auto max-w-[7.7in] bg-white p-8 text-[13px] leading-snug text-slate-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">
         {/* ---------- Letterhead ---------- */}
         <header className="flex items-start justify-between border-b-4 border-slate-900 pb-3">
           <div className="flex items-center gap-4">
