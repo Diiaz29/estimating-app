@@ -29,11 +29,20 @@ export default function Assemblies() {
 
   // copy the assembly AND its bill of materials
   async function duplicate(a: Assembly) {
+    // removed items are only hidden, so their names are still taken — number past them
+    const { data: nameRows } = await supabase!
+      .from('assemblies')
+      .select('name')
+      .ilike('name', `${a.name} COPY%`)
+    const taken = new Set((nameRows ?? []).map((r) => r.name))
+    let copyName = `${a.name} COPY`
+    for (let n = 2; taken.has(copyName); n++) copyName = `${a.name} COPY ${n}`
+
     const { data, error } = await supabase!
       .from('assemblies')
       .insert({
         category: a.category,
-        name: `${a.name} COPY`,
+        name: copyName,
         description: a.description,
         pricing_unit: a.pricing_unit,
         build_minutes: a.build_minutes,
@@ -45,7 +54,7 @@ export default function Assemblies() {
       .select('id')
       .single()
     if (error) {
-      setError(error.message.includes('duplicate') ? `"${a.name} COPY" already exists — rename it first.` : error.message)
+      setError(error.message)
       return
     }
     const { data: bomRows } = await supabase!
