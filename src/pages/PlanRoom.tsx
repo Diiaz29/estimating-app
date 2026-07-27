@@ -77,6 +77,7 @@ export default function PlanRoom() {
   const [selectedMark, setSelectedMark] = useState<string | null>(null) // clicked line ('cal' or measurement id) → shows its delete button
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
   const holderRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef(1)
   // where the cursor was when a ctrl-zoom happened, so the point under the
@@ -197,7 +198,8 @@ export default function PlanRoom() {
     setPending(null)
     setCalDraft(null)
     setTool('pan')
-    if (!selected || isImage(selected.file_path)) {
+    setRenderInfo(null)
+    if (!selected) {
       setScales(new Map())
       return
     }
@@ -360,12 +362,22 @@ export default function PlanRoom() {
     return () => window.removeEventListener('wheel', onWheel)
   }, [])
 
+  // images: measure the drawn size so the overlay lines up (coords stored in natural pixels)
+  const updateImageInfo = useCallback(() => {
+    const img = imgRef.current
+    if (!img || !img.naturalWidth || img.clientWidth === 0) return
+    setRenderInfo({ cssW: img.clientWidth, cssH: img.clientHeight, cssScale: img.clientWidth / img.naturalWidth })
+  }, [])
+
   // images resize instantly — anchor right after the browser lays them out
   useEffect(() => {
     if (selected && isImage(selected.file_path)) {
-      requestAnimationFrame(() => applyAnchor())
+      requestAnimationFrame(() => {
+        applyAnchor()
+        updateImageInfo()
+      })
     }
-  }, [zoom, selected, applyAnchor])
+  }, [zoom, selected, applyAnchor, updateImageInfo])
 
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -380,14 +392,18 @@ export default function PlanRoom() {
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — plan room
         </h1>
-        {doc && (
+        {(doc || (selected && isImage(selected.file_path) && url)) && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <PagerButton label="◀" onClick={() => setPageNum((p) => Math.max(1, p - 1))} disabled={pageNum <= 1} />
-            <span className="w-24 text-center font-mono text-sm tabular-nums">
-              {pageNum} / {doc.numPages}
-            </span>
-            <PagerButton label="▶" onClick={() => setPageNum((p) => Math.min(doc.numPages, p + 1))} disabled={pageNum >= doc.numPages} />
-            <span className="mx-1 text-slate-300">|</span>
+            {doc && (
+              <>
+                <PagerButton label="◀" onClick={() => setPageNum((p) => Math.max(1, p - 1))} disabled={pageNum <= 1} />
+                <span className="w-24 text-center font-mono text-sm tabular-nums">
+                  {pageNum} / {doc.numPages}
+                </span>
+                <PagerButton label="▶" onClick={() => setPageNum((p) => Math.min(doc.numPages, p + 1))} disabled={pageNum >= doc.numPages} />
+                <span className="mx-1 text-slate-300">|</span>
+              </>
+            )}
             <PagerButton label="−" onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 4) / 4))} disabled={zoom <= 0.5} />
             <span className="w-12 text-center font-mono text-xs tabular-nums">{Math.round(zoom * 100)}%</span>
             <PagerButton label="+" onClick={() => setZoom((z) => Math.min(4, Math.round((z + 0.25) * 4) / 4))} disabled={zoom >= 4} />
@@ -472,7 +488,43 @@ export default function PlanRoom() {
           {loading ? (
             <p className="p-6 text-center text-sm text-slate-500">Opening…</p>
           ) : selected && isImage(selected.file_path) && url ? (
-            <img src={url} alt="" style={{ width: `${zoom * 100}%` }} className="mx-auto" />
+            <div className="relative mx-auto" style={{ width: `${zoom * 100}%` }}>
+              <img ref={imgRef} src={url} alt="" onLoad={updateImageInfo} className="w-full" />
+              {renderInfo && (
+                <svg
+                  width={renderInfo.cssW}
+                  height={renderInfo.cssH}
+                  onClick={overlayClick}
+                  onMouseMove={(e) => {
+                    if (tool !== 'pan' && pending) setCursor(overlayPoint(e))
+                  }}
+                  className={`absolute inset-0 ${tool === 'pan' ? 'pointer-events-none' : 'cursor-crosshair'}`}
+                >
+                  <MeasureLines
+                    measurements={pageMeasurements}
+                    pending={pending}
+                    cursor={cursor}
+                    calDraft={calDraft}
+                    calLine={sheetScale?.line ?? null}
+                    calLabel={sheetScale?.label ?? null}
+                    cssScale={renderInfo.cssScale}
+                    ftPerPt={ftPerPt}
+                    denom={denom}
+                    tool={tool}
+                    selected={selectedMark}
+                    onSelect={(mid) => setSelectedMark((cur) => (cur === mid ? null : mid))}
+                    onDeleteMeasurement={(mid) => {
+                      setSelectedMark(null)
+                      void deleteMeasurement(mid)
+                    }}
+                    onDeleteCalibration={() => {
+                      setSelectedMark(null)
+                      void removeCalibration()
+                    }}
+                  />
+                </svg>
+              )}
+            </div>
           ) : doc ? (
             <div
               className="relative mx-auto"
