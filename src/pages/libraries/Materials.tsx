@@ -17,6 +17,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
   const [staleDays, setStaleDays] = useState(90)
   const [error, setError] = useState<string | null>(null)
   const [formTarget, setFormTarget] = useState<Material | 'new' | null>(null)
+  const [dupTarget, setDupTarget] = useState<Material | null>(null)
   const [removing, setRemoving] = useState<Material | null>(null)
 
   async function load() {
@@ -113,6 +114,13 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                           <button onClick={() => setFormTarget(m)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
                             edit
                           </button>
+                          <button
+                            onClick={() => setDupTarget(m)}
+                            title="Start a new entry prefilled from this one"
+                            className="ml-2 text-xs text-slate-400 hover:text-slate-900"
+                          >
+                            copy
+                          </button>
                           <button onClick={() => setRemoving(m)} className="ml-2 text-xs text-slate-300 hover:text-red-600">
                             remove
                           </button>
@@ -127,6 +135,24 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
         </section>
       ))}
 
+      {dupTarget && (
+        <MaterialForm
+          material={dupTarget}
+          duplicate
+          categories={
+            mode === 'hardware'
+              ? HARDWARE_CATEGORIES
+              : [...new Set([...GENERAL_CATEGORIES, ...materials.map((m) => m.category)])].filter(
+                  (c) => !HARDWARE_CATEGORIES.includes(c),
+                )
+          }
+          onClose={() => setDupTarget(null)}
+          onSaved={() => {
+            setDupTarget(null)
+            void load()
+          }}
+        />
+      )}
       {formTarget && (
         <MaterialForm
           material={formTarget === 'new' ? null : formTarget}
@@ -204,15 +230,17 @@ export function CostCell({ value, onSave }: { value: number | null; onSave: (v: 
 function MaterialForm({
   material,
   categories,
+  duplicate = false,
   onClose,
   onSaved,
 }: {
   material: Material | null
   categories: string[]
+  duplicate?: boolean
   onClose: () => void
   onSaved: () => void
 }) {
-  const [name, setName] = useState(material?.name ?? '')
+  const [name, setName] = useState(duplicate && material ? `${material.name} COPY` : material?.name ?? '')
   const [category, setCategory] = useState(material?.category ?? categories[0] ?? 'WOOD PANEL')
   const [unit, setUnit] = useState(material?.unit ?? 'EACH')
   const [cost, setCost] = useState(material?.cost == null ? '' : String(material.cost))
@@ -234,7 +262,7 @@ function MaterialForm({
       supplier: supplier.trim().toUpperCase() || null,
       notes: notes.trim() || null,
     }
-    const { error } = material
+    const { error } = material && !duplicate
       ? await supabase!.from('materials').update(fields).eq('id', material.id)
       : await supabase!.from('materials').insert(fields)
     if (error) {
@@ -247,7 +275,7 @@ function MaterialForm({
     <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
       <div className="w-full max-w-lg rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">{material ? 'Edit material' : 'Add material'}</h2>
+          <h2 className="font-semibold">{duplicate ? 'Duplicate material' : material ? 'Edit material' : 'Add material'}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
@@ -291,7 +319,7 @@ function MaterialForm({
               Cancel
             </button>
             <button type="submit" disabled={busy} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50">
-              {busy ? 'Saving…' : material ? 'Save changes' : 'Add'}
+              {busy ? 'Saving…' : material && !duplicate ? 'Save changes' : 'Add'}
             </button>
           </div>
         </form>

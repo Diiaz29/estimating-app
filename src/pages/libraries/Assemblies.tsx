@@ -27,6 +27,37 @@ export default function Assemblies() {
     void load()
   }, [])
 
+  // copy the assembly AND its bill of materials
+  async function duplicate(a: Assembly) {
+    const { data, error } = await supabase!
+      .from('assemblies')
+      .insert({
+        category: a.category,
+        name: `${a.name} COPY`,
+        description: a.description,
+        pricing_unit: a.pricing_unit,
+        build_minutes: a.build_minutes,
+        install_minutes: a.install_minutes,
+        typical_width_in: a.typical_width_in,
+        width_confirmed: a.width_confirmed,
+        sort_order: a.sort_order,
+      })
+      .select('id')
+      .single()
+    if (error) {
+      setError(error.message.includes('duplicate') ? `"${a.name} COPY" already exists — rename it first.` : error.message)
+      return
+    }
+    const { data: bomRows } = await supabase!
+      .from('assembly_materials')
+      .select('material_id, slot, label, qty, waste_pct')
+      .eq('assembly_id', a.id)
+    if (bomRows && bomRows.length > 0) {
+      await supabase!.from('assembly_materials').insert(bomRows.map((r) => ({ ...r, assembly_id: data.id })))
+    }
+    void load()
+  }
+
   const grouped = useMemo(() => {
     const map = new Map<string, Assembly[]>()
     for (const a of assemblies ?? []) {
@@ -94,6 +125,19 @@ export default function Assemblies() {
                   >
                     {a.typical_width_in ? `${Number(a.typical_width_in)}"` : '?'} {a.width_confirmed ? '✓' : 'unconfirmed'}
                   </span>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      void duplicate(a)
+                    }}
+                    title="Duplicate this assembly with its bill of materials"
+                    className="text-slate-300 hover:text-slate-900"
+                  >
+                    ⧉
+                  </button>
                 )}
               </Link>
             ))}

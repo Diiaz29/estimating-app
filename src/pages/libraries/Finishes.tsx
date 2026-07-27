@@ -17,6 +17,7 @@ export default function Finishes() {
   const [staleDays, setStaleDays] = useState(90)
   const [error, setError] = useState<string | null>(null)
   const [formTarget, setFormTarget] = useState<Finish | 'new' | null>(null)
+  const [dupTarget, setDupTarget] = useState<Finish | null>(null)
   const [removing, setRemoving] = useState<Finish | null>(null)
 
   async function load() {
@@ -110,6 +111,13 @@ export default function Finishes() {
                           <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
                             edit
                           </button>
+                          <button
+                            onClick={() => setDupTarget(f)}
+                            title="Start a new entry prefilled from this one"
+                            className="ml-2 text-xs text-slate-400 hover:text-slate-900"
+                          >
+                            copy
+                          </button>
                           <button onClick={() => setRemoving(f)} className="ml-2 text-xs text-slate-300 hover:text-red-600">
                             remove
                           </button>
@@ -124,6 +132,17 @@ export default function Finishes() {
         </section>
       ))}
 
+      {dupTarget && (
+        <FinishForm
+          finish={dupTarget}
+          duplicate
+          onClose={() => setDupTarget(null)}
+          onSaved={() => {
+            setDupTarget(null)
+            void load()
+          }}
+        />
+      )}
       {formTarget && (
         <FinishForm
           finish={formTarget === 'new' ? null : formTarget}
@@ -150,9 +169,16 @@ export default function Finishes() {
   )
 }
 
-function FinishForm({ finish, onClose, onSaved }: { finish: Finish | null; onClose: () => void; onSaved: () => void }) {
+function FinishForm({
+  finish, duplicate = false, onClose, onSaved,
+}: {
+  finish: Finish | null
+  duplicate?: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [type, setType] = useState(finish?.type ?? 'Laminate')
-  const [name, setName] = useState(finish?.name ?? '')
+  const [name, setName] = useState(duplicate && finish ? `${finish.name} COPY` : finish?.name ?? '')
   const [brand, setBrand] = useState(finish?.brand ?? '')
   const [colorCode, setColorCode] = useState(finish?.color_code ?? '')
   const [unit, setUnit] = useState(finish?.unit ?? 'SQ/FT')
@@ -173,7 +199,7 @@ function FinishForm({ finish, onClose, onSaved }: { finish: Finish | null; onClo
       cost: cost === '' ? null : Number(cost),
       default_slot: slot || null,
     }
-    const { error } = finish
+    const { error } = finish && !duplicate
       ? await supabase!.from('finishes').update(fields).eq('id', finish.id)
       : await supabase!.from('finishes').insert(fields)
     if (error) {
@@ -186,7 +212,7 @@ function FinishForm({ finish, onClose, onSaved }: { finish: Finish | null; onClo
     <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
       <div className="w-full max-w-lg rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">{finish ? 'Edit finish' : 'Add finish'}</h2>
+          <h2 className="font-semibold">{duplicate ? 'Duplicate finish' : finish ? 'Edit finish' : 'Add finish'}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
@@ -239,7 +265,7 @@ function FinishForm({ finish, onClose, onSaved }: { finish: Finish | null; onClo
               Cancel
             </button>
             <button type="submit" disabled={busy} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50">
-              {busy ? 'Saving…' : finish ? 'Save changes' : 'Add'}
+              {busy ? 'Saving…' : finish && !duplicate ? 'Save changes' : 'Add'}
             </button>
           </div>
         </form>
