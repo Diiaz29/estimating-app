@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import type { Bid } from '../lib/types'
+import type { Bid, Customer } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
+import NewBidForm from '../components/NewBidForm'
 
 interface GcLink {
   bid_id: string
@@ -13,11 +14,14 @@ interface GcLink {
 }
 
 export default function Dashboard() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, canEdit } = useAuth()
+  const navigate = useNavigate()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
   const [revValues, setRevValues] = useState<Map<string, number>>(new Map())
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [showNew, setShowNew] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -41,6 +45,13 @@ export default function Dashboard() {
       .select('bid_id, won_through, customer:customers(company)')
       .then(({ data }) => {
         if (data) setGcLinks(data as unknown as GcLink[])
+      })
+    supabase!
+      .from('customers')
+      .select('*')
+      .order('company')
+      .then(({ data }) => {
+        if (data) setCustomers(data as Customer[])
       })
     // latest revision's contract amount = the real job value (bid_value can lag)
     supabase!
@@ -128,7 +139,17 @@ export default function Dashboard() {
 
       {/* Due soon */}
       <section>
-        <SectionTitle>Due soon</SectionTitle>
+        <div className="mb-2 flex items-center">
+          <SectionTitle>Bids</SectionTitle>
+          {canEdit && (
+            <button
+              onClick={() => setShowNew(true)}
+              className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+            >
+              + New bid
+            </button>
+          )}
+        </div>
         {dueList.length === 0 ? (
           <EmptyNote>
             Nothing in the pipeline.{' '}
@@ -270,6 +291,15 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
+      )}
+
+      {showNew && (
+        <NewBidForm
+          customers={customers}
+          existingNumbers={bids.map((b) => b.job_number)}
+          onClose={() => setShowNew(false)}
+          onCreated={(newId) => navigate(`/bids/${newId}`)}
+        />
       )}
 
       {/* Win rate */}
