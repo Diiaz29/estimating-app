@@ -51,6 +51,7 @@ export interface Bid {
   lost_reason: string | null
   sent_at: string | null
   followup_days: number | null
+  completed_at: string | null
   created_at: string
   updated_at: string
 }

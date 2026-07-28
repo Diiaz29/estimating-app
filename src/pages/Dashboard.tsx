@@ -91,7 +91,7 @@ export default function Dashboard() {
     .slice(0, 8)
 
   const jobs = bids
-    .filter((b) => b.status === 'won')
+    .filter((b) => b.status === 'won' && !b.completed_at)
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
   const jobValue = (b: Bid) => revValues.get(b.id) ?? (b.bid_value == null ? null : Number(b.bid_value))
 
@@ -103,7 +103,7 @@ export default function Dashboard() {
     return `${primary.customer!.company}${links.length > 1 ? ` +${links.length - 1}` : ''}`
   }
 
-  const won = jobs.length
+  const won = bids.filter((b) => b.status === 'won').length
   const lost = bids.filter((b) => b.status === 'lost').length
   const winRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null
 

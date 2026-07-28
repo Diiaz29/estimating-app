@@ -23,6 +23,7 @@ interface TimeEntry {
   work_date: string
   hours: number
   note: string | null
+  kind: string
   created_by: string | null
 }
 
@@ -220,6 +221,7 @@ export default function Field() {
               <div key={t.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
                 <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
                 <span className="font-medium">{t.worker}</span>
+                <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">{t.kind}</span>
                 {t.note && <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
                 <button
