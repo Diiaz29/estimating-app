@@ -25,6 +25,8 @@ interface SnapshotRevision {
         total: number
         lines: { label: string; qty: number; entry: string | null; unit: string }[]
         hardware?: string[]
+        inclusions?: string | null
+        exclusions?: string | null
       }[]
       adders: { key?: string; label: string; price: number; enabled: boolean }[]
       finishes: { slot: string; name: string }[]
@@ -46,6 +48,8 @@ interface ProposalData {
     is_alternate: boolean
     total: number
     includes: string
+    inclusions: string | null
+    exclusions: string | null
     hardware: string[]
   }[]
   finishes: { slot: string; name: string }[]
@@ -191,6 +195,8 @@ export default function Proposal() {
           is_alternate: a.is_alternate,
           total: a.total,
           includes: a.lines.map((l) => `${l.label} (${l.entry ?? `${Math.round(l.qty * 1000) / 1000} ${l.unit}`})`).join('; '),
+          inclusions: a.inclusions ?? null,
+          exclusions: a.exclusions ?? null,
           hardware: a.hardware ?? [],
         })),
         finishes: d.finishes,
@@ -237,6 +243,8 @@ export default function Proposal() {
           multiplier: Number(area.multiplier),
           is_alternate: area.is_alternate,
           total: pricing.areaTotals.get(area.id)?.price ?? 0,
+          inclusions: area.inclusions,
+          exclusions: area.exclusions,
           includes: areaLines
             .map((l) => {
               const asm = l.assembly_id ? ctx.assemblies.get(l.assembly_id) : undefined
@@ -446,6 +454,11 @@ export default function Proposal() {
                 <div>
                   <b>Includes:</b> {area.includes}
                 </div>
+                {area.inclusions && (
+                  <div className="mt-0.5">
+                    <b>Also includes:</b> <span className="whitespace-pre-wrap">{area.inclusions}</span>
+                  </div>
+                )}
                 {data.finishes.length > 0 && (
                   <div className="mt-0.5">
                     <b>Finishes:</b> {data.finishes.map((f) => `${f.slot}: ${f.name}`).join('; ')}
@@ -456,9 +469,12 @@ export default function Proposal() {
                     <b>Hardware:</b> {area.hardware.join('; ')}
                   </div>
                 )}
-                {data.exclusions && (
+                {(area.exclusions || data.exclusions) && (
                   <div className="mt-0.5">
-                    <b>Exclusions:</b> <span className="whitespace-pre-wrap">{data.exclusions}</span>
+                    <b>Exclusions:</b>{' '}
+                    <span className="whitespace-pre-wrap">
+                      {[area.exclusions, data.exclusions].filter(Boolean).join('; ')}
+                    </span>
                   </div>
                 )}
                 {area.is_alternate && (

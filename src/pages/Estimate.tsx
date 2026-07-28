@@ -227,6 +227,8 @@ export default function Estimate() {
         sheet_ref: area.sheet_ref,
         multiplier: area.multiplier,
         is_alternate: area.is_alternate,
+        inclusions: area.inclusions,
+        exclusions: area.exclusions,
         sort_order: areas.length,
       })
       .select('*')
@@ -318,6 +320,8 @@ export default function Estimate() {
         sheet_ref: area.sheet_ref,
         multiplier: Number(area.multiplier),
         is_alternate: area.is_alternate,
+        inclusions: area.inclusions,
+        exclusions: area.exclusions,
         total: pricing.areaTotals.get(area.id)?.price ?? 0,
         lines: areaLines,
         hardware,
@@ -779,6 +783,9 @@ function AreaCard({
   const [sheetRef, setSheetRef] = useState(area.sheet_ref ?? '')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [hardwareOpen, setHardwareOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [inclusions, setInclusions] = useState(area.inclusions ?? '')
+  const [exclusions, setExclusions] = useState(area.exclusions ?? '')
 
   // hardware this room's cabinets call for (by standard material)
   const roomHardware = useMemo(() => {
@@ -798,6 +805,8 @@ function AreaCard({
 
   useEffect(() => setName(area.name), [area.name])
   useEffect(() => setSheetRef(area.sheet_ref ?? ''), [area.sheet_ref])
+  useEffect(() => setInclusions(area.inclusions ?? ''), [area.inclusions])
+  useEffect(() => setExclusions(area.exclusions ?? ''), [area.exclusions])
 
   const grouped = useMemo(() => {
     const map = new Map<string, Assembly[]>()
@@ -917,6 +926,37 @@ function AreaCard({
         </div>
       )}
 
+      {notesOpen && (
+        <div className="grid gap-3 border-t border-slate-100 bg-slate-50 px-4 py-2.5 sm:grid-cols-2">
+          <label className="block">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+              Inclusions — this room
+            </span>
+            <textarea
+              rows={3}
+              value={inclusions}
+              onChange={(e) => setInclusions(e.target.value)}
+              onBlur={() => (inclusions.trim() || null) !== area.inclusions && onPatch({ inclusions: inclusions.trim() || null })}
+              placeholder="Shows on this room's block on the proposal…"
+              className="input text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+              Exclusions — this room
+            </span>
+            <textarea
+              rows={3}
+              value={exclusions}
+              onChange={(e) => setExclusions(e.target.value)}
+              onBlur={() => (exclusions.trim() || null) !== area.exclusions && onPatch({ exclusions: exclusions.trim() || null })}
+              placeholder="NIC items for this room only…"
+              className="input text-sm"
+            />
+          </label>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2">
         {!pickerOpen ? (
           <>
@@ -935,6 +975,17 @@ function AreaCard({
                 Hardware{roomSwapCount > 0 ? ` (${roomSwapCount} custom)` : ''} {hardwareOpen ? '▴' : '▾'}
               </button>
             )}
+            <button
+              onClick={() => setNotesOpen((v) => !v)}
+              className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                area.inclusions || area.exclusions
+                  ? 'border-violet-500 bg-violet-50 text-violet-800'
+                  : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+              }`}
+              title="Inclusions and exclusions for just this room — printed on its proposal block"
+            >
+              In/Exclusions{area.inclusions || area.exclusions ? ' ✓' : ''} {notesOpen ? '▴' : '▾'}
+            </button>
             <button
               onClick={() => onAddLine({ kind: 'manual', name: 'One-off item', quantity: 1 })}
               className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"

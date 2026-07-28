@@ -125,6 +125,8 @@ export interface Area {
   sheet_ref: string | null
   multiplier: number
   is_alternate: boolean
+  inclusions: string | null
+  exclusions: string | null
   sort_order: number
 }
 
