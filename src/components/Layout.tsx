@@ -25,7 +25,7 @@ export default function Layout() {
   const tabs = isAdmin ? adminTabs : baseTabs
   const { pathname } = useLocation()
   // the plan room wants every pixel of a big monitor
-  const fullWidth = pathname.endsWith('/plans')
+  const fullWidth = pathname.endsWith('/plans/room')
 
   // logo replaces the text name when one is uploaded; onError falls back to text
   const [logoOk, setLogoOk] = useState(true)

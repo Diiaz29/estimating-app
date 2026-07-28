@@ -56,7 +56,7 @@ export default function PlansSection({ bidId }: { bidId: string }) {
   }
 
   function view(p: Plan) {
-    navigate(`/bids/${bidId}/plans?file=${p.id}`)
+    navigate(`/bids/${bidId}/plans/room?file=${p.id}`)
   }
 
   async function remove(p: Plan) {
@@ -74,7 +74,7 @@ export default function PlansSection({ bidId }: { bidId: string }) {
         </h2>
         {plans.length > 0 && (
           <Link
-            to={`/bids/${bidId}/plans`}
+            to={`/bids/${bidId}/plans/room`}
             className="ml-auto rounded-md border-2 border-slate-900 px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
           >
             Open plan room →

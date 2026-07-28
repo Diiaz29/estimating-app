@@ -386,8 +386,8 @@ export default function PlanRoom() {
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← {bid.job_number}
+        <Link to={`/bids/${bid.id}/plans`} className="text-sm text-slate-500 hover:text-slate-900">
+          ← Plans
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — plan room

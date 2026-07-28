@@ -20,6 +20,7 @@ import Actuals from './pages/Actuals'
 import Budget from './pages/Budget'
 import Jobs from './pages/Jobs'
 import PlanRoom from './pages/PlanRoom'
+import Plans from './pages/Plans'
 import Schedule from './pages/Schedule'
 import JobSchedule from './pages/JobSchedule'
 import Reports from './pages/Reports'
@@ -68,7 +69,8 @@ function Gate() {
           <Route path="actuals" element={<Actuals />} />
           <Route path="budget" element={<Budget />} />
           <Route path="schedule" element={<JobSchedule />} />
-          <Route path="plans" element={<PlanRoom />} />
+          <Route path="plans" element={<Plans />} />
+          <Route path="plans/room" element={<PlanRoom />} />
         </Route>
         <Route path="/reports" element={<Reports />} />
         <Route path="/contractors" element={<Customers />} />

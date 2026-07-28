@@ -6,7 +6,6 @@ import type { Bid, BidCustomer, BidStatus, Customer } from '../lib/types'
 import { STATUSES, fmtFollowUp, followUpAt } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
-import PlansSection from '../components/PlansSection'
 
 export default function BidDetail() {
   const { id } = useParams<{ id: string }>()
@@ -277,14 +276,6 @@ export default function BidDetail() {
             />
           </Field>
         </div>
-        <Field label="Architect drawings dated">
-          <input
-            type="date"
-            value={bid.drawings_date ?? ''}
-            onChange={(e) => patch({ drawings_date: e.target.value || null })}
-            className="input"
-          />
-        </Field>
         <Field label="Distance (mi)">
           <input
             type="number"
@@ -354,8 +345,6 @@ export default function BidDetail() {
           className="input"
         />
       </Field>
-
-      <PlansSection bidId={bid.id} />
 
       {isAdmin && (
         <div className="border-t border-slate-200 pt-4">
