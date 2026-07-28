@@ -105,7 +105,7 @@ export default function PlanRoom() {
     ;(async () => {
       const [bidRes, planRes] = await Promise.all([
         supabase!.from('bids').select('*').eq('id', id!).single(),
-        supabase!.from('plans').select('id, bid_id, file_path, created_at').eq('bid_id', id!).order('created_at'),
+        supabase!.from('plans').select('id, bid_id, file_path, created_at').eq('bid_id', id!).eq('kind', 'plan').order('created_at'),
       ])
       if (bidRes.error) return setError(bidRes.error.message)
       setBid(bidRes.data as Bid)
