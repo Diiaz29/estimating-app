@@ -42,7 +42,8 @@ export default function AssemblyDetail() {
   if (!assembly) return <p className="text-sm text-slate-500">Loading…</p>
 
   const isEA = assembly.pricing_unit === 'EA'
-  const unitWord = isEA ? 'box' : 'foot'
+  const isSF = assembly.pricing_unit === 'SF'
+  const unitWord = isEA ? 'box' : isSF ? 'sq ft' : 'foot'
 
   function patch(fields: Partial<Assembly>) {
     setAssembly((a) => (a ? { ...a, ...fields } : a))
@@ -102,8 +103,29 @@ export default function AssemblyDetail() {
           ← Assemblies
         </Link>
         <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
-          {assembly.category} · {assembly.pricing_unit}
+          {assembly.category}
         </span>
+        {isAdmin ? (
+          <span className="flex gap-1" title="How this assembly is priced. Labor minutes and BOM quantities below are per this unit — re-check them after switching.">
+            {(['EA', 'LF', 'SF'] as const).map((u) => (
+              <button
+                key={u}
+                onClick={() => patch({ pricing_unit: u })}
+                className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
+                  assembly.pricing_unit === u
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-300 bg-white text-slate-500 hover:border-slate-500'
+                }`}
+              >
+                {u}
+              </button>
+            ))}
+          </span>
+        ) : (
+          <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+            {assembly.pricing_unit}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
           {isAdmin && (
@@ -152,9 +174,9 @@ export default function AssemblyDetail() {
             className="input"
           />
         </Field>
-        {isEA && (
+        {(isEA || isSF) && (
           <>
-            <Field label={'Typical width along wall (in)'}>
+            <Field label={isSF ? 'Countertop depth (in)' : 'Typical width along wall (in)'}>
               <input
                 type="number" step="any" min="0"
                 value={assembly.typical_width_in == null ? '' : Number(assembly.typical_width_in)}
@@ -195,6 +217,14 @@ export default function AssemblyDetail() {
           {Number(assembly.typical_width_in ?? 24)}″ cabinets = {Math.round((12 / ((Number(assembly.typical_width_in) || 24) / 12)) * 10) / 10} boxes.
           Items counted per piece (end panels, benches) ignore it. Labor and the quantities below
           are per box.
+        </p>
+      )}
+      {isSF && (
+        <p className="text-xs text-slate-500">
+          Depth turns a feet takeoff into square feet: a 12-ft run at{' '}
+          {Number(assembly.typical_width_in ?? 25)}″ deep ={' '}
+          {Math.round(12 * ((Number(assembly.typical_width_in) || 25) / 12) * 10) / 10} SF. Labor and
+          the quantities below are per square foot.
         </p>
       )}
 

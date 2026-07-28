@@ -175,8 +175,14 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
   const computedPrice = materialPrice + laborPrice
   const linePrice = line.rate_override != null ? Number(line.rate_override) * mult : computedPrice
 
+  // delivery/design math wants feet of run: LF is already feet, EA converts by
+  // typical width, SF divides square feet by the top's depth
   const lfEquivalent =
-    assembly.pricing_unit === 'LF' ? mult : mult * (Number(assembly.typical_width_in ?? 24) / 12)
+    assembly.pricing_unit === 'LF'
+      ? mult
+      : assembly.pricing_unit === 'SF'
+        ? mult / (Number(assembly.typical_width_in ?? 25) / 12)
+        : mult * (Number(assembly.typical_width_in ?? 24) / 12)
 
   return {
     materialCost,

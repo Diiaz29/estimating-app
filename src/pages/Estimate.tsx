@@ -1048,19 +1048,23 @@ function LineRow({
   useEffect(() => setPriceDraft(line.unit_price == null ? '' : String(line.unit_price)), [line.unit_price])
 
   const isFeet = line.entry_mode === 'feet'
-  const widthFt = assembly?.typical_width_in ? Number(assembly.typical_width_in) / 12 : 2
-  const displayQty = isFeet ? (line.entry_value ?? Number(line.quantity) * widthFt) : Number(line.quantity)
+  const isSF = assembly?.pricing_unit === 'SF'
+  const widthFt = assembly?.typical_width_in ? Number(assembly.typical_width_in) / 12 : isSF ? 25 / 12 : 2
+  // EA: feet of run ÷ width = boxes · SF: feet of run × depth = square feet
+  const feetToQty = (ft: number) => (isSF ? ft * widthFt : ft / widthFt)
+  const qtyToFeet = (q: number) => (isSF ? q / widthFt : q * widthFt)
+  const displayQty = isFeet ? (line.entry_value ?? qtyToFeet(Number(line.quantity))) : Number(line.quantity)
 
   useEffect(() => setQtyDraft(String(Math.round(displayQty * 1000) / 1000)), [displayQty])
 
   function commitQty() {
     const v = Number(qtyDraft)
     if (Number.isNaN(v) || v < 0) return
-    if (isFeet) onPatch({ entry_value: v, quantity: v / widthFt })
+    if (isFeet) onPatch({ entry_value: v, quantity: feetToQty(v) })
     else onPatch({ quantity: v, entry_value: null })
   }
 
-  const canUseFeet = line.kind === 'assembly' && assembly?.pricing_unit === 'EA'
+  const canUseFeet = line.kind === 'assembly' && (assembly?.pricing_unit === 'EA' || isSF)
   const unitLabel =
     line.kind === 'assembly' ? (isFeet ? 'FT' : assembly?.pricing_unit ?? 'EA') : line.kind === 'sub' ? 'quote' : 'EA'
 
@@ -1099,10 +1103,16 @@ function LineRow({
           <button
             onClick={() => {
               if (isFeet) onPatch({ entry_mode: 'unit', entry_value: null, quantity: Math.round(Number(line.quantity) * 1000) / 1000 })
-              else onPatch({ entry_mode: 'feet', entry_value: Number(line.quantity) * widthFt })
+              else onPatch({ entry_mode: 'feet', entry_value: qtyToFeet(Number(line.quantity)) })
             }}
             className="ml-1 w-8 rounded border border-slate-300 px-1 py-1 font-mono text-[10px] uppercase text-slate-500 hover:border-slate-800"
-            title={isFeet ? `Entered in feet — converts at ${assembly!.typical_width_in}″ per box. Tap for boxes.` : 'Tap to enter this run in feet instead'}
+            title={
+              isFeet
+                ? isSF
+                  ? `Entered in feet of run — converts at ${assembly!.typical_width_in ?? 25}″ deep. Tap for square feet.`
+                  : `Entered in feet — converts at ${assembly!.typical_width_in}″ per box. Tap for boxes.`
+                : 'Tap to enter this run in feet instead'
+            }
           >
             {unitLabel}
           </button>
@@ -1110,7 +1120,9 @@ function LineRow({
           <span className="ml-1 inline-block w-8 text-center font-mono text-[10px] uppercase text-slate-400">{unitLabel}</span>
         )}
         {isFeet && (
-          <div className="mt-0.5 font-mono text-[10px] text-slate-400">= {(Number(line.quantity)).toFixed(2)} boxes</div>
+          <div className="mt-0.5 font-mono text-[10px] text-slate-400">
+            = {(Number(line.quantity)).toFixed(2)} {isSF ? 'SF' : 'boxes'}
+          </div>
         )}
       </td>
       <td className="w-28 px-2 py-1.5 text-right tabular-nums whitespace-nowrap">

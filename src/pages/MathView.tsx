@@ -110,7 +110,10 @@ export default function MathView() {
             const p = priceLine(line, area, ctx)
             const assembly = line.assembly_id ? ctx.assemblies.get(line.assembly_id) : undefined
             const mult = Number(line.quantity) * Number(area.multiplier)
-            const unitWord = assembly?.pricing_unit === 'LF' ? 'foot' : 'box'
+            const unitWord =
+              assembly?.pricing_unit === 'LF' ? (mult === 1 ? 'foot' : 'feet')
+              : assembly?.pricing_unit === 'SF' ? 'sq ft'
+              : mult === 1 ? 'box' : 'boxes'
             return (
               <div key={line.id} className="rounded-lg border-2 border-slate-800 bg-white">
                 <div className="flex flex-wrap items-center gap-2 border-b-2 border-slate-800 px-4 py-2">
@@ -126,14 +129,22 @@ export default function MathView() {
                   {/* quantity */}
                   <MathStep label="How many">
                     {line.entry_mode === 'feet' && assembly?.typical_width_in ? (
-                      <>
-                        {n(Number(line.entry_value ?? 0))} ft ÷ {n(Number(assembly.typical_width_in) / 12)} ft per box ={' '}
-                        <b>{n(Number(line.quantity), 3)} boxes</b>
-                        {Number(area.multiplier) > 1 && <> × {Number(area.multiplier)} (typ) = <b>{n(mult, 3)}</b></>}
-                      </>
+                      assembly.pricing_unit === 'SF' ? (
+                        <>
+                          {n(Number(line.entry_value ?? 0))} ft × {n(Number(assembly.typical_width_in) / 12)} ft deep ={' '}
+                          <b>{n(Number(line.quantity), 3)} sq ft</b>
+                          {Number(area.multiplier) > 1 && <> × {Number(area.multiplier)} (typ) = <b>{n(mult, 3)}</b></>}
+                        </>
+                      ) : (
+                        <>
+                          {n(Number(line.entry_value ?? 0))} ft ÷ {n(Number(assembly.typical_width_in) / 12)} ft per box ={' '}
+                          <b>{n(Number(line.quantity), 3)} boxes</b>
+                          {Number(area.multiplier) > 1 && <> × {Number(area.multiplier)} (typ) = <b>{n(mult, 3)}</b></>}
+                        </>
+                      )
                     ) : (
                       <>
-                        {n(Number(line.quantity), 3)} {line.kind === 'assembly' ? unitWord + (mult === 1 ? '' : 'es') : 'each'}
+                        {n(Number(line.quantity), 3)} {line.kind === 'assembly' ? unitWord : 'each'}
                         {Number(area.multiplier) > 1 && <> × {Number(area.multiplier)} (typ) = <b>{n(mult, 3)}</b></>}
                       </>
                     )}

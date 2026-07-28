@@ -91,7 +91,7 @@ export interface Finish {
   cost_updated_at: string
 }
 
-export type PricingUnit = 'EA' | 'LF'
+export type PricingUnit = 'EA' | 'LF' | 'SF'
 
 export interface Assembly {
   id: string

@@ -179,7 +179,7 @@ function AddAssemblyForm({
 }) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState(categories[0] ?? 'Base Cabinets')
-  const [pricingUnit, setPricingUnit] = useState<'EA' | 'LF'>('EA')
+  const [pricingUnit, setPricingUnit] = useState<'EA' | 'LF' | 'SF'>('EA')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -222,7 +222,7 @@ function AddAssemblyForm({
             <div>
               <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Priced per</span>
               <div className="mt-1 flex gap-1.5">
-                {(['EA', 'LF'] as const).map((u) => (
+                {(['EA', 'LF', 'SF'] as const).map((u) => (
                   <button
                     type="button"
                     key={u}
@@ -233,7 +233,7 @@ function AddAssemblyForm({
                         : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
                     }`}
                   >
-                    {u === 'EA' ? 'Box (EA)' : 'Foot (LF)'}
+                    {u === 'EA' ? 'Box (EA)' : u === 'LF' ? 'Foot (LF)' : 'Sq ft (SF)'}
                   </button>
                 ))}
               </div>
