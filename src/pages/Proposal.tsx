@@ -41,6 +41,7 @@ interface ProposalData {
   refLabel: string
   sourceLabel: string
   isLocked: boolean
+  presentedOn: string
   areas: {
     name: string
     sheet_ref: string | null
@@ -190,6 +191,8 @@ export default function Proposal() {
         refLabel: `${bid.job_number} R${rev.rev_number}`,
         sourceLabel: `Locked snapshot R${rev.rev_number} — ${fmtDueDate(rev.created_at)}`,
         isLocked: true,
+        // the proposal is dated when the price was locked, not when it's printed
+        presentedOn: new Date(rev.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
         areas: d.areas.map((a) => ({
           name: a.name,
           sheet_ref: a.sheet_ref,
@@ -229,6 +232,7 @@ export default function Proposal() {
       refLabel: bid.job_number,
       sourceLabel: 'Live numbers — snapshot before sending!',
       isLocked: false,
+      presentedOn: new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
       areas: areas.map((area) => {
         const areaLines = linesByArea.get(area.id) ?? []
         const hardware = [
@@ -305,7 +309,6 @@ export default function Proposal() {
   const primary = gcs.find((g) => g.won_through) ?? gcs[0]
   const gc = primary?.customer
   const contact = contacts[0]
-  const today = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 
   return (
     <div className="proposal-page">
@@ -406,7 +409,7 @@ export default function Proposal() {
 
         <div className="mt-2 flex flex-wrap justify-between gap-x-6 text-[12px]">
           <span>
-            <b>Presented on:</b> {today}
+            <b>Presented on:</b> {data.presentedOn}
             {data.drawingsDate && (
               <>
                 {' · '}
@@ -523,14 +526,14 @@ export default function Proposal() {
 
           <table className="mt-2 w-full">
             <tbody>
-              <WaRow k="Date" v={today} />
+              <WaRow k="Date" v={data.presentedOn} />
               <WaRow k="Agreement No." v={data.refLabel} />
               <WaRow k="Issued To" v={gc?.company ?? '[GC NAME]'} />
               <WaRow k="GC Address" v={gc?.address ?? '—'} />
               <WaRow k="GC Contact" v={contact ? [contact.name, contact.email, contact.phone].filter(Boolean).join(' / ') : '—'} />
               <WaRow k="Project" v={bid.name} />
               <WaRow k="Project Address" v={bid.address ?? '—'} />
-              <WaRow k="Estimate Ref" v={`${COMPANY.name} Est. # ${data.refLabel}, ${today}`} />
+              <WaRow k="Estimate Ref" v={`${COMPANY.name} Est. # ${data.refLabel}, ${data.presentedOn}`} />
             </tbody>
           </table>
 
