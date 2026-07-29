@@ -521,7 +521,11 @@ export default function Estimate() {
       {/* Adders */}
       <section className="rounded-lg border-2 border-slate-800 bg-white">
         <h2 className="border-b-2 border-slate-800 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-          Added costs — {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
+          Added costs — {pricing.costBreakdown.shopHours.toFixed(1)} shop hrs
+          {Number(bid.labor_heads ?? 0) > 0 && (
+            <> ({(pricing.costBreakdown.shopHours / Number(bid.labor_heads)).toFixed(1)}/person)</>
+          )}{' '}
+          · {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
           {Number(bid.distance_miles ?? 0)} mi
         </h2>
         {pricing.adders.map((a) => (
