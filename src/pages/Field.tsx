@@ -4,7 +4,6 @@ import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Bid } from '../lib/types'
-import { fmtDueDate } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 export interface FieldPhoto {
@@ -75,7 +74,7 @@ export default function Field() {
     if (ph.length > 0) {
       const { data } = await supabase!.storage.from('field').createSignedUrls(ph.map((p) => p.file_path), 3600)
       if (data) {
-        setPhotoUrls(new Map(data.map((d, i) => [ph[i].id, d.signedUrl])))
+        setPhotoUrls(new Map(data.flatMap((d, i) => (d.signedUrl ? [[ph[i].id, d.signedUrl] as [string, string]] : []))))
       }
     }
   }

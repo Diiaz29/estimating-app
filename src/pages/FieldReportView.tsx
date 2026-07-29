@@ -39,7 +39,7 @@ export default function FieldReportView() {
         rows.sort((a, b) => rep.photo_ids.indexOf(a.id) - rep.photo_ids.indexOf(b.id))
         setPhotos(rows)
         const { data: urls } = await supabase!.storage.from('field').createSignedUrls(rows.map((p) => p.file_path), 3600)
-        if (urls) setPhotoUrls(new Map(urls.map((u, i) => [rows[i].id, u.signedUrl])))
+        if (urls) setPhotoUrls(new Map(urls.flatMap((u, i) => (u.signedUrl ? [[rows[i].id, u.signedUrl] as [string, string]] : []))))
       }
     })()
   }, [id, reportId])
