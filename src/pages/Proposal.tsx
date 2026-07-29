@@ -57,6 +57,8 @@ interface ProposalData {
   install: number
   delivery: number
   alternates: number
+  adjustment: number
+  adjustmentNote: string | null
   contract: number
   tax: number
   taxExempt: boolean
@@ -204,6 +206,8 @@ export default function Proposal() {
         install,
         delivery,
         alternates: t.alternatesTotal,
+        adjustment: snapBid?.adjustment_visible === false ? 0 : Number(snapBid?.price_adjustment ?? 0),
+        adjustmentNote: snapBid?.adjustment_note ?? null,
         contract: t.contractAmount,
         tax: Number(rev.tax),
         taxExempt: snapBid?.tax_exempt ?? bid.tax_exempt,
@@ -263,6 +267,8 @@ export default function Proposal() {
       install,
       delivery,
       alternates: pricing.alternatesTotal,
+      adjustment: bid.adjustment_visible ? pricing.adjustment : 0,
+      adjustmentNote: bid.adjustment_note,
       contract: pricing.contractAmount,
       tax: pricing.tax,
       taxExempt: bid.tax_exempt,
@@ -417,6 +423,12 @@ export default function Proposal() {
           <tbody>
             {data.alternates > 0 && (
               <SummaryRow label="Options (priced separately below)" value={fmtMoney(data.alternates)} />
+            )}
+            {data.adjustment !== 0 && (
+              <SummaryRow
+                label={data.adjustmentNote ?? (data.adjustment < 0 ? 'Discount' : 'Adjustment')}
+                value={fmtMoney(data.adjustment)}
+              />
             )}
             <tr className="bg-slate-100 font-semibold">
               <td className="px-2 py-1.5">

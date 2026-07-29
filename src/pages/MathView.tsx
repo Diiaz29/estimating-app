@@ -247,7 +247,9 @@ export default function MathView() {
         <div className="rounded-lg border-2 border-slate-800 bg-white p-4 text-sm space-y-2">
           <MathStep label="Base bid">all line totals added up = <b>{fmtMoney(pricing.cabinetTotal)}</b></MathStep>
           <MathStep label="Contract">
-            {fmtMoney(pricing.cabinetTotal)} + {fmtMoney(pricing.addersTotal)} added costs = <b>{fmtMoney(pricing.contractAmount)}</b>
+            {fmtMoney(pricing.cabinetTotal)} + {fmtMoney(pricing.addersTotal)} added costs
+            {pricing.adjustment !== 0 && <> + {fmtMoney(pricing.adjustment)} adjustment</>} ={' '}
+            <b>{fmtMoney(pricing.contractAmount)}</b>
           </MathStep>
           <MathStep label="Tax">
             {bid.tax_exempt ? 'tax exempt = $0' : <>{fmtMoney(pricing.contractAmount)} × {n((s.tax_rate ?? 0) * 100)}% = <b>{fmtMoney(pricing.tax)}</b></>}

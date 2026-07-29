@@ -541,6 +541,22 @@ export default function Estimate() {
             <span className={`tabular-nums text-sm ${a.enabled ? '' : 'text-slate-400'}`}>{fmtMoney(a.price)}</span>
           </div>
         ))}
+        {canEdit && (
+          <AdjustmentRow
+            amount={Number(bid.price_adjustment ?? 0)}
+            note={bid.adjustment_note}
+            visible={bid.adjustment_visible}
+            onSave={(price_adjustment, adjustment_note) => {
+              setBid((b) => (b ? { ...b, price_adjustment, adjustment_note } : b))
+              void supabase!.from('bids').update({ price_adjustment, adjustment_note }).eq('id', bid.id)
+            }}
+            onToggleVisible={() => {
+              const adjustment_visible = !bid.adjustment_visible
+              setBid((b) => (b ? { ...b, adjustment_visible } : b))
+              void supabase!.from('bids').update({ adjustment_visible }).eq('id', bid.id)
+            }}
+          />
+        )}
       </section>
 
       {/* Revisions */}
@@ -603,6 +619,9 @@ export default function Estimate() {
         <div className="mx-auto flex max-w-6xl items-stretch divide-x-2 divide-slate-800 overflow-x-auto border-x-2 border-slate-800 font-mono">
           <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
           <TotalCell label="Added costs" value={fmtMoney(pricing.addersTotal)} />
+          {pricing.adjustment !== 0 && (
+            <TotalCell label={pricing.adjustment < 0 ? 'Discount' : 'Price add'} value={fmtMoney(pricing.adjustment)} />
+          )}
           <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
           <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
           {pricing.alternatesTotal > 0 && <TotalCell label="Options" value={fmtMoney(pricing.alternatesTotal)} />}
@@ -642,6 +661,73 @@ export default function Estimate() {
           onConfirm={() => void removeRevision(removingRevision)}
           onCancel={() => setRemovingRevision(null)}
         />
+      )}
+    </div>
+  )
+}
+
+/** Manual discount / add on the whole bid — a pure price move, no cost behind it. */
+function AdjustmentRow({
+  amount, note, visible, onSave, onToggleVisible,
+}: {
+  amount: number
+  note: string | null
+  visible: boolean
+  onSave: (amount: number, note: string | null) => void
+  onToggleVisible: () => void
+}) {
+  const [amtDraft, setAmtDraft] = useState(amount === 0 ? '' : String(amount))
+  const [noteDraft, setNoteDraft] = useState(note ?? '')
+
+  useEffect(() => setAmtDraft(amount === 0 ? '' : String(amount)), [amount])
+  useEffect(() => setNoteDraft(note ?? ''), [note])
+
+  function commit() {
+    const v = amtDraft === '' ? 0 : Number(amtDraft)
+    if (Number.isNaN(v)) return
+    if (v !== amount || (noteDraft.trim() || null) !== note) onSave(v, noteDraft.trim() || null)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t-2 border-slate-200 px-4 py-2">
+      <span className="text-sm font-medium">Price adjustment</span>
+      <input
+        value={noteDraft}
+        onChange={(e) => setNoteDraft(e.target.value)}
+        onBlur={commit}
+        placeholder="reason — shows on the proposal (e.g. Preferred-customer discount)"
+        className="min-w-0 flex-1 basis-48 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-800 focus:outline-none"
+      />
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-slate-400">$</span>
+        <input
+          type="number"
+          step="any"
+          value={amtDraft}
+          onChange={(e) => setAmtDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          placeholder="0"
+          title="Negative for a discount, positive to add price"
+          className="w-28 rounded border border-slate-200 px-2 py-1 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none"
+        />
+      </div>
+      {amount !== 0 && (
+        <button
+          onClick={onToggleVisible}
+          title={
+            visible
+              ? 'Prints as its own line on the proposal — tap to fold it silently into the total'
+              : 'Hidden — folded into the proposal total. Tap to print it as its own line.'
+          }
+          className={`rounded-md border px-2 py-1 text-xs font-medium ${
+            visible
+              ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
+              : 'border-violet-500 bg-violet-50 text-violet-800'
+          }`}
+        >
+          {visible ? 'Shown on proposal' : 'Hidden on proposal'}
+        </button>
       )}
     </div>
   )

@@ -151,6 +151,12 @@ export default function Budget() {
                 {enabledAdders.map((a) => (
                   <Row key={a.key} label={a.label} value={a.price} />
                 ))}
+                {pricing.adjustment !== 0 && (
+                  <Row
+                    label={bid.adjustment_note ?? (pricing.adjustment < 0 ? 'Discount' : 'Price add')}
+                    value={pricing.adjustment}
+                  />
+                )}
                 <Row label="Contract amount" value={pricing.contractAmount} bold rule />
                 <Row label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={pricing.tax} />
                 <Row label="Total with tax" value={totalWithTax} bold />

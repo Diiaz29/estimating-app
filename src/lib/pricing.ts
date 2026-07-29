@@ -228,6 +228,7 @@ export interface BidPricing {
   lfTotal: number
   adders: AdderBreakdown[]
   addersTotal: number
+  adjustment: number
   contractAmount: number
   tax: number
   trueCost: number
@@ -349,7 +350,9 @@ export function priceBid(
   ]
 
   const addersTotal = adders.reduce((sum, a) => sum + (a.enabled ? a.price : 0), 0)
-  const contractAmount = cabinetTotal + addersTotal
+  // manual discount (negative) or add (positive) — pure price move, no cost behind it
+  const adjustment = Number(bid.price_adjustment ?? 0)
+  const contractAmount = cabinetTotal + addersTotal + adjustment
   const tax = bid.tax_exempt ? 0 : contractAmount * (s.tax_rate ?? 0)
 
   // Cost/margin side: materials at cost + labor at cost rate + subs at quote
@@ -389,6 +392,7 @@ export function priceBid(
     lfTotal,
     adders,
     addersTotal,
+    adjustment,
     contractAmount,
     tax,
     trueCost,

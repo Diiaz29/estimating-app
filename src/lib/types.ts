@@ -52,6 +52,9 @@ export interface Bid {
   sent_at: string | null
   followup_days: number | null
   completed_at: string | null
+  price_adjustment: number
+  adjustment_note: string | null
+  adjustment_visible: boolean
   created_at: string
   updated_at: string
 }
