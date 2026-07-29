@@ -390,8 +390,8 @@ export default function Estimate() {
 
   return (
     <div className="space-y-5 pb-40">
-      <div className="flex items-center gap-3">
-        <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Link to={`/bids/${bid.id}`} className="-my-2 shrink-0 py-2 text-sm text-slate-500 hover:text-slate-900">
           ← {bid.job_number}
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
@@ -400,7 +400,7 @@ export default function Estimate() {
         {!canEdit && <ViewOnlyBanner />}
         <Link
           to={`/bids/${bid.id}/math`}
-          className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
+          className="-my-1 shrink-0 whitespace-nowrap rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800 hover:bg-blue-100 sm:py-1 sm:-my-0"
           title="See every calculation behind these numbers"
         >
           Show the math
@@ -532,7 +532,7 @@ export default function Estimate() {
           <div key={a.key} className="flex items-center gap-3 border-t border-slate-100 px-4 py-2 first:border-t-0">
             <button
               onClick={() => void toggleAdder(a.key)}
-              className={`h-5 w-9 rounded-full transition-colors ${a.enabled ? 'bg-slate-900' : 'bg-slate-300'}`}
+              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${a.enabled ? 'bg-slate-900' : 'bg-slate-300'}`}
               title={a.enabled ? 'Included — tap to exclude' : 'Excluded — tap to include'}
             >
               <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${a.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -603,7 +603,7 @@ export default function Estimate() {
                     e.preventDefault()
                     setRemovingRevision(r)
                   }}
-                  className="text-slate-300 hover:text-red-600"
+                  className="-my-2 -mr-2 inline-flex h-10 w-10 items-center justify-center text-lg leading-none text-slate-300 hover:text-red-600 sm:my-0 sm:mr-0 sm:h-auto sm:w-auto sm:text-base"
                   title="Delete this snapshot"
                 >
                   ×
@@ -696,7 +696,7 @@ function AdjustmentRow({
         onChange={(e) => setNoteDraft(e.target.value)}
         onBlur={commit}
         placeholder="reason — shows on the proposal (e.g. Preferred-customer discount)"
-        className="min-w-0 flex-1 basis-48 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-800 focus:outline-none"
+        className="min-w-0 flex-1 basis-48 rounded border border-slate-200 px-2 py-1 text-base focus:border-slate-800 focus:outline-none sm:text-sm"
       />
       <div className="flex items-center gap-1">
         <span className="text-xs text-slate-400">$</span>
@@ -709,7 +709,7 @@ function AdjustmentRow({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           placeholder="0"
           title="Negative for a discount, positive to add price"
-          className="w-28 rounded border border-slate-200 px-2 py-1 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none"
+          className="w-28 rounded border border-slate-200 px-2 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none sm:text-sm"
         />
       </div>
       {amount !== 0 && (
@@ -740,7 +740,7 @@ function TotalCell({
 }) {
   const toneCls = tone === 'bad' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-emerald-700' : ''
   return (
-    <div className={`flex min-w-[7.5rem] flex-1 flex-col px-3 py-2 ${muted ? 'bg-slate-50' : ''}`} title={title}>
+    <div className={`flex min-w-[5.75rem] flex-1 flex-col px-3 py-2 sm:min-w-[7.5rem] ${muted ? 'bg-slate-50' : ''}`} title={title}>
       <span className="text-[9px] uppercase tracking-widest text-slate-400">{label}</span>
       <span className={`tabular-nums ${strong ? 'text-lg font-semibold' : 'text-sm'} ${toneCls}`}>{value}</span>
     </div>
@@ -789,7 +789,7 @@ function MaterialSwaps({
             <select
               value={o.to_material_id}
               onChange={(e) => onSet(o.from_material_id, e.target.value)}
-              className="input mt-0 w-auto py-1.5"
+              className="input mt-0 w-full min-w-0 max-w-full py-1.5 sm:w-auto"
             >
               {active.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -797,14 +797,14 @@ function MaterialSwaps({
                 </option>
               ))}
             </select>
-            <button onClick={() => onSet(o.from_material_id, null)} className="text-xs text-slate-400 hover:text-red-600">
+            <button onClick={() => onSet(o.from_material_id, null)} className="-my-1 px-2 py-2 text-xs text-slate-400 hover:text-red-600 sm:my-0 sm:p-0">
               remove
             </button>
           </div>
         ))}
         {adding ? (
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <select value={fromId} onChange={(e) => setFromId(e.target.value)} className="input mt-0 w-auto py-1.5">
+            <select value={fromId} onChange={(e) => setFromId(e.target.value)} className="input mt-0 w-full min-w-0 max-w-full py-1.5 sm:w-auto">
               <option value="">Swap out…</option>
               {active
                 .filter((m) => m.category !== 'HARDWARE' && !overrides.some((o) => o.from_material_id === m.id))
@@ -824,7 +824,7 @@ function MaterialSwaps({
                       setAdding(false)
                     }
                   }}
-                  className="input mt-0 w-auto py-1.5"
+                  className="input mt-0 w-full min-w-0 max-w-full py-1.5 sm:w-auto"
                 >
                   <option value="">Swap in…</option>
                   {active
@@ -835,7 +835,7 @@ function MaterialSwaps({
                 </select>
               </>
             )}
-            <button onClick={() => { setAdding(false); setFromId('') }} className="text-xs text-slate-400 hover:text-slate-700">
+            <button onClick={() => { setAdding(false); setFromId('') }} className="-my-1 px-2 py-2 text-xs text-slate-400 hover:text-slate-700 sm:my-0 sm:p-0">
               cancel
             </button>
           </div>
@@ -915,7 +915,7 @@ function AreaCard({
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name !== area.name && onPatch({ name })}
           title="Room name — click to edit"
-          className="min-w-0 flex-1 basis-40 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-sm font-semibold underline decoration-dotted decoration-slate-300 underline-offset-4 hover:border-slate-300 hover:bg-white focus:border-slate-800 focus:bg-white focus:no-underline focus:outline-none"
+          className="min-w-0 flex-1 basis-40 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-base sm:text-sm font-semibold underline decoration-dotted decoration-slate-300 underline-offset-4 hover:border-slate-300 hover:bg-white focus:border-slate-800 focus:bg-white focus:no-underline focus:outline-none"
         />
         <label className="flex items-center gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">Dwg</span>
@@ -925,7 +925,7 @@ function AreaCard({
             onBlur={() => (sheetRef || null) !== area.sheet_ref && onPatch({ sheet_ref: sheetRef || null })}
             placeholder="02/I6.01"
             title="Which drawing / elevation this room comes from"
-            className="w-24 rounded border border-slate-300 px-2 py-0.5 font-mono text-xs focus:border-slate-800 focus:outline-none"
+            className="w-24 rounded border border-slate-300 px-2 py-1.5 font-mono text-base focus:border-slate-800 focus:outline-none sm:py-0.5 sm:text-xs"
           />
         </label>
         <label className="flex items-center gap-1 font-mono text-xs text-slate-500">
@@ -935,28 +935,43 @@ function AreaCard({
             min="1"
             value={Number(area.multiplier)}
             onChange={(e) => onPatch({ multiplier: Math.max(1, Number(e.target.value) || 1) })}
-            className="w-14 rounded border border-slate-200 px-1.5 py-0.5 text-right text-xs focus:border-slate-800 focus:outline-none"
+            className="w-16 rounded border border-slate-200 px-1.5 py-1.5 text-right text-base focus:border-slate-800 focus:outline-none sm:w-14 sm:py-0.5 sm:text-xs"
           />
         </label>
         <button
           onClick={() => onPatch({ is_alternate: !area.is_alternate })}
-          className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+          className={`rounded-full border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider sm:py-0.5 ${
             area.is_alternate
               ? 'border-violet-700 bg-violet-700 text-white'
               : 'border-slate-300 text-slate-400 hover:border-violet-700 hover:text-violet-700'
           }`}
           title="Priced separately as an option — not counted in the base bid"
         >
-          {area.is_alternate ? 'Option — not in base bid' : 'Option'}
+          {area.is_alternate ? (
+            <>
+              <span className="sm:hidden">Option ✓</span>
+              <span className="hidden sm:inline">Option — not in base bid</span>
+            </>
+          ) : (
+            'Option'
+          )}
         </button>
         <span className="ml-auto text-sm font-semibold tabular-nums">
           {fmtMoney(areaTotal)}
           {Number(area.multiplier) > 1 && <span className="ml-1 text-xs font-normal text-slate-400">(×{Number(area.multiplier)})</span>}
         </span>
-        <button onClick={onDuplicate} className="text-slate-400 hover:text-slate-900" title="Duplicate this area with all its lines">
+        <button
+          onClick={onDuplicate}
+          className="-my-1 inline-flex h-10 w-10 items-center justify-center text-lg leading-none text-slate-400 hover:text-slate-900 sm:my-0 sm:h-auto sm:w-auto sm:text-base"
+          title="Duplicate this area with all its lines"
+        >
           ⧉
         </button>
-        <button onClick={onRemove} className="text-slate-300 hover:text-red-600" title="Delete area">
+        <button
+          onClick={onRemove}
+          className="-my-1 inline-flex h-10 w-10 items-center justify-center text-lg leading-none text-slate-300 hover:text-red-600 sm:my-0 sm:h-auto sm:w-auto sm:text-base"
+          title="Delete area"
+        >
           ×
         </button>
       </div>
@@ -1001,7 +1016,7 @@ function AreaCard({
                   <select
                     value={current}
                     onChange={(e) => onSetAreaOverride(std.id, e.target.value === jobDefault ? null : e.target.value)}
-                    className="input mt-0.5 py-1.5 text-sm"
+                    className="input mt-0.5 py-1.5"
                   >
                     {options.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -1028,7 +1043,7 @@ function AreaCard({
               onChange={(e) => setInclusions(e.target.value)}
               onBlur={() => (inclusions.trim() || null) !== area.inclusions && onPatch({ inclusions: inclusions.trim() || null })}
               placeholder="Shows on this room's block on the proposal…"
-              className="input text-sm"
+              className="input"
             />
           </label>
           <label className="block">
@@ -1041,7 +1056,7 @@ function AreaCard({
               onChange={(e) => setExclusions(e.target.value)}
               onBlur={() => (exclusions.trim() || null) !== area.exclusions && onPatch({ exclusions: exclusions.trim() || null })}
               placeholder="NIC items for this room only…"
-              className="input text-sm"
+              className="input"
             />
           </label>
         </div>
@@ -1050,13 +1065,13 @@ function AreaCard({
       <div className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2">
         {!pickerOpen ? (
           <>
-            <button onClick={() => setPickerOpen(true)} className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">
+            <button onClick={() => setPickerOpen(true)} className="rounded-md border border-slate-300 px-2.5 py-2 text-xs font-medium sm:py-1 text-slate-600 hover:bg-slate-100">
               + Cabinet / countertop
             </button>
             {roomHardware.length > 0 && (
               <button
                 onClick={() => setHardwareOpen((v) => !v)}
-                className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                className={`rounded-md border px-2.5 py-2 text-xs font-medium sm:py-1 ${
                   roomSwapCount > 0
                     ? 'border-violet-500 bg-violet-50 text-violet-800'
                     : 'border-slate-300 text-slate-600 hover:bg-slate-100'
@@ -1067,7 +1082,7 @@ function AreaCard({
             )}
             <button
               onClick={() => setNotesOpen((v) => !v)}
-              className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+              className={`rounded-md border px-2.5 py-2 text-xs font-medium sm:py-1 ${
                 area.inclusions || area.exclusions
                   ? 'border-violet-500 bg-violet-50 text-violet-800'
                   : 'border-slate-300 text-slate-600 hover:bg-slate-100'
@@ -1078,39 +1093,47 @@ function AreaCard({
             </button>
             <button
               onClick={() => onAddLine({ kind: 'manual', name: 'One-off item', quantity: 1 })}
-              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded-md border border-slate-300 px-2.5 py-2 text-xs font-medium sm:py-1 text-slate-600 hover:bg-slate-100"
             >
               + One-off item
             </button>
             <button
               onClick={() => onAddLine({ kind: 'sub', name: 'Sub-contract (quote)', quantity: 1 })}
-              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded-md border border-slate-300 px-2.5 py-2 text-xs font-medium sm:py-1 text-slate-600 hover:bg-slate-100"
             >
               + Sub quote
             </button>
           </>
         ) : (
-          <select
-            autoFocus
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) onAddLine({ kind: 'assembly', assembly_id: e.target.value, quantity: 1 })
-              setPickerOpen(false)
-            }}
-            onBlur={() => setPickerOpen(false)}
-            className="input mt-0 max-w-md"
-          >
-            <option value="">Pick from the library…</option>
-            {grouped.map(([cat, items]) => (
-              <optgroup key={cat} label={cat}>
-                {items.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.pricing_unit})
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <>
+            <select
+              autoFocus
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) onAddLine({ kind: 'assembly', assembly_id: e.target.value, quantity: 1 })
+                setPickerOpen(false)
+              }}
+              className="input mt-0 min-w-0 max-w-md flex-1"
+            >
+              <option value="">Pick from the library…</option>
+              {grouped.map(([cat, items]) => (
+                <optgroup key={cat} label={cat}>
+                  {items.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.pricing_unit})
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {/* phones never fire blur on an untouched select, so give an explicit way out */}
+            <button
+              onClick={() => setPickerOpen(false)}
+              className="px-2 py-2 text-sm text-slate-400 hover:text-slate-700"
+            >
+              cancel
+            </button>
+          </>
         )}
       </div>
     </section>
@@ -1133,6 +1156,7 @@ function LineRow({
   const [qtyDraft, setQtyDraft] = useState('')
   const [nameDraft, setNameDraft] = useState(line.name ?? '')
   const [priceDraft, setPriceDraft] = useState(line.unit_price == null ? '' : String(line.unit_price))
+  const [showWarn, setShowWarn] = useState(false)
 
   useEffect(() => setNameDraft(line.name ?? ''), [line.name])
   useEffect(() => setPriceDraft(line.unit_price == null ? '' : String(line.unit_price)), [line.unit_price])
@@ -1160,7 +1184,7 @@ function LineRow({
 
   return (
     <tr className="border-t border-slate-100">
-      <td className="px-4 py-1.5">
+      <td className="px-3 py-1.5 sm:px-4">
         {line.kind === 'assembly' ? (
           <span>
             {assembly?.name ?? '?'}
@@ -1171,23 +1195,46 @@ function LineRow({
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={() => nameDraft !== line.name && onPatch({ name: nameDraft })}
-            className="w-full min-w-32 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-800 focus:outline-none"
+            className="w-full min-w-24 rounded border border-slate-200 px-2 py-1 text-base focus:border-slate-800 focus:outline-none sm:min-w-32 sm:text-sm"
           />
         )}
         {p.warnings.length > 0 && (
-          <span className="ml-1.5 cursor-help text-amber-500" title={p.warnings.map((w) => w.message).join('\n')}>
+          // tooltips never show on touch — tapping the glyph prints the warnings under the name
+          <button
+            onClick={() => setShowWarn((v) => !v)}
+            className="-my-2 ml-0.5 px-2 py-2 align-middle text-amber-500"
+            title={p.warnings.map((w) => w.message).join('\n')}
+          >
             ⚠
-          </span>
+          </button>
+        )}
+        {showWarn && p.warnings.length > 0 && (
+          <div className="mt-0.5 text-[11px] leading-snug text-amber-600">
+            {p.warnings.map((w) => w.message).join(' · ')}
+          </div>
+        )}
+        {/* on phones the rate column is hidden for every row, so manual/sub prices move here */}
+        {line.kind !== 'assembly' && (
+          <div className="mt-1 sm:hidden">
+            <input
+              type="number" step="any" min="0"
+              value={priceDraft}
+              onChange={(e) => setPriceDraft(e.target.value)}
+              onBlur={() => onPatch({ unit_price: priceDraft === '' ? null : Number(priceDraft) })}
+              placeholder={line.kind === 'sub' ? 'quote $' : 'price $'}
+              className="w-28 rounded border border-slate-200 px-1.5 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none"
+            />
+          </div>
         )}
       </td>
-      <td className="w-36 px-2 py-1.5 text-right whitespace-nowrap">
+      <td className="w-[7.25rem] px-1 py-1.5 text-right whitespace-nowrap sm:w-36 sm:px-2">
         <input
           type="number" step="any" min="0"
           value={qtyDraft}
           onChange={(e) => setQtyDraft(e.target.value)}
           onBlur={commitQty}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          className="w-20 rounded border border-slate-200 px-1.5 py-1 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none"
+          className="w-16 rounded border border-slate-200 px-1.5 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none sm:w-20 sm:text-sm"
         />
         {canUseFeet ? (
           <button
@@ -1195,7 +1242,7 @@ function LineRow({
               if (isFeet) onPatch({ entry_mode: 'unit', entry_value: null, quantity: Math.round(Number(line.quantity) * 1000) / 1000 })
               else onPatch({ entry_mode: 'feet', entry_value: qtyToFeet(Number(line.quantity)) })
             }}
-            className="ml-1 w-8 rounded border border-slate-300 px-1 py-1 font-mono text-[10px] uppercase text-slate-500 hover:border-slate-800"
+            className="ml-1 w-10 rounded border border-slate-300 px-1 py-2 font-mono text-[10px] uppercase text-slate-500 hover:border-slate-800 sm:w-8 sm:py-1"
             title={
               isFeet
                 ? isSF
@@ -1207,7 +1254,7 @@ function LineRow({
             {unitLabel}
           </button>
         ) : (
-          <span className="ml-1 inline-block w-8 text-center font-mono text-[10px] uppercase text-slate-400">{unitLabel}</span>
+          <span className="ml-1 inline-block w-10 text-center font-mono text-[10px] uppercase text-slate-400 sm:w-8">{unitLabel}</span>
         )}
         {isFeet && (
           <div className="mt-0.5 font-mono text-[10px] text-slate-400">
@@ -1215,7 +1262,9 @@ function LineRow({
           </div>
         )}
       </td>
-      <td className="w-28 px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+      {/* rate/price column is desktop-only — hidden for EVERY row kind on phones so
+          mixed cabinet/one-off tables keep their columns aligned */}
+      <td className="hidden w-28 px-2 py-1.5 text-right tabular-nums whitespace-nowrap sm:table-cell">
         {line.kind === 'assembly' ? (
           <span className="text-xs text-slate-500" title="Computed: materials × markup + shop labor">
             {Number(line.quantity) > 0 ? fmtCost(p.linePrice / (Number(line.quantity) * Number(area.multiplier))) : '—'}
@@ -1232,12 +1281,17 @@ function LineRow({
           />
         )}
       </td>
-      <td className="w-28 px-2 py-1.5 text-right font-medium tabular-nums whitespace-nowrap">
+      <td className="w-24 px-1 py-1.5 text-right font-medium tabular-nums whitespace-nowrap sm:w-28 sm:px-2">
         {fmtMoney(p.linePrice)}
         {line.kind === 'sub' && <div className="font-mono text-[10px] font-normal text-slate-400">quote × markup</div>}
       </td>
-      <td className="w-8 px-3 py-1.5 text-right">
-        <button onClick={onRemove} className="text-slate-300 hover:text-red-600">×</button>
+      <td className="w-10 px-0 py-0 text-right sm:w-8 sm:px-3 sm:py-1.5">
+        <button
+          onClick={onRemove}
+          className="inline-flex h-10 w-9 items-center justify-center text-lg leading-none text-slate-300 hover:text-red-600 sm:h-auto sm:w-auto sm:text-sm"
+        >
+          ×
+        </button>
       </td>
     </tr>
   )

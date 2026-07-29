@@ -135,7 +135,7 @@ function TextRowsCard({ group, intro, multiline }: { group: string; intro: strin
               rows={Math.max(6, drafts[t.key]?.split('\n').length ?? 6)}
               value={drafts[t.key] ?? ''}
               onChange={(e) => setDrafts((d) => ({ ...d, [t.key]: e.target.value }))}
-              className={`input text-sm ${drafts[t.key] !== t.value ? 'border-amber-400 bg-amber-50' : ''}`}
+              className={`input ${drafts[t.key] !== t.value ? 'border-amber-400 bg-amber-50' : ''}`}
             />
           ) : (
             <input

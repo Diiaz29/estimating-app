@@ -121,7 +121,8 @@ export default function Layout() {
       </main>
 
       {/* Bottom tabs on phones — scrolls sideways when there are many */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex overflow-x-auto border-t-2 border-slate-800 bg-white sm:hidden print:hidden">
+      {/* h-[3.4rem] matches the estimate totals bar's bottom-[3.4rem] — keep them in sync */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex h-[3.4rem] overflow-x-auto border-t-2 border-slate-800 bg-white sm:hidden print:hidden">
         {tabs.map((t) => (
           <NavLink
             key={t.to}

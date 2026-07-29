@@ -18,9 +18,12 @@
 }
 
 @layer components {
-  /* Standard form input used across all pages */
+  /* Standard form input used across all pages.
+     text-base on phones (not text-sm) — 16px is what stops iOS Safari from
+     auto-zooming into a focused field; the base-layer rule above loses to
+     this class on specificity, so the size must live here too. */
   .input {
-    @apply mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-800 focus:outline-none focus:ring-0;
+    @apply mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base focus:border-slate-800 focus:outline-none focus:ring-0 sm:text-sm;
   }
 }
 
