@@ -145,6 +145,7 @@ export interface ChangeOrder {
   status: 'draft' | 'approved'
   amount: number | null
   prior_contract: number | null
+  price_adjustment: number
   created_by: string | null
   approved_at: string | null
   created_at: string

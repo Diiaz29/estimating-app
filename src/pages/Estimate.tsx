@@ -410,9 +410,17 @@ export default function Estimate() {
   }
 
   function coDelta(co: ChangeOrder): number {
-    return areas
-      .filter((a) => a.change_order_id === co.id)
-      .reduce((s, a) => s + (pricing?.alternateAllIn.get(a.id) ?? 0), 0)
+    return (
+      areas
+        .filter((a) => a.change_order_id === co.id)
+        .reduce((s, a) => s + (pricing?.alternateAllIn.get(a.id) ?? 0), 0) +
+      Number(co.price_adjustment ?? 0)
+    )
+  }
+
+  async function setCoAdjustment(co: ChangeOrder, price_adjustment: number) {
+    setChangeOrders((prev) => prev.map((c) => (c.id === co.id ? { ...c, price_adjustment } : c)))
+    await supabase!.from('change_orders').update({ price_adjustment }).eq('id', co.id)
   }
 
   async function approveCo(co: ChangeOrder) {
@@ -426,6 +434,12 @@ export default function Estimate() {
     for (const a of areas.filter((x) => x.change_order_id === co.id)) {
       await supabase!.from('areas').update({ is_alternate: false }).eq('id', a.id)
     }
+    // the CO's own price adjustment enters the contract through the bid-level adjustment
+    const coAdj = Number(co.price_adjustment ?? 0)
+    if (coAdj !== 0) {
+      const price_adjustment = Number(bid!.price_adjustment ?? 0) + coAdj
+      await supabase!.from('bids').update({ price_adjustment }).eq('id', bid!.id)
+    }
     void loadAll()
   }
 
@@ -436,6 +450,12 @@ export default function Estimate() {
       .eq('id', co.id)
     for (const a of areas.filter((x) => x.change_order_id === co.id)) {
       await supabase!.from('areas').update({ is_alternate: true }).eq('id', a.id)
+    }
+    // pull its price adjustment back out of the contract
+    const coAdj = Number(co.price_adjustment ?? 0)
+    if (coAdj !== 0) {
+      const price_adjustment = Number(bid!.price_adjustment ?? 0) - coAdj
+      await supabase!.from('bids').update({ price_adjustment }).eq('id', bid!.id)
     }
     void loadAll()
   }
@@ -627,6 +647,12 @@ export default function Estimate() {
                 >
                   {co.status === 'approved' ? 'approved ✓' : 'draft'}
                 </span>
+                {canEdit && co.status === 'draft' && (
+                  <CoAdjInput value={Number(co.price_adjustment ?? 0)} onSave={(v) => void setCoAdjustment(co, v)} />
+                )}
+                {co.status === 'approved' && Number(co.price_adjustment ?? 0) !== 0 && (
+                  <span className="text-xs text-slate-400">incl. {fmtMoney(Number(co.price_adjustment))} adj</span>
+                )}
                 <span className="font-semibold tabular-nums">{fmtMoney(amount)}</span>
                 <Link
                   to={`/bids/${bid.id}/co/${co.id}`}
@@ -847,6 +873,30 @@ export default function Estimate() {
         />
       )}
     </div>
+  )
+}
+
+/** Discount / add on one change order — negative cuts the CO price. */
+function CoAdjInput({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  const [draft, setDraft] = useState(value === 0 ? '' : String(value))
+  useEffect(() => setDraft(value === 0 ? '' : String(value)), [value])
+  return (
+    <label className="flex items-center gap-1" title="Price adjustment for this change order — negative for a discount. Prints on the CO doc.">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">adj $</span>
+      <input
+        type="number"
+        step="any"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const v = draft === '' ? 0 : Number(draft)
+          if (!Number.isNaN(v) && v !== value) onSave(v)
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        placeholder="0"
+        className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none sm:text-sm"
+      />
+    </label>
   )
 }
 

@@ -110,10 +110,12 @@ export default function ChangeOrderDoc() {
 
   const coAreas = areas.filter((a) => a.change_order_id === co.id)
   const approved = co.status === 'approved'
+  const coAdj = Number(co.price_adjustment ?? 0)
   // draft: live numbers; approved: the numbers locked at approval
   const amount = approved
     ? Number(co.amount ?? 0)
-    : coAreas.reduce((s, a) => s + (pricing.alternateAllIn.get(a.id) ?? 0), 0)
+    : coAreas.reduce((s, a) => s + (pricing.alternateAllIn.get(a.id) ?? 0), 0) + coAdj
+  const scopeAmount = amount - coAdj
   const prior = approved ? Number(co.prior_contract ?? 0) : pricing.contractAmount
   const newContract = prior + amount
 
@@ -211,6 +213,18 @@ export default function ChangeOrderDoc() {
               <td className="px-2 py-1">Original Contract Amount</td>
               <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(prior)}</td>
             </tr>
+            {coAdj !== 0 && (
+              <>
+                <tr className="border-b border-slate-300">
+                  <td className="px-2 py-1">Scope change</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(scopeAmount)}</td>
+                </tr>
+                <tr className="border-b border-slate-300">
+                  <td className="px-2 py-1">{coAdj < 0 ? 'Discount' : 'Price adjustment'}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(coAdj)}</td>
+                </tr>
+              </>
+            )}
             <tr className="border-b border-slate-300">
               <td className="px-2 py-1 font-semibold">
                 This Change Order ({amount < 0 ? 'deduct' : 'add'})
