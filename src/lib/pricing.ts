@@ -222,7 +222,12 @@ export interface CostBreakdown {
 export interface BidPricing {
   areaTotals: Map<string, { price: number; warnings: Warning[] }>
   cabinetTotal: number
+  /** option areas' line-item sums only (no added costs) */
   alternatesTotal: number
+  /** per option area: how much the CONTRACT would rise if it joined the base bid —
+      cabinets plus its share of install, delivery, and every percentage adder */
+  alternateAllIn: Map<string, number>
+  alternatesAllInTotal: number
   installHours: number
   installDays: number
   lfTotal: number
@@ -239,12 +244,14 @@ export interface BidPricing {
   warnings: Warning[]
 }
 
-/** The whole job: areas → cabinet total → adders → contract, plus the internal cost side. */
+/** The whole job: areas → cabinet total → adders → contract, plus the internal cost side.
+ *  computeOptionPrices exists only to stop the option-delta recursion below. */
 export function priceBid(
   bid: Bid,
   areas: Area[],
   linesByArea: Map<string, LineItem[]>,
   ctx: PricingContext,
+  computeOptionPrices = true,
 ): BidPricing {
   const s = ctx.settings
   const areaTotals = new Map<string, { price: number; warnings: Warning[] }>()
@@ -383,10 +390,28 @@ export function priceBid(
       (enabled.insurance ? insurance : 0),
   }
 
+  // An option's honest price = contract WITH it minus contract WITHOUT it.
+  // Re-pricing the whole job with the option folded in picks up its install
+  // hours, delivery footage, and every percentage adder — nothing left out.
+  const alternateAllIn = new Map<string, number>()
+  let alternatesAllInTotal = 0
+  if (computeOptionPrices) {
+    for (const area of areas) {
+      if (!area.is_alternate) continue
+      const flipped = areas.map((a) => (a.id === area.id ? { ...a, is_alternate: false } : a))
+      const withOption = priceBid(bid, flipped, linesByArea, ctx, false)
+      const delta = withOption.contractAmount - contractAmount
+      alternateAllIn.set(area.id, delta)
+      alternatesAllInTotal += delta
+    }
+  }
+
   return {
     areaTotals,
     cabinetTotal,
     alternatesTotal,
+    alternateAllIn,
+    alternatesAllInTotal,
     installHours,
     installDays,
     lfTotal,

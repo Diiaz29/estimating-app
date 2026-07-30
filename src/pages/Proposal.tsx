@@ -23,6 +23,7 @@ interface SnapshotRevision {
         multiplier: number
         is_alternate: boolean
         total: number
+        option_all_in?: number | null
         lines: { label: string; qty: number; entry: string | null; unit: string }[]
         hardware?: string[]
         inclusions?: string | null
@@ -31,7 +32,14 @@ interface SnapshotRevision {
       adders: { key?: string; label: string; price: number; enabled: boolean }[]
       finishes: { slot: string; name: string }[]
     }
-    totals?: { cabinetTotal: number; addersTotal: number; contractAmount: number; tax: number; alternatesTotal: number }
+    totals?: {
+      cabinetTotal: number
+      addersTotal: number
+      contractAmount: number
+      tax: number
+      alternatesTotal: number
+      alternatesAllInTotal?: number
+    }
     bid?: Bid
   }
 }
@@ -198,7 +206,8 @@ export default function Proposal() {
           sheet_ref: a.sheet_ref,
           multiplier: a.multiplier,
           is_alternate: a.is_alternate,
-          total: a.total,
+          // option prices are all-in (older snapshots only stored the cabinet-work total)
+          total: a.is_alternate ? a.option_all_in ?? a.total : a.total,
           includes: a.lines.map((l) => `${l.label} (${l.entry ?? `${Math.round(l.qty * 1000) / 1000} ${l.unit}`})`).join('; '),
           inclusions: a.inclusions ?? null,
           exclusions: a.exclusions ?? null,
@@ -208,7 +217,7 @@ export default function Proposal() {
         base: t.contractAmount - install - delivery,
         install,
         delivery,
-        alternates: t.alternatesTotal,
+        alternates: t.alternatesAllInTotal ?? t.alternatesTotal,
         adjustment: snapBid?.adjustment_visible === false ? 0 : Number(snapBid?.price_adjustment ?? 0),
         adjustmentNote: snapBid?.adjustment_note ?? null,
         contract: t.contractAmount,
@@ -250,7 +259,10 @@ export default function Proposal() {
           sheet_ref: area.sheet_ref,
           multiplier: Number(area.multiplier),
           is_alternate: area.is_alternate,
-          total: pricing.areaTotals.get(area.id)?.price ?? 0,
+          // option rooms print their all-in price: cabinets + their share of added costs
+          total: area.is_alternate
+            ? pricing.alternateAllIn.get(area.id) ?? pricing.areaTotals.get(area.id)?.price ?? 0
+            : pricing.areaTotals.get(area.id)?.price ?? 0,
           inclusions: area.inclusions,
           exclusions: area.exclusions,
           includes: areaLines
@@ -270,7 +282,7 @@ export default function Proposal() {
       base: pricing.contractAmount - install - delivery,
       install,
       delivery,
-      alternates: pricing.alternatesTotal,
+      alternates: pricing.alternatesAllInTotal,
       adjustment: bid.adjustment_visible ? pricing.adjustment : 0,
       adjustmentNote: bid.adjustment_note,
       contract: pricing.contractAmount,
@@ -494,7 +506,7 @@ export default function Proposal() {
                 )}
                 {area.is_alternate && (
                   <div className="mt-0.5">
-                    <b>Option price:</b> {fmtMoney(area.total)}
+                    <b>Option price (all costs included):</b> {fmtMoney(area.total)}
                   </div>
                 )}
               </div>

@@ -160,8 +160,8 @@ export default function Budget() {
                 <Row label="Contract amount" value={pricing.contractAmount} bold rule />
                 <Row label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={pricing.tax} />
                 <Row label="Total with tax" value={totalWithTax} bold />
-                {pricing.alternatesTotal > 0 && (
-                  <Row label="Options (not in contract)" value={pricing.alternatesTotal} muted />
+                {pricing.alternatesAllInTotal > 0 && (
+                  <Row label="Options, all-in (not in contract)" value={pricing.alternatesAllInTotal} muted />
                 )}
               </tbody>
             </table>

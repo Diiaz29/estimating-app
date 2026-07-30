@@ -323,6 +323,7 @@ export default function Estimate() {
         inclusions: area.inclusions,
         exclusions: area.exclusions,
         total: pricing.areaTotals.get(area.id)?.price ?? 0,
+        option_all_in: area.is_alternate ? pricing.alternateAllIn.get(area.id) ?? null : null,
         lines: areaLines,
         hardware,
       }
@@ -356,6 +357,7 @@ export default function Estimate() {
           contractAmount: pricing.contractAmount,
           tax: pricing.tax,
           alternatesTotal: pricing.alternatesTotal,
+          alternatesAllInTotal: pricing.alternatesAllInTotal,
         },
         settings: Object.fromEntries(settings.map((s) => [s.key, Number(s.value)])),
       },
@@ -498,6 +500,7 @@ export default function Estimate() {
           assemblies={assemblies}
           ctx={ctx}
           areaTotal={pricing.areaTotals.get(area.id)?.price ?? 0}
+          optionAllIn={area.is_alternate ? pricing.alternateAllIn.get(area.id) ?? null : null}
           onPatch={(f) => void patchArea(area, f)}
           onRemove={() => setRemovingArea(area)}
           onDuplicate={() => void duplicateArea(area)}
@@ -624,7 +627,13 @@ export default function Estimate() {
           )}
           <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
           <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
-          {pricing.alternatesTotal > 0 && <TotalCell label="Options" value={fmtMoney(pricing.alternatesTotal)} />}
+          {pricing.alternatesAllInTotal > 0 && (
+            <TotalCell
+              label="Options"
+              value={fmtMoney(pricing.alternatesAllInTotal)}
+              title="What the contract would rise by if every option were taken — cabinets plus each option's share of install, delivery, and added costs"
+            />
+          )}
           {isAdmin && (
             <>
               <TotalCell label="True cost" value={fmtMoney(pricing.trueCost)} muted />
@@ -852,7 +861,7 @@ function MaterialSwaps({
 // ---------------- Area card ----------------
 
 function AreaCard({
-  area, lines, assemblies, ctx, areaTotal, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
+  area, lines, assemblies, ctx, areaTotal, optionAllIn, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
   onSetAreaOverride, allMaterials,
 }: {
   area: Area
@@ -860,6 +869,7 @@ function AreaCard({
   assemblies: Assembly[]
   ctx: ReturnType<typeof buildContext>
   areaTotal: number
+  optionAllIn: number | null
   onPatch: (fields: Partial<Area>) => void
   onRemove: () => void
   onDuplicate: () => void
@@ -956,9 +966,17 @@ function AreaCard({
             'Option'
           )}
         </button>
-        <span className="ml-auto text-sm font-semibold tabular-nums">
+        <span className="ml-auto text-right text-sm font-semibold tabular-nums">
           {fmtMoney(areaTotal)}
           {Number(area.multiplier) > 1 && <span className="ml-1 text-xs font-normal text-slate-400">(×{Number(area.multiplier)})</span>}
+          {area.is_alternate && optionAllIn != null && (
+            <span
+              className="block text-xs font-normal text-violet-700"
+              title="What the contract rises by if the client takes this option — cabinets plus this room's share of install, delivery, and added costs. This is the price shown on the proposal."
+            >
+              {fmtMoney(optionAllIn)} all-in
+            </span>
+          )}
         </span>
         <button
           onClick={onDuplicate}

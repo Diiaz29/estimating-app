@@ -40,7 +40,7 @@ interface RevisionRow {
       adders: { label: string; price: number; enabled: boolean }[]
       finishes: { slot: string; name: string }[]
     }
-    totals?: { cabinetTotal: number; addersTotal: number; alternatesTotal: number }
+    totals?: { cabinetTotal: number; addersTotal: number; alternatesTotal: number; alternatesAllInTotal?: number }
   }
 }
 
@@ -153,7 +153,9 @@ export default function RevisionView() {
           {totals && <Cell label="Added costs" value={fmtMoney(totals.addersTotal)} />}
           <Cell label={`Contract (R${rev.rev_number})`} value={fmtMoney(Number(rev.contract_amount))} strong />
           <Cell label="Tax" value={fmtMoney(Number(rev.tax))} />
-          {totals && totals.alternatesTotal > 0 && <Cell label="Options" value={fmtMoney(totals.alternatesTotal)} />}
+          {totals && (totals.alternatesAllInTotal ?? totals.alternatesTotal) > 0 && (
+            <Cell label="Options" value={fmtMoney(totals.alternatesAllInTotal ?? totals.alternatesTotal)} />
+          )}
           {isAdmin && rev.margin_pct != null && (
             <Cell label="Margin" value={`${(Number(rev.margin_pct) * 100).toFixed(1)}%`} strong />
           )}
