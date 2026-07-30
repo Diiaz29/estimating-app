@@ -563,22 +563,53 @@ export default function Proposal() {
           )}
 
           <SectionTitle small>Contract Amount</SectionTitle>
-          <table className="w-full border-2 border-slate-900">
-            <tbody>
-              <tr className="border-b border-slate-300">
-                <td className="px-2 py-1 font-semibold">Contract Amount (Lump Sum)</td>
-                <td className="px-2 py-1 text-right font-semibold tabular-nums">{fmtMoney(data.contract)}</td>
-              </tr>
-              <tr className="border-b border-slate-300">
-                <td className="px-2 py-0.5">Tax</td>
-                <td className="px-2 py-0.5 text-right tabular-nums">{data.taxExempt ? 'exempt' : fmtMoney(data.tax)}</td>
-              </tr>
-              <tr className="bg-slate-100 font-semibold">
-                <td className="px-2 py-1">Total including tax</td>
-                <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(data.contract + (data.taxExempt ? 0 : data.tax))}</td>
-              </tr>
-            </tbody>
-          </table>
+          {(() => {
+            const options = data.areas.filter((a) => a.is_alternate)
+            const taxRate = data.taxExempt || data.contract <= 0 ? 0 : data.tax / data.contract
+            const withTax = (amount: number) => amount * (1 + taxRate)
+            return (
+              <>
+                <table className="w-full border-2 border-slate-900">
+                  <tbody>
+                    <tr className="border-b border-slate-300">
+                      <td className="px-2 py-1 font-semibold">
+                        Contract Amount (Lump Sum{options.length > 0 ? ' — base bid' : ''})
+                      </td>
+                      <td className="px-2 py-1 text-right font-semibold tabular-nums">{fmtMoney(data.contract)}</td>
+                    </tr>
+                    <tr className="border-b border-slate-300">
+                      <td className="px-2 py-0.5">Tax</td>
+                      <td className="px-2 py-0.5 text-right tabular-nums">{data.taxExempt ? 'exempt' : fmtMoney(data.tax)}</td>
+                    </tr>
+                    <tr className={`bg-slate-100 font-semibold ${options.length > 0 ? 'border-b-2 border-slate-900' : ''}`}>
+                      <td className="px-2 py-1">Total including tax{options.length > 0 ? ' — base bid' : ''}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(data.contract + (data.taxExempt ? 0 : data.tax))}</td>
+                    </tr>
+                    {options.map((o, i) => (
+                      <tr key={i} className="border-b border-slate-300 last:border-b-0">
+                        <td className="px-2 py-1">
+                          <span className="mr-1.5 inline-block h-3.5 w-3.5 translate-y-0.5 border-2 border-slate-900" />
+                          <span className="mr-1 inline-block w-12 translate-y-[3px] border-b-2 border-slate-900" />
+                          <span className="mr-2 font-mono text-[8px] uppercase tracking-wider text-slate-500">initial</span>
+                          <b>Option — {o.name}:</b> add {fmtMoney(o.total)}
+                          {!data.taxExempt && ' + tax'}
+                        </td>
+                        <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
+                          total w/ option: <b>{fmtMoney(withTax(data.contract + o.total))}</b>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {options.length > 0 && (
+                  <p className="mt-0.5 text-[10px] text-slate-600">
+                    Check and initial the option(s) accepted — the checked total becomes the Contract
+                    Amount{options.length > 1 ? '. If more than one option is accepted, their add prices combine' : ''}.
+                  </p>
+                )}
+              </>
+            )
+          })()}
 
           {(terms.wa_payment_terms ?? '').trim() !== '' && (
             <>
