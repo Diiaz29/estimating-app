@@ -23,6 +23,7 @@ import PlanRoom from './pages/PlanRoom'
 import Plans from './pages/Plans'
 import Field from './pages/Field'
 import FieldReportView from './pages/FieldReportView'
+import ChangeOrderDoc from './pages/ChangeOrderDoc'
 import Schedule from './pages/Schedule'
 import TimeClock from './pages/TimeClock'
 import JobSchedule from './pages/JobSchedule'
@@ -77,6 +78,7 @@ function Gate() {
           <Route path="plans/room" element={<PlanRoom />} />
           <Route path="field" element={<Field />} />
           <Route path="field/report/:reportId" element={<FieldReportView />} />
+          <Route path="co/:coId" element={<ChangeOrderDoc />} />
         </Route>
         <Route path="/reports" element={<Reports />} />
         <Route path="/contractors" element={<Customers />} />

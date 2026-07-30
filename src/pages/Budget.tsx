@@ -160,9 +160,20 @@ export default function Budget() {
                 <Row label="Contract amount" value={pricing.contractAmount} bold rule />
                 <Row label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={pricing.tax} />
                 <Row label="Total with tax" value={totalWithTax} bold />
-                {pricing.alternatesAllInTotal > 0 && (
-                  <Row label="Options, all-in (not in contract)" value={pricing.alternatesAllInTotal} muted />
-                )}
+                {(() => {
+                  const optionsAllIn = areas
+                    .filter((a) => a.is_alternate && !a.change_order_id)
+                    .reduce((s, a) => s + (pricing.alternateAllIn.get(a.id) ?? 0), 0)
+                  const pendingCos = areas
+                    .filter((a) => a.is_alternate && a.change_order_id)
+                    .reduce((s, a) => s + (pricing.alternateAllIn.get(a.id) ?? 0), 0)
+                  return (
+                    <>
+                      {optionsAllIn > 0 && <Row label="Options, all-in (not in contract)" value={optionsAllIn} muted />}
+                      {pendingCos !== 0 && <Row label="Pending change orders (not in contract)" value={pendingCos} muted />}
+                    </>
+                  )
+                })()}
               </tbody>
             </table>
           </section>

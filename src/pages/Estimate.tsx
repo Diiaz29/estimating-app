@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
   Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish,
-  BidMaterialOverride, Finish, LineItem, Material, Revision, Setting,
+  BidMaterialOverride, ChangeOrder, Finish, LineItem, Material, Revision, Setting,
 } from '../lib/types'
 import { buildContext, priceBid, priceLine, resolveMaterialId } from '../lib/pricing'
 import { fmtCost, fmtDueDate, fmtMoney } from '../lib/format'
@@ -50,13 +50,16 @@ export default function Estimate() {
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
   const [areaOverrides, setAreaOverridesState] = useState<AreaMaterialOverride[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
   const [error, setError] = useState<string | null>(null)
   const [removingArea, setRemovingArea] = useState<Area | null>(null)
   const [removingRevision, setRemovingRevision] = useState<Revision | null>(null)
+  const [removingCo, setRemovingCo] = useState<ChangeOrder | null>(null)
+  const [approvingCo, setApprovingCo] = useState<ChangeOrder | null>(null)
   const [snapshotting, setSnapshotting] = useState(false)
 
   async function loadAll() {
-    const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes] = await Promise.all([
+    const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes, coRes] = await Promise.all([
       supabase!.from('bids').select('*').eq('id', id!).single(),
       supabase!.from('areas').select('*').eq('bid_id', id!).order('sort_order').order('created_at'),
       supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', id!),
@@ -67,6 +70,7 @@ export default function Estimate() {
       supabase!.from('settings').select('*'),
       supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
       supabase!.from('revisions').select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at').eq('bid_id', id!).order('rev_number', { ascending: false }),
+      supabase!.from('change_orders').select('*').eq('bid_id', id!).order('co_number'),
     ])
     if (bidRes.error) return setError(bidRes.error.message)
     setBid(bidRes.data as Bid)
@@ -99,6 +103,7 @@ export default function Estimate() {
     setSettings((setRes.data ?? []) as Setting[])
     setOverrides((ovrRes.data ?? []) as BidMaterialOverride[])
     setRevisions((revRes.data ?? []) as Revision[])
+    setChangeOrders((coRes.data ?? []) as ChangeOrder[])
   }
 
   useEffect(() => {
@@ -320,6 +325,7 @@ export default function Estimate() {
         sheet_ref: area.sheet_ref,
         multiplier: Number(area.multiplier),
         is_alternate: area.is_alternate,
+        change_order: area.change_order_id != null,
         inclusions: area.inclusions,
         exclusions: area.exclusions,
         total: pricing.areaTotals.get(area.id)?.price ?? 0,
@@ -357,7 +363,8 @@ export default function Estimate() {
           contractAmount: pricing.contractAmount,
           tax: pricing.tax,
           alternatesTotal: pricing.alternatesTotal,
-          alternatesAllInTotal: pricing.alternatesAllInTotal,
+          // client-facing options only — draft change orders don't belong on the proposal
+          alternatesAllInTotal: clientOptionsTotal,
         },
         settings: Object.fromEntries(settings.map((s) => [s.key, Number(s.value)])),
       },
@@ -381,6 +388,67 @@ export default function Estimate() {
     else setRevisions((prev) => prev.filter((r) => r.id !== rev.id))
   }
 
+  // ---------------- change orders ----------------
+
+  async function addChangeOrder(title: string) {
+    const num = (changeOrders[changeOrders.length - 1]?.co_number ?? 0) + 1
+    const { data: co, error } = await supabase!
+      .from('change_orders')
+      .insert({ bid_id: bid!.id, co_number: num, title, created_by: session?.user.email ?? null })
+      .select('*')
+      .single()
+    if (error) return setError(error.message)
+    // the CO's scope lives in its own area; draft COs price like options (excluded, all-in delta)
+    await supabase!.from('areas').insert({
+      bid_id: bid!.id,
+      name: `CO #${num} — ${title}`,
+      is_alternate: true,
+      change_order_id: co.id,
+      sort_order: areas.length,
+    })
+    void loadAll()
+  }
+
+  function coDelta(co: ChangeOrder): number {
+    return areas
+      .filter((a) => a.change_order_id === co.id)
+      .reduce((s, a) => s + (pricing?.alternateAllIn.get(a.id) ?? 0), 0)
+  }
+
+  async function approveCo(co: ChangeOrder) {
+    setApprovingCo(null)
+    if (!pricing) return
+    const amount = coDelta(co)
+    await supabase!
+      .from('change_orders')
+      .update({ status: 'approved', amount, prior_contract: pricing.contractAmount, approved_at: new Date().toISOString() })
+      .eq('id', co.id)
+    for (const a of areas.filter((x) => x.change_order_id === co.id)) {
+      await supabase!.from('areas').update({ is_alternate: false }).eq('id', a.id)
+    }
+    void loadAll()
+  }
+
+  async function reopenCo(co: ChangeOrder) {
+    await supabase!
+      .from('change_orders')
+      .update({ status: 'draft', amount: null, prior_contract: null, approved_at: null })
+      .eq('id', co.id)
+    for (const a of areas.filter((x) => x.change_order_id === co.id)) {
+      await supabase!.from('areas').update({ is_alternate: true }).eq('id', a.id)
+    }
+    void loadAll()
+  }
+
+  async function removeCo(co: ChangeOrder) {
+    setRemovingCo(null)
+    for (const a of areas.filter((x) => x.change_order_id === co.id)) {
+      await supabase!.from('areas').delete().eq('id', a.id)
+    }
+    await supabase!.from('change_orders').delete().eq('id', co.id)
+    void loadAll()
+  }
+
   async function toggleAdder(key: keyof BidAdders) {
     const adders = { ...bid!.adders, [key]: !bid!.adders[key] }
     setBid((b) => (b ? { ...b, adders } : b))
@@ -389,6 +457,19 @@ export default function Estimate() {
   }
 
   const uniqueWarnings = [...new Set(pricing.warnings.map((w) => w.message))]
+
+  // client-facing options exclude draft change-order areas — those get their own CO doc
+  const clientOptionsTotal = areas
+    .filter((a) => a.is_alternate && !a.change_order_id)
+    .reduce((s, a) => s + (pricing.alternateAllIn.get(a.id) ?? 0), 0)
+  const pendingCoTotal = changeOrders
+    .filter((c) => c.status === 'draft')
+    .reduce((s, c) => s + coDelta(c), 0)
+  const coNumberByAreaId = new Map(
+    areas
+      .filter((a) => a.change_order_id)
+      .map((a) => [a.id, changeOrders.find((c) => c.id === a.change_order_id)?.co_number ?? null]),
+  )
 
   return (
     <div className="space-y-5 pb-40">
@@ -501,6 +582,7 @@ export default function Estimate() {
           ctx={ctx}
           areaTotal={pricing.areaTotals.get(area.id)?.price ?? 0}
           optionAllIn={area.is_alternate ? pricing.alternateAllIn.get(area.id) ?? null : null}
+          coNumber={coNumberByAreaId.get(area.id) ?? null}
           onPatch={(f) => void patchArea(area, f)}
           onRemove={() => setRemovingArea(area)}
           onDuplicate={() => void duplicateArea(area)}
@@ -519,6 +601,74 @@ export default function Estimate() {
         >
           + Add area (room)
         </button>
+      )}
+
+      {/* Change orders */}
+      {(changeOrders.length > 0 || canEdit) && (
+        <section className="rounded-lg border-2 border-amber-600 bg-white">
+          <h2 className="border-b-2 border-amber-600 bg-amber-50 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-amber-800">
+            Change orders — scope changes after the contract
+          </h2>
+          {changeOrders.map((co, i) => {
+            const amount = co.status === 'approved' ? Number(co.amount ?? 0) : coDelta(co)
+            return (
+              <div
+                key={co.id}
+                className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}
+              >
+                <span className="font-mono text-xs font-semibold">CO #{co.co_number}</span>
+                <span className="min-w-0 flex-1 basis-40 truncate font-medium">{co.title}</span>
+                <span
+                  className={`rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+                    co.status === 'approved'
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-amber-400 bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  {co.status === 'approved' ? 'approved ✓' : 'draft'}
+                </span>
+                <span className="font-semibold tabular-nums">{fmtMoney(amount)}</span>
+                <Link
+                  to={`/bids/${bid.id}/co/${co.id}`}
+                  className="rounded-md border-2 border-slate-900 px-2.5 py-0.5 text-xs font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
+                >
+                  CO doc →
+                </Link>
+                {canEdit && co.status === 'draft' && (
+                  <>
+                    <button
+                      onClick={() => setApprovingCo(co)}
+                      className="rounded-md border border-emerald-600 px-2.5 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                      title="Client signed — lock the numbers and fold this into the contract"
+                    >
+                      Approve
+                    </button>
+                    <button onClick={() => setRemovingCo(co)} className="text-xs text-slate-300 hover:text-red-600">
+                      remove
+                    </button>
+                  </>
+                )}
+                {canEdit && co.status === 'approved' && (
+                  <button
+                    onClick={() => void reopenCo(co)}
+                    className="text-xs text-slate-400 hover:text-slate-900"
+                    title="Pull it back out of the contract and unlock the numbers"
+                  >
+                    reopen
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          {canEdit && (
+            <NewCoRow first={changeOrders.length === 0} onAdd={(title) => void addChangeOrder(title)} />
+          )}
+          <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+            A change order prices like an option — its rooms show below with an amber tag and stay
+            out of the contract until you approve it. Print the CO doc, get it signed, then hit
+            Approve.
+          </p>
+        </section>
       )}
 
       {/* Adders */}
@@ -627,11 +777,18 @@ export default function Estimate() {
           )}
           <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
           <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
-          {pricing.alternatesAllInTotal > 0 && (
+          {clientOptionsTotal > 0 && (
             <TotalCell
               label="Options"
-              value={fmtMoney(pricing.alternatesAllInTotal)}
+              value={fmtMoney(clientOptionsTotal)}
               title="What the contract would rise by if every option were taken — cabinets plus each option's share of install, delivery, and added costs"
+            />
+          )}
+          {pendingCoTotal !== 0 && (
+            <TotalCell
+              label="Pending COs"
+              value={fmtMoney(pendingCoTotal)}
+              title="Draft change orders — join the contract when approved"
             />
           )}
           {isAdmin && (
@@ -671,7 +828,55 @@ export default function Estimate() {
           onCancel={() => setRemovingRevision(null)}
         />
       )}
+      {removingCo && (
+        <ConfirmDialog
+          title="Remove change order"
+          message={`Remove CO #${removingCo.co_number} — ${removingCo.title}? Its rooms and line items go too.`}
+          confirmLabel="Remove"
+          onConfirm={() => void removeCo(removingCo)}
+          onCancel={() => setRemovingCo(null)}
+        />
+      )}
+      {approvingCo && (
+        <ConfirmDialog
+          title="Approve change order"
+          message={`Approve CO #${approvingCo.co_number} for ${fmtMoney(coDelta(approvingCo))}? The amount locks and the contract rises to ${fmtMoney(pricing.contractAmount + coDelta(approvingCo))}. Do this after the client signs the CO doc.`}
+          confirmLabel="Approve"
+          onConfirm={() => void approveCo(approvingCo)}
+          onCancel={() => setApprovingCo(null)}
+        />
+      )}
     </div>
+  )
+}
+
+/** One-line form to open a new change order. */
+function NewCoRow({ first, onAdd }: { first: boolean; onAdd: (title: string) => void }) {
+  const [title, setTitle] = useState('')
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!title.trim()) return
+        onAdd(title.trim())
+        setTitle('')
+      }}
+      className={`flex flex-wrap items-center gap-2 px-4 py-2.5 ${first ? '' : 'border-t border-slate-100'}`}
+    >
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="What changed? (e.g. Added reception closet)"
+        className="input mt-0 min-w-0 flex-1 basis-56 py-1.5"
+      />
+      <button
+        type="submit"
+        disabled={!title.trim()}
+        className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
+      >
+        + New change order
+      </button>
+    </form>
   )
 }
 
@@ -861,7 +1066,7 @@ function MaterialSwaps({
 // ---------------- Area card ----------------
 
 function AreaCard({
-  area, lines, assemblies, ctx, areaTotal, optionAllIn, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
+  area, lines, assemblies, ctx, areaTotal, optionAllIn, coNumber, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
   onSetAreaOverride, allMaterials,
 }: {
   area: Area
@@ -870,6 +1075,7 @@ function AreaCard({
   ctx: ReturnType<typeof buildContext>
   areaTotal: number
   optionAllIn: number | null
+  coNumber: number | null
   onPatch: (fields: Partial<Area>) => void
   onRemove: () => void
   onDuplicate: () => void
@@ -917,9 +1123,22 @@ function AreaCard({
     return [...map.entries()]
   }, [assemblies])
 
+  const isCo = coNumber != null
   return (
-    <section className={`rounded-lg border-2 bg-white ${area.is_alternate ? 'border-violet-700' : 'border-slate-800'}`}>
-      <div className={`flex flex-wrap items-center gap-2 border-b-2 px-4 py-2 ${area.is_alternate ? 'border-violet-700 bg-violet-50' : 'border-slate-800'}`}>
+    <section
+      className={`rounded-lg border-2 bg-white ${
+        isCo ? 'border-amber-600' : area.is_alternate ? 'border-violet-700' : 'border-slate-800'
+      }`}
+    >
+      <div
+        className={`flex flex-wrap items-center gap-2 border-b-2 px-4 py-2 ${
+          isCo
+            ? 'border-amber-600 bg-amber-50'
+            : area.is_alternate
+              ? 'border-violet-700 bg-violet-50'
+              : 'border-slate-800'
+        }`}
+      >
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -948,31 +1167,42 @@ function AreaCard({
             className="w-16 rounded border border-slate-200 px-1.5 py-1.5 text-right text-base focus:border-slate-800 focus:outline-none sm:w-14 sm:py-0.5 sm:text-xs"
           />
         </label>
-        <button
-          onClick={() => onPatch({ is_alternate: !area.is_alternate })}
-          className={`rounded-full border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider sm:py-0.5 ${
-            area.is_alternate
-              ? 'border-violet-700 bg-violet-700 text-white'
-              : 'border-slate-300 text-slate-400 hover:border-violet-700 hover:text-violet-700'
-          }`}
-          title="Priced separately as an option — not counted in the base bid"
-        >
-          {area.is_alternate ? (
-            <>
-              <span className="sm:hidden">Option ✓</span>
-              <span className="hidden sm:inline">Option — not in base bid</span>
-            </>
-          ) : (
-            'Option'
-          )}
-        </button>
+        {isCo ? (
+          <span
+            className="rounded-full border border-amber-600 bg-amber-600 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-white sm:py-0.5"
+            title={area.is_alternate
+              ? 'Draft change order — joins the contract when the CO is approved'
+              : 'Approved change order — counted in the contract'}
+          >
+            CO #{coNumber}{area.is_alternate ? '' : ' ✓'}
+          </span>
+        ) : (
+          <button
+            onClick={() => onPatch({ is_alternate: !area.is_alternate })}
+            className={`rounded-full border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider sm:py-0.5 ${
+              area.is_alternate
+                ? 'border-violet-700 bg-violet-700 text-white'
+                : 'border-slate-300 text-slate-400 hover:border-violet-700 hover:text-violet-700'
+            }`}
+            title="Priced separately as an option — not counted in the base bid"
+          >
+            {area.is_alternate ? (
+              <>
+                <span className="sm:hidden">Option ✓</span>
+                <span className="hidden sm:inline">Option — not in base bid</span>
+              </>
+            ) : (
+              'Option'
+            )}
+          </button>
+        )}
         <span className="ml-auto text-right text-sm font-semibold tabular-nums">
           {fmtMoney(areaTotal)}
           {Number(area.multiplier) > 1 && <span className="ml-1 text-xs font-normal text-slate-400">(×{Number(area.multiplier)})</span>}
           {area.is_alternate && optionAllIn != null && (
             <span
-              className="block text-xs font-normal text-violet-700"
-              title="What the contract rises by if the client takes this option — cabinets plus this room's share of install, delivery, and added costs. This is the price shown on the proposal."
+              className={`block text-xs font-normal ${isCo ? 'text-amber-700' : 'text-violet-700'}`}
+              title="What the contract rises by if this is accepted — cabinets plus this room's share of install, delivery, and added costs."
             >
               {fmtMoney(optionAllIn)} all-in
             </span>

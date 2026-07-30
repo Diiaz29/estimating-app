@@ -131,7 +131,23 @@ export interface Area {
   is_alternate: boolean
   inclusions: string | null
   exclusions: string | null
+  /** set when this area belongs to a change order; drafts stay is_alternate=true */
+  change_order_id: string | null
   sort_order: number
+}
+
+export interface ChangeOrder {
+  id: string
+  bid_id: string
+  co_number: number
+  title: string
+  description: string | null
+  status: 'draft' | 'approved'
+  amount: number | null
+  prior_contract: number | null
+  created_by: string | null
+  approved_at: string | null
+  created_at: string
 }
 
 export type LineKind = 'assembly' | 'manual' | 'sub'

@@ -22,6 +22,7 @@ interface SnapshotRevision {
         sheet_ref: string | null
         multiplier: number
         is_alternate: boolean
+        change_order?: boolean
         total: number
         option_all_in?: number | null
         lines: { label: string; qty: number; entry: string | null; unit: string }[]
@@ -201,7 +202,8 @@ export default function Proposal() {
         isLocked: true,
         // the proposal is dated when the price was locked, not when it's printed
         presentedOn: new Date(rev.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
-        areas: d.areas.map((a) => ({
+        // draft change orders never print on the proposal — they get their own CO doc
+        areas: d.areas.filter((a) => !(a.is_alternate && a.change_order)).map((a) => ({
           name: a.name,
           sheet_ref: a.sheet_ref,
           multiplier: a.multiplier,
@@ -242,7 +244,8 @@ export default function Proposal() {
       sourceLabel: 'Live numbers — snapshot before sending!',
       isLocked: false,
       presentedOn: new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
-      areas: areas.map((area) => {
+      // draft change orders never print on the proposal — they get their own CO doc
+      areas: areas.filter((a) => !(a.is_alternate && a.change_order_id)).map((area) => {
         const areaLines = linesByArea.get(area.id) ?? []
         const hardware = [
           ...new Set(
@@ -282,7 +285,9 @@ export default function Proposal() {
       base: pricing.contractAmount - install - delivery,
       install,
       delivery,
-      alternates: pricing.alternatesAllInTotal,
+      alternates: areas
+        .filter((a) => a.is_alternate && !a.change_order_id)
+        .reduce((s, a) => s + (pricing.alternateAllIn.get(a.id) ?? 0), 0),
       adjustment: bid.adjustment_visible ? pricing.adjustment : 0,
       adjustmentNote: bid.adjustment_note,
       contract: pricing.contractAmount,
