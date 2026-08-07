@@ -86,10 +86,10 @@ describe('daysSince / isOverdue (time-dependent)', () => {
   it('flags an active bid past its due date, not a finished one', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-23T12:00:00Z'))
-    expect(isOverdue({ due_at: '2026-07-20T12:00:00Z', status: 'pricing' })).toBe(true)
-    expect(isOverdue({ due_at: '2026-07-25T12:00:00Z', status: 'pricing' })).toBe(false)
+    expect(isOverdue({ due_at: '2026-07-20T12:00:00Z', status: 'working' })).toBe(true)
+    expect(isOverdue({ due_at: '2026-07-25T12:00:00Z', status: 'working' })).toBe(false)
     // won/lost never count as overdue even if the date passed
     expect(isOverdue({ due_at: '2026-07-20T12:00:00Z', status: 'won' })).toBe(false)
-    expect(isOverdue({ due_at: null, status: 'pricing' })).toBe(false)
+    expect(isOverdue({ due_at: null, status: 'working' })).toBe(false)
   })
 })

@@ -88,16 +88,18 @@ const NO_ADDERS: BidAdders = {
 
 function makeBid(over: Partial<Bid> = {}): Bid {
   return {
-    id: 'bid-1', job_number: '26-001', name: 'Test Job', status: 'pricing',
+    id: 'bid-1', job_number: '26-001', name: 'Test Job', status: 'working',
     due_at: null, address: null, distance_miles: 0, labor_heads: 1, install_heads: 1,
     tax_exempt: false, bid_value: null, drawings_date: null, adders: NO_ADDERS,
     inclusions: null, exclusions: null, notes: null, lost_reason: null,
+    sent_at: null, followup_days: null, completed_at: null,
+    price_adjustment: 0, adjustment_note: null, adjustment_visible: false,
     created_at: FRESH, updated_at: FRESH, ...over,
   }
 }
 
 function makeArea(over: Partial<Area> = {}): Area {
-  return { id: 'area-1', bid_id: 'bid-1', name: 'Kitchen', sheet_ref: null, multiplier: 1, is_alternate: false, sort_order: 0, ...over }
+  return { id: 'area-1', bid_id: 'bid-1', name: 'Kitchen', sheet_ref: null, multiplier: 1, is_alternate: false, inclusions: null, exclusions: null, change_order_id: null, sort_order: 0, ...over }
 }
 
 function assemblyLine(over: Partial<LineItem> = {}): LineItem {
