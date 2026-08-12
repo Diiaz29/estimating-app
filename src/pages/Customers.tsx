@@ -12,7 +12,7 @@ const TYPE_LABEL: Record<CustomerType, string> = {
 }
 
 export default function Customers() {
-  const { canEdit } = useAuth()
+  const { canManageBids: canEdit } = useAuth()
   const [customers, setCustomers] = useState<Customer[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)

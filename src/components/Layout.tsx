@@ -22,8 +22,9 @@ const adminTabs = [
 ]
 
 export default function Layout() {
-  const { session, isAdmin, realRole, viewAs, setViewAs } = useAuth()
-  const tabs = isAdmin ? adminTabs : baseTabs
+  const { session, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
+  // office never touches the pricing libraries
+  const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
   const { pathname } = useLocation()
   // the plan room wants every pixel of a big monitor
   const fullWidth = pathname.endsWith('/plans/room')
@@ -101,6 +102,7 @@ export default function Layout() {
                   <option value="admin">admin</option>
                   <option value="estimator">estimator</option>
                   <option value="pm">pm</option>
+                  <option value="office">office</option>
                   <option value="viewer">viewer</option>
                 </select>
               </label>

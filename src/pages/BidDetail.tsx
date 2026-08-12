@@ -11,7 +11,7 @@ import PlansSection from '../components/PlansSection'
 export default function BidDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin, canEdit } = useAuth()
+  const { isAdmin, canManageBids: canEdit } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [gcs, setGcs] = useState<BidCustomer[]>([])
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])

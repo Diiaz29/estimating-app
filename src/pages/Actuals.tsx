@@ -41,7 +41,9 @@ const EMPTY: Omit<JobActuals, 'bid_id'> = {
 
 export default function Actuals() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, session } = useAuth()
+  const { isAdmin: isAdminRole, isOffice, session } = useAuth()
+  // office handles the receipts and hour actuals, so they get this page too
+  const isAdmin = isAdminRole || isOffice
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
@@ -235,31 +237,36 @@ export default function Actuals() {
                 {anyEntered ? fmtMoney(actTotal - estTotal) : ''}
               </td>
             </tr>
-            <tr className="border-t border-slate-200">
-              <td className="px-4 py-2">Contract</td>
-              <td className="px-2 py-2 text-right tabular-nums" colSpan={2}>{fmtMoney(contractAmount)}</td>
-              <td></td>
-            </tr>
-            <tr className="border-t border-slate-200 font-semibold">
-              <td className="px-4 py-2">Profit</td>
-              <td className="px-2 py-2 text-right tabular-nums">{fmtMoney(estProfit)}</td>
-              <td className={`px-2 py-2 text-right tabular-nums ${!anyEntered ? '' : actProfit < 0 ? 'text-red-600' : ''}`}>
-                {anyEntered ? fmtMoney(actProfit) : '—'}
-              </td>
-              <td className={`px-4 py-2 text-right tabular-nums ${!anyEntered ? '' : actProfit < estProfit ? 'text-red-600' : 'text-emerald-700'}`}>
-                {anyEntered ? fmtMoney(actProfit - estProfit) : ''}
-              </td>
-            </tr>
-            <tr className="border-t border-slate-200 text-xs text-slate-500">
-              <td className="px-4 py-1.5">Margin</td>
-              <td className="px-2 py-1.5 text-right tabular-nums">
-                {contractAmount > 0 ? `${((estProfit / contractAmount) * 100).toFixed(1)}%` : '—'}
-              </td>
-              <td className="px-2 py-1.5 text-right tabular-nums">
-                {anyEntered && contractAmount > 0 ? `${((actProfit / contractAmount) * 100).toFixed(1)}%` : '—'}
-              </td>
-              <td></td>
-            </tr>
+            {/* the money story stays with real admins — office only works the cost side */}
+            {isAdminRole && (
+              <>
+                <tr className="border-t border-slate-200">
+                  <td className="px-4 py-2">Contract</td>
+                  <td className="px-2 py-2 text-right tabular-nums" colSpan={2}>{fmtMoney(contractAmount)}</td>
+                  <td></td>
+                </tr>
+                <tr className="border-t border-slate-200 font-semibold">
+                  <td className="px-4 py-2">Profit</td>
+                  <td className="px-2 py-2 text-right tabular-nums">{fmtMoney(estProfit)}</td>
+                  <td className={`px-2 py-2 text-right tabular-nums ${!anyEntered ? '' : actProfit < 0 ? 'text-red-600' : ''}`}>
+                    {anyEntered ? fmtMoney(actProfit) : '—'}
+                  </td>
+                  <td className={`px-4 py-2 text-right tabular-nums ${!anyEntered ? '' : actProfit < estProfit ? 'text-red-600' : 'text-emerald-700'}`}>
+                    {anyEntered ? fmtMoney(actProfit - estProfit) : ''}
+                  </td>
+                </tr>
+                <tr className="border-t border-slate-200 text-xs text-slate-500">
+                  <td className="px-4 py-1.5">Margin</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {contractAmount > 0 ? `${((estProfit / contractAmount) * 100).toFixed(1)}%` : '—'}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {anyEntered && contractAmount > 0 ? `${((actProfit / contractAmount) * 100).toFixed(1)}%` : '—'}
+                  </td>
+                  <td></td>
+                </tr>
+              </>
+            )}
           </tfoot>
         </table>
       </div>

@@ -14,7 +14,7 @@ interface GcLink {
 }
 
 export default function Bids() {
-  const { canEdit } = useAuth()
+  const { canManageBids: canEdit } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])

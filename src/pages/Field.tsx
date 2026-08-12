@@ -23,6 +23,7 @@ interface TimeEntry {
   hours: number
   note: string | null
   kind: string
+  night: boolean
   created_by: string | null
 }
 
@@ -220,7 +221,9 @@ export default function Field() {
               <div key={t.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
                 <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
                 <span className="font-medium">{t.worker}</span>
-                <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">{t.kind}</span>
+                <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">
+                  {t.kind === 'field' ? 'install' : t.kind}{t.night ? ' night' : ''}
+                </span>
                 {t.note && <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
                 <button
@@ -323,6 +326,8 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [hours, setHours] = useState('')
   const [note, setNote] = useState('')
+  const [kind, setKind] = useState<'field' | 'shop'>('field')
+  const [night, setNight] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
@@ -335,10 +340,13 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
       work_date: date,
       hours: Number(hours),
       note: note.trim() || null,
+      kind,
+      night,
       created_by: session?.user.email ?? null,
     })
     setHours('')
     setNote('')
+    setNight(false)
     setBusy(false)
     onAdded()
   }
@@ -358,6 +366,34 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
       <label className="block">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Hours</span>
         <input type="number" step="0.5" min="0.5" max="24" value={hours} onChange={(e) => setHours(e.target.value)} required className="input mt-0.5 w-24 py-1.5" />
+      </label>
+      <div className="block">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Category</span>
+        <div className="mt-0.5 flex gap-1">
+          {(['field', 'shop'] as const).map((k) => (
+            <button
+              type="button"
+              key={k}
+              onClick={() => setKind(k)}
+              className={`rounded-md border px-2.5 py-1.5 text-sm font-medium ${
+                kind === k
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
+              }`}
+            >
+              {k === 'field' ? 'Install' : 'Shop'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="flex cursor-pointer items-center gap-1.5 pb-2.5">
+        <input
+          type="checkbox"
+          checked={night}
+          onChange={(e) => setNight(e.target.checked)}
+          className="h-5 w-5 rounded border-slate-300 accent-slate-900"
+        />
+        <span className="text-sm font-medium text-slate-700">Night</span>
       </label>
       <label className="block min-w-0 flex-1 basis-40">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">What got done (optional)</span>

@@ -11,7 +11,7 @@ import { fmtDueDate, formatPhone } from '../lib/format'
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin, canEdit } = useAuth()
+  const { isAdmin, canManageBids: canEdit } = useAuth()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [bids, setBids] = useState<Bid[]>([])

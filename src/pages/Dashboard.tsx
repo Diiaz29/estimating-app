@@ -14,7 +14,7 @@ interface GcLink {
 }
 
 export default function Dashboard() {
-  const { isAdmin, canEdit } = useAuth()
+  const { isAdmin, canManageBids: canEdit, isOffice } = useAuth()
   const navigate = useNavigate()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
@@ -176,9 +176,11 @@ export default function Dashboard() {
                       <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                     )}
                   </Link>
-                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Estimate
-                  </Link>
+                  {!isOffice && (
+                    <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Estimate
+                    </Link>
+                  )}
                   <StatusBadge status={b.status} />
                   <span
                     className={`whitespace-nowrap text-xs tabular-nums ${
@@ -217,9 +219,11 @@ export default function Dashboard() {
                       <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                     )}
                   </Link>
-                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Estimate
-                  </Link>
+                  {!isOffice && (
+                    <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Estimate
+                    </Link>
+                  )}
                   <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Proposal
                   </Link>
@@ -269,16 +273,20 @@ export default function Dashboard() {
                   )}
                 </Link>
                 <span className="flex flex-wrap items-center gap-2">
-                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Estimate
-                  </Link>
+                  {!isOffice && (
+                    <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Estimate
+                    </Link>
+                  )}
                   <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Proposal
                   </Link>
-                  <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Order sheet
-                  </Link>
-                  {isAdmin && (
+                  {!isOffice && (
+                    <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Order sheet
+                    </Link>
+                  )}
+                  {(isAdmin || isOffice) && (
                     <Link to={`/bids/${b.id}/actuals`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                       Actuals
                     </Link>

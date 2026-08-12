@@ -4,18 +4,19 @@ import { useAuth } from '../lib/auth'
 /** Left sidebar shared by every screen of one bid/job, so you can hop between them. */
 export default function BidLayout() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isOffice } = useAuth()
   const base = `/bids/${id}`
 
+  // office sets up bids and handles paperwork — no estimating, ordering, or scheduling tabs
   const tabs = [
     { to: base, label: 'Details', end: true },
-    { to: `${base}/estimate`, label: 'Estimate' },
+    ...(isOffice ? [] : [{ to: `${base}/estimate`, label: 'Estimate' }]),
     { to: `${base}/proposal`, label: 'Proposal' },
-    { to: `${base}/order`, label: 'Order sheet' },
-    { to: `${base}/schedule`, label: 'Schedule' },
+    ...(isOffice ? [] : [{ to: `${base}/order`, label: 'Order sheet' }, { to: `${base}/schedule`, label: 'Schedule' }]),
     { to: `${base}/plans`, label: 'Plans' },
     { to: `${base}/field`, label: 'Field' },
-    ...(isAdmin ? [{ to: `${base}/budget`, label: 'Budget' }, { to: `${base}/actuals`, label: 'Actuals' }] : []),
+    ...(isAdmin ? [{ to: `${base}/budget`, label: 'Budget' }] : []),
+    ...(isAdmin || isOffice ? [{ to: `${base}/actuals`, label: 'Actuals' }] : []),
   ]
 
   return (

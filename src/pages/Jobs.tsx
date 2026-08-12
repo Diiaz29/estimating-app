@@ -12,7 +12,7 @@ interface GcLink {
 }
 
 export default function Jobs() {
-  const { isAdmin, canEdit } = useAuth()
+  const { isAdmin, canManageBids: canEdit, isOffice } = useAuth()
   const [jobs, setJobs] = useState<Bid[] | null>(null)
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
@@ -124,19 +124,27 @@ export default function Jobs() {
                   )}
                 </Link>
                 <span className="flex flex-wrap items-center gap-2">
-                  <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Estimate
-                  </Link>
+                  {!isOffice && (
+                    <>
+                      <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                        Estimate
+                      </Link>
+                    </>
+                  )}
                   <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Proposal
                   </Link>
-                  <Link to={`/bids/${b.id}/schedule`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Schedule
-                  </Link>
-                  <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Order sheet
-                  </Link>
-                  {isAdmin && (
+                  {!isOffice && (
+                    <>
+                      <Link to={`/bids/${b.id}/schedule`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                        Schedule
+                      </Link>
+                      <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                        Order sheet
+                      </Link>
+                    </>
+                  )}
+                  {(isAdmin || isOffice) && (
                     <Link to={`/bids/${b.id}/actuals`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                       Actuals
                     </Link>

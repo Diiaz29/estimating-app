@@ -89,7 +89,7 @@ export default function Team() {
                 {p.id === me?.id && <span className="ml-2 text-xs text-slate-400">(you)</span>}
               </span>
               <div className="flex gap-1.5">
-                {(['viewer', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
+                {(['viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button
                     key={r}
                     disabled={lastAdmin && r !== 'admin'}
