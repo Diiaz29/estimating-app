@@ -128,7 +128,7 @@ export default function Dashboard() {
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-2xl font-semibold tabular-nums">{inStage.length}</span>
                   <span className="min-w-0 truncate text-xs text-slate-500 tabular-nums">
-                  {value > 0 ? fmtMoney(value) : ' '}
+                  {value > 0 && !isOffice ? fmtMoney(value) :' '}
                   </span>
                 </div>
               </Link>
@@ -227,9 +227,11 @@ export default function Dashboard() {
                   <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                     Proposal
                   </Link>
-                  <span className="hidden sm:block text-xs tabular-nums text-slate-500">
-                    {fmtMoney(b.bid_value)}
-                  </span>
+                  {!isOffice && (
+                    <span className="hidden sm:block text-xs tabular-nums text-slate-500">
+                      {fmtMoney(b.bid_value)}
+                    </span>
+                  )}
                   <span
                     className={`whitespace-nowrap text-xs ${
                       followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
@@ -292,9 +294,11 @@ export default function Dashboard() {
                     </Link>
                   )}
                 </span>
-                <span className="text-sm font-semibold tabular-nums">
-                  {jobValue(b) == null ? '—' : fmtMoney(jobValue(b))}
-                </span>
+                {!isOffice && (
+                  <span className="text-sm font-semibold tabular-nums">
+                    {jobValue(b) == null ? '—' : fmtMoney(jobValue(b))}
+                  </span>
+                )}
               </div>
             ))}
           </div>

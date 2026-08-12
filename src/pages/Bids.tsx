@@ -14,7 +14,7 @@ interface GcLink {
 }
 
 export default function Bids() {
-  const { canManageBids: canEdit } = useAuth()
+  const { canManageBids: canEdit, isOffice } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
@@ -107,9 +107,11 @@ export default function Bids() {
                     <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                   )}
                 </span>
-                <span className="hidden sm:block w-24 text-right text-xs tabular-nums text-slate-500">
-                  {fmtMoney(b.bid_value)}
-                </span>
+                {!isOffice && (
+                  <span className="hidden sm:block w-24 text-right text-xs tabular-nums text-slate-500">
+                    {fmtMoney(b.bid_value)}
+                  </span>
+                )}
                 <StatusBadge status={b.status} />
                 {followUp ? (
                   <span

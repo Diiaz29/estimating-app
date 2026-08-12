@@ -74,7 +74,7 @@ export default function Jobs() {
           <p className="mt-0.5 text-sm text-slate-500">Won work — this is what the shop builds.</p>
         </div>
         <div className="ml-auto rounded-lg border-2 border-slate-800 bg-white px-4 py-2 text-right shadow-[3px_3px_0_0_rgba(15,23,42,0.12)]">
-          <div className="text-lg font-semibold tabular-nums">{fmtMoney(totalValue)}</div>
+          {!isOffice && <div className="text-lg font-semibold tabular-nums">{fmtMoney(totalValue)}</div>}
           <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
             {activeJobs.length} active job{activeJobs.length === 1 ? '' : 's'}
           </div>
@@ -150,7 +150,9 @@ export default function Jobs() {
                     </Link>
                   )}
                 </span>
-                <span className="text-sm font-semibold tabular-nums">{value == null ? '—' : fmtMoney(value)}</span>
+                {!isOffice && (
+                  <span className="text-sm font-semibold tabular-nums">{value == null ? '—' : fmtMoney(value)}</span>
+                )}
                 {canEdit && (
                   <button
                     onClick={() => void setComplete(b, !b.completed_at)}
