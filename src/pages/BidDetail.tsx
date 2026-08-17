@@ -7,6 +7,7 @@ import { STATUSES, fmtFollowUp, followUpAt } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
 import PlansSection from '../components/PlansSection'
+import { duplicateBid } from '../lib/duplicateBid'
 
 export default function BidDetail() {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +20,8 @@ export default function BidDetail() {
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
   const [followupDefault, setFollowupDefault] = useState(7)
 
   async function load() {
@@ -97,6 +100,18 @@ export default function BidDetail() {
     navigate('/bids')
   }
 
+  async function duplicate() {
+    setConfirmDuplicate(false)
+    setDuplicating(true)
+    try {
+      const newId = await duplicateBid(bid!)
+      navigate(`/bids/${newId}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setDuplicating(false)
+    }
+  }
+
   const dueDate = bid.due_at ? toLocalDate(bid.due_at) : ''
   const dueTime = bid.due_at ? toLocalTime(bid.due_at) : ''
 
@@ -109,6 +124,16 @@ export default function BidDetail() {
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
+          {canEdit && (
+            <button
+              onClick={() => setConfirmDuplicate(true)}
+              disabled={duplicating}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              title="Copy this bid — estimate, rooms, finishes, hardware picks — into a new bid"
+            >
+              {duplicating ? 'Copying…' : '⧉ Duplicate'}
+            </button>
+          )}
           {canEdit && (
             <button
               onClick={() => void save()}
@@ -357,6 +382,15 @@ export default function BidDetail() {
         </div>
       )}
 
+      {confirmDuplicate && (
+        <ConfirmDialog
+          title="Duplicate bid"
+          message={`Copy "${bid.name}" into a new bid? You get the same rooms, line items, finishes, and hardware picks under a new job number, starting at Received. Revisions, plans, receipts, time, and change orders stay with the original.`}
+          confirmLabel="Duplicate"
+          onConfirm={() => void duplicate()}
+          onCancel={() => setConfirmDuplicate(false)}
+        />
+      )}
       {confirmDelete && (
         <ConfirmDialog
           title="Delete bid"
