@@ -11,6 +11,7 @@ const baseTabs = [
   { to: '/jobs', label: 'Jobs', icon: '▬' },
   { to: '/schedule', label: 'Schedule', icon: '▦' },
   { to: '/time', label: 'Time', icon: '◔' },
+  { to: '/receipts', label: 'Receipts', icon: '▤' },
   { to: '/contractors', label: 'Contractors', icon: '▧' },
   { to: '/libraries', label: 'Libraries', icon: '▥' },
 ]

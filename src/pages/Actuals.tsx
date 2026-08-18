@@ -6,7 +6,7 @@ import type {
   Area, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride, LineItem, Material, Setting,
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
-import { fmtDueDate, fmtMoney } from '../lib/format'
+import { fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Receipt {
@@ -16,6 +16,7 @@ interface Receipt {
   amount: number | null
   category: 'materials' | 'delivery' | 'travel' | 'subs' | 'other'
   note: string | null
+  receipt_date: string | null
   uploaded_by: string | null
   created_at: string
 }
@@ -333,6 +334,7 @@ function ReceiptsSection({
         amount: first && amount !== '' ? Number(amount) : null,
         category,
         note: first && note.trim() ? note.trim() : null,
+        receipt_date: new Date().toISOString().slice(0, 10),
         uploaded_by: userEmail,
       })
       if (error) onError(error.message)
@@ -447,7 +449,13 @@ function ReceiptsSection({
                     onBlur={(e) => (e.target.value || null) !== r.note && void patchReceipt(r, { note: e.target.value || null })}
                     className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none"
                   />
-                  <span className="text-xs text-slate-400">{fmtDueDate(r.created_at)}</span>
+                  <input
+                    type="date"
+                    defaultValue={r.receipt_date ?? ''}
+                    onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patchReceipt(r, { receipt_date: e.target.value || null })}
+                    title="Date on the receipt"
+                    className="w-36 rounded border border-transparent px-1 py-0.5 font-mono text-xs text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                  />
                   <span className="flex items-center gap-0.5">
                     <span className="text-xs text-slate-400">$</span>
                     <input

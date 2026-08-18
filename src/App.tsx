@@ -26,6 +26,7 @@ import FieldReportView from './pages/FieldReportView'
 import ChangeOrderDoc from './pages/ChangeOrderDoc'
 import Schedule from './pages/Schedule'
 import TimeClock from './pages/TimeClock'
+import Receipts from './pages/Receipts'
 import JobSchedule from './pages/JobSchedule'
 import Reports from './pages/Reports'
 import LibrariesLayout from './components/LibrariesLayout'
@@ -64,6 +65,7 @@ function Gate() {
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/schedule" element={<Schedule />} />
         <Route path="/time" element={<TimeClock />} />
+        <Route path="/receipts" element={<Receipts />} />
         <Route path="/bids/:id" element={<BidLayout />}>
           <Route index element={<BidDetail />} />
           <Route path="estimate" element={<Estimate />} />
