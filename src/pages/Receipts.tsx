@@ -2,9 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import { LOGO_URL } from '../lib/branding'
 import type { Bid } from '../lib/types'
 import { fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
+
+const fmtDay = (iso: string) =>
+  new Date(`${iso}T12:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
 
 interface Receipt {
   id: string
@@ -62,6 +67,16 @@ export default function Receipts() {
   const [methods, setMethods] = useState<PaymentMethod[]>([])
   const [filterMethod, setFilterMethod] = useState('') // '' = any
 
+  // printable expense report (office/admin)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [repFrom, setRepFrom] = useState(() => isoDaysAgo(29))
+  const [repTo, setRepTo] = useState(() => new Date().toISOString().slice(0, 10))
+  const [repPeople, setRepPeople] = useState<string[]>([]) // uploaded_by emails; empty = all
+  const [repJobs, setRepJobs] = useState<string[]>([]) // bid ids or 'overhead'; empty = all
+  const [repPicker, setRepPicker] = useState<'people' | 'jobs' | null>(null)
+  const [company, setCompany] = useState<Record<string, string>>({})
+  const [logoOk, setLogoOk] = useState(true)
+
   // upload form
   const [jobId, setJobId] = useState('')
   const [isOverhead, setIsOverhead] = useState(false)
@@ -90,6 +105,8 @@ export default function Receipts() {
     setOhCats(cats)
     setOverheadCat((cur) => (cur && cats.some((c) => c.name === cur) ? cur : cats[0]?.name ?? ''))
     setMethods((pmRes.data ?? []) as PaymentMethod[])
+    const { data: co } = await supabase!.from('text_settings').select('key, value').eq('group_name', 'Company')
+    if (co) setCompany(Object.fromEntries((co as { key: string; value: string }[]).map((t) => [t.key, t.value])))
   }
 
   const catNames = ohCats.map((c) => c.name)
@@ -213,14 +230,55 @@ export default function Receipts() {
     .filter((r) => r.is_overhead || (r.bid_id && jobById.get(r.bid_id)))
     .reduce((s, r) => s + Number(r.amount ?? 0), 0)
 
+  // ---- report: date range + people + jobs (overhead is a pseudo-job) ----
+  const repPeopleAll = [...new Set(receipts.map((r) => r.uploaded_by ?? 'unknown'))].sort()
+  const repJobsAll = [
+    ...(receipts.some((r) => r.is_overhead) ? ['overhead'] : []),
+    ...[...new Set(receipts.filter((r) => r.bid_id).map((r) => r.bid_id!))].filter((id) => jobById.has(id)),
+  ]
+  const repJobLabel = (id: string) => {
+    if (id === 'overhead') return 'Overhead / office / shop'
+    const j = jobById.get(id)
+    return j ? `${j.job_number} ${j.name}` : '—'
+  }
+  const report = useMemo(() => {
+    return receipts
+      .filter((r) => {
+        const d = r.receipt_date ?? r.created_at.slice(0, 10)
+        if (d < repFrom || d > repTo) return false
+        if (repPeople.length > 0 && !repPeople.includes(r.uploaded_by ?? 'unknown')) return false
+        const key = r.is_overhead ? 'overhead' : r.bid_id ?? ''
+        if (repJobs.length > 0 && !repJobs.includes(key)) return false
+        if (!r.is_overhead && !(r.bid_id && jobById.has(r.bid_id))) return false
+        return true
+      })
+      .sort((a, b) => (a.receipt_date ?? '').localeCompare(b.receipt_date ?? ''))
+  }, [receipts, repFrom, repTo, repPeople, repJobs, jobById])
+  // grouped job → rows, overhead last
+  const reportGroups = useMemo(() => {
+    const m = new Map<string, Receipt[]>()
+    for (const r of report) {
+      const key = r.is_overhead ? 'overhead' : r.bid_id!
+      if (!m.has(key)) m.set(key, [])
+      m.get(key)!.push(r)
+    }
+    return [...m.entries()].sort((a, b) => {
+      if (a[0] === 'overhead') return 1
+      if (b[0] === 'overhead') return -1
+      return (jobById.get(a[0])?.job_number ?? '').localeCompare(jobById.get(b[0])?.job_number ?? '')
+    })
+  }, [report, jobById])
+  const reportTotal = report.reduce((s, r) => s + Number(r.amount ?? 0), 0)
+  const repRangeLabel = `${fmtDay(repFrom)} — ${fmtDay(repTo)}`
+
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
 
   const missingAmount = receipts.filter((r) => r.amount == null && (r.is_overhead || (r.bid_id && jobById.get(r.bid_id)))).length
 
   return (
-    <div className="max-w-4xl space-y-5">
-      <div>
+    <div className="max-w-4xl space-y-5 print:max-w-none">
+      <div className="print:hidden">
         <h1 className="text-lg font-semibold tracking-tight">Receipts</h1>
         <p className="mt-0.5 text-sm text-slate-500">
           Drop every receipt here and say which job it belongs to — it shows up on that job's Actuals
@@ -239,7 +297,7 @@ export default function Receipts() {
           setDragging(false)
           void uploadFiles([...e.dataTransfer.files])
         }}
-        className={`rounded-lg border-2 bg-white p-4 transition-colors ${
+        className={`rounded-lg border-2 bg-white p-4 transition-colors print:hidden ${
           dragging ? 'border-dashed border-emerald-600 bg-emerald-50' : 'border-slate-800'
         }`}
       >
@@ -357,9 +415,179 @@ export default function Receipts() {
           </div>
         </div>
 
+      {/* ---------- Expense report (office/admin) ---------- */}
+      {reconciles && (
+        <section className={reportOpen ? '' : 'print:hidden'}>
+          <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
+            <button
+              onClick={() => setReportOpen((v) => !v)}
+              className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
+                reportOpen ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
+              }`}
+            >
+              📄 Expense report {reportOpen ? '▴' : '▾'}
+            </button>
+            {reportOpen && (
+              <>
+                <label className="block">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">From</span>
+                  <input type="date" value={repFrom} onChange={(e) => setRepFrom(e.target.value)} className="input mt-0.5 py-1.5" />
+                </label>
+                <label className="block">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">To</span>
+                  <input type="date" value={repTo} onChange={(e) => setRepTo(e.target.value)} className="input mt-0.5 py-1.5" />
+                </label>
+                <button
+                  onClick={() => setRepPicker('people')}
+                  className={`self-end rounded-md border px-3 py-2 text-sm font-medium ${
+                    repPeople.length > 0 ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
+                  }`}
+                >
+                  People: {repPeople.length === 0 ? 'all' : repPeople.length} ▾
+                </button>
+                <button
+                  onClick={() => setRepPicker('jobs')}
+                  className={`self-end rounded-md border px-3 py-2 text-sm font-medium ${
+                    repJobs.length > 0 ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
+                  }`}
+                >
+                  Jobs: {repJobs.length === 0 ? 'all' : repJobs.length} ▾
+                </button>
+                {(repPeople.length > 0 || repJobs.length > 0) && (
+                  <button
+                    onClick={() => {
+                      setRepPeople([])
+                      setRepJobs([])
+                    }}
+                    className="self-end px-2 py-2 text-sm text-slate-400 hover:text-slate-700"
+                  >
+                    clear filters
+                  </button>
+                )}
+                <button
+                  onClick={() => window.print()}
+                  className="ml-auto self-end rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                >
+                  🖨 Print
+                </button>
+              </>
+            )}
+          </div>
+
+          {reportOpen && (
+            <div className="light-doc rounded-lg border-2 border-slate-900 bg-white p-4 print:rounded-none print:border-0 print:p-0">
+              <div className="flex items-center gap-4 border-b-4 border-slate-900 pb-2">
+                {logoOk && LOGO_URL ? (
+                  <img src={LOGO_URL} alt="" className="h-20 w-auto max-w-[20rem] object-contain" onError={() => setLogoOk(false)} />
+                ) : (
+                  <div className="text-lg font-bold tracking-tight">{company.company_name ?? ''}</div>
+                )}
+                <div className="ml-auto text-right">
+                  <div className="text-base font-bold tracking-tight">EXPENSE REPORT</div>
+                  <div className="text-[11px] text-slate-500">
+                    {[company.company_address, company.company_phone].filter(Boolean).join(' · ')}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {repRangeLabel} · {report.length} receipt{report.length === 1 ? '' : 's'} · {fmtMoney(reportTotal)}
+                  </div>
+                  {(repPeople.length > 0 || repJobs.length > 0) && (
+                    <div className="text-[10px] text-slate-400">
+                      {repPeople.length > 0 && <>People: {repPeople.map((p) => p.split('@')[0]).join(', ')}</>}
+                      {repPeople.length > 0 && repJobs.length > 0 && ' · '}
+                      {repJobs.length > 0 && <>Jobs: {repJobs.map(repJobLabel).join(', ')}</>}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {reportGroups.length === 0 ? (
+                <p className="py-3 text-sm text-slate-400">No receipts in this range.</p>
+              ) : (
+                reportGroups.map(([key, rows]) => {
+                  const total = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0)
+                  return (
+                    <div key={key} className="break-inside-avoid border-b border-slate-200 py-2 last:border-b-0">
+                      <div className="flex items-baseline">
+                        <span className="text-sm font-semibold">{repJobLabel(key)}</span>
+                        <span className="ml-auto text-sm font-semibold tabular-nums">{fmtMoney(total)}</span>
+                      </div>
+                      <table className="mt-1 w-full text-xs">
+                        <tbody>
+                          {rows.map((r) => (
+                            <tr key={r.id} className="align-top">
+                              <td className="w-24 py-0.5 pr-2 font-mono text-slate-500 whitespace-nowrap">
+                                {r.receipt_date ? fmtDay(r.receipt_date) : '—'}
+                              </td>
+                              <td className="py-0.5 pr-2">{r.note ?? r.file_path.split('/').pop()?.replace(/^\d+_/, '')}</td>
+                              <td className="w-20 py-0.5 pr-2 font-mono text-[9px] uppercase text-slate-400">
+                                {r.is_overhead ? r.overhead_category ?? 'other' : r.category}
+                              </td>
+                              <td className="hidden w-24 truncate py-0.5 pr-2 text-slate-500 sm:table-cell">{r.uploaded_by?.split('@')[0] ?? ''}</td>
+                              <td className="hidden w-28 truncate py-0.5 pr-2 text-slate-500 sm:table-cell">{methodName(r.payment_method_id) ?? ''}</td>
+                              <td className={`w-20 py-0.5 text-right tabular-nums ${r.amount == null ? 'text-amber-600' : ''}`}>
+                                {r.amount == null ? 'no amt' : fmtMoney(Number(r.amount))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })
+              )}
+              {reportGroups.length > 0 && (
+                <div className="flex items-baseline border-t-2 border-slate-900 pt-1.5">
+                  <span className="text-sm font-semibold">Total</span>
+                  <span className="ml-auto text-sm font-bold tabular-nums">{fmtMoney(reportTotal)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {repPicker && (
+            <div className="fixed inset-0 z-30 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-6 print:hidden">
+              <div className="w-full max-w-sm rounded-t-xl border-2 border-slate-800 bg-white sm:rounded-xl">
+                <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
+                  <h2 className="font-semibold">{repPicker === 'people' ? 'Show these people' : 'Show these jobs'}</h2>
+                  <button onClick={() => setRepPicker(null)} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto p-3">
+                  {(repPicker === 'people' ? repPeopleAll : repJobsAll).map((item) => {
+                    const picked = repPicker === 'people' ? repPeople.includes(item) : repJobs.includes(item)
+                    const toggle = () => {
+                      if (repPicker === 'people') setRepPeople((p) => (p.includes(item) ? p.filter((x) => x !== item) : [...p, item]))
+                      else setRepJobs((p) => (p.includes(item) ? p.filter((x) => x !== item) : [...p, item]))
+                    }
+                    return (
+                      <label key={item} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 hover:bg-slate-50">
+                        <input type="checkbox" checked={picked} onChange={toggle} className="h-5 w-5 rounded border-slate-300 accent-slate-900" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {repPicker === 'people' ? item.split('@')[0] : repJobLabel(item)}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
+                  <button
+                    onClick={() => (repPicker === 'people' ? setRepPeople([]) : setRepJobs([]))}
+                    className="text-sm text-slate-500 hover:text-slate-900"
+                  >
+                    Show all
+                  </button>
+                  <button onClick={() => setRepPicker(null)} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ---------- Needs-card-review flag (office/admin) ---------- */}
       {reconciles && receipts.some((r) => r.needs_card_review) && (
-        <div className="rounded-lg border-2 border-amber-500 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        <div className="rounded-lg border-2 border-amber-500 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 print:hidden">
           <span className="font-semibold">
             {receipts.filter((r) => r.needs_card_review).length} receipt
             {receipts.filter((r) => r.needs_card_review).length === 1 ? '' : 's'} came from someone with no card on file
@@ -370,7 +598,7 @@ export default function Receipts() {
 
       {/* ---------- Paid-with filter (statement reconciliation) ---------- */}
       {reconciles && methods.length > 0 && receipts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-slate-800 bg-white px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-slate-800 bg-white px-4 py-2.5 print:hidden">
           <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Show receipts paid with</span>
           <select
             value={filterMethod}
@@ -393,7 +621,7 @@ export default function Receipts() {
 
       {/* ---------- Overhead receipts ---------- */}
       {overheadGrouped.length > 0 && (
-        <section>
+        <section className="print:hidden">
           <div className="mb-2 flex items-baseline">
             <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
               Overhead / office / shop — by category
@@ -481,7 +709,7 @@ export default function Receipts() {
       )}
 
       {/* ---------- Job receipts ---------- */}
-      <section>
+      <section className="print:hidden">
         <div className="mb-2 flex flex-wrap items-center gap-3">
           <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
             Job receipts — by job, then what they're for
