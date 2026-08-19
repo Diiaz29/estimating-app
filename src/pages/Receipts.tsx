@@ -612,17 +612,17 @@ export default function Receipts() {
                 <button
                   onClick={() => void saveCurrent()}
                   disabled={current.read.state === 'reading' || (!isOverhead && !jobId)}
-                  className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:bg-slate-400"
+                  className="flex-1 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:bg-slate-400 sm:flex-none sm:py-2"
                 >
                   {current.read.state === 'reading' ? 'Reading…' : '✓ Save receipt'}
                 </button>
                 <button
                   onClick={() => void discardCurrent()}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-red-400 hover:text-red-700"
+                  className="rounded-md border border-slate-300 px-3 py-2.5 text-sm text-slate-600 hover:border-red-400 hover:text-red-700 sm:py-2"
                 >
                   Discard
                 </button>
-                <label className={`ml-auto cursor-pointer rounded-md border border-dashed px-3 py-2 text-xs ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-500 hover:border-slate-500'}`}>
+                <label className={`basis-full cursor-pointer rounded-md border border-dashed px-3 py-2 text-center text-xs sm:ml-auto sm:basis-auto ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-500 hover:border-slate-500'}`}>
                   {dragging ? 'Drop to add' : '+ add another'}
                   <input
                     type="file"
@@ -639,10 +639,10 @@ export default function Receipts() {
               </>
             ) : (
               <>
-                <p className={`flex-1 rounded-md border border-dashed px-3 py-2 text-center text-xs ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-400'}`}>
+                <p className={`hidden flex-1 rounded-md border border-dashed px-3 py-2 text-center text-xs sm:block ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-400'}`}>
                   {dragging ? 'Drop to read it' : 'Drag the photo or PDF here'}
                 </p>
-                <label className={`cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-white ${uploading ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-700'}`}>
+                <label className={`flex-1 cursor-pointer rounded-md px-4 py-2.5 text-center text-sm font-semibold text-white sm:flex-none sm:py-2 ${uploading ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-700'}`}>
                   {uploading ? 'Uploading…' : '+ Add receipt'}
                   <input
                     type="file"
@@ -897,25 +897,25 @@ export default function Receipts() {
                         type="date"
                         defaultValue={r.receipt_date ?? ''}
                         onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                        className="w-36 rounded border border-transparent px-1 py-0.5 font-mono text-xs text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                        className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-xs sm:w-36 text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
                       />
                       <input
                         defaultValue={r.note ?? ''}
                         placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
                         onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
-                        className="min-w-0 flex-1 basis-40 rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                        className="order-3 min-w-0 basis-full rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:flex-1 sm:basis-40"
                       />
                       <span className="hidden text-xs text-slate-400 sm:inline">{r.receipt_date ? monthLabel(r.receipt_date) : ''}</span>
                       <select
                         value={r.overhead_category ?? 'other'}
                         onChange={(e) => void patch(r, { overhead_category: e.target.value })}
-                        className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none"
+                        className="order-4 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3"
                       >
                         {[...new Set([...catNames, r.overhead_category ?? 'other'])].map((x) => (
                           <option key={x} value={x}>{x}</option>
                         ))}
                       </select>
-                      <span className="flex items-center gap-0.5">
+                      <span className="order-2 ml-auto flex items-center gap-0.5 sm:order-4 sm:ml-0">
                         <span className="text-xs text-slate-400">$</span>
                         <input
                           type="number" step="any" min="0"
@@ -935,7 +935,7 @@ export default function Receipts() {
                           value={r.payment_method_id ?? ''}
                           onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                           title="Paid with"
-                          className={`max-w-[9rem] rounded border px-1 py-0.5 text-[10px] focus:border-slate-800 focus:outline-none ${
+                          className={`order-5 max-w-[9rem] rounded border px-1 py-0.5 text-[10px] focus:border-slate-800 focus:outline-none ${
                             r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
                           }`}
                         >
@@ -946,16 +946,16 @@ export default function Receipts() {
                         </select>
                       ) : (
                         r.payment_method_id && (
-                          <span className="text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
+                          <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
                         )
                       )}
-                      <button onClick={() => void view(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">
+                      <button onClick={() => void view(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6">
                         view
                       </button>
-                      <button onClick={() => void download(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900" title="Save the file to your computer">
+                      <button onClick={() => void download(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6" title="Save the file to your computer">
                         save
                       </button>
-                      <button onClick={() => setRemoving(r)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
+                      <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-1 text-lg leading-none text-slate-300 hover:text-red-600 sm:ml-0">×</button>
                     </div>
                   ))}
                 </div>
@@ -1021,24 +1021,24 @@ export default function Receipts() {
                               type="date"
                               defaultValue={r.receipt_date ?? ''}
                               onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                              className="w-36 rounded border border-transparent px-1 py-0.5 font-mono text-xs text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                              className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-xs sm:w-36 text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
                             />
                             <input
                               defaultValue={r.note ?? ''}
                               placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
                               onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
-                              className="min-w-0 flex-1 basis-40 rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                              className="order-3 min-w-0 basis-full rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:flex-1 sm:basis-40"
                             />
                             <select
                               value={r.category}
                               onChange={(e) => void patch(r, { category: e.target.value as Receipt['category'] })}
-                              className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none"
+                              className="order-4 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3"
                             >
                               {CATEGORIES.map((x) => (
                                 <option key={x} value={x}>{x}</option>
                               ))}
                             </select>
-                            <span className="flex items-center gap-0.5">
+                            <span className="order-2 ml-auto flex items-center gap-0.5 sm:order-4 sm:ml-0">
                               <span className="text-xs text-slate-400">$</span>
                               <input
                                 type="number" step="any" min="0"
@@ -1058,7 +1058,7 @@ export default function Receipts() {
                                 value={r.payment_method_id ?? ''}
                                 onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                                 title="Paid with"
-                                className={`max-w-[9rem] rounded border px-1 py-0.5 text-[10px] focus:border-slate-800 focus:outline-none ${
+                                className={`order-5 max-w-[9rem] rounded border px-1 py-0.5 text-[10px] focus:border-slate-800 focus:outline-none ${
                                   r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
                                 }`}
                               >
@@ -1069,16 +1069,16 @@ export default function Receipts() {
                               </select>
                             ) : (
                               r.payment_method_id && (
-                                <span className="text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
+                                <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
                               )
                             )}
-                            <button onClick={() => void view(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">
+                            <button onClick={() => void view(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6">
                               view
                             </button>
-                            <button onClick={() => void download(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900" title="Save the file to your computer">
+                            <button onClick={() => void download(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6" title="Save the file to your computer">
                               save
                             </button>
-                            <button onClick={() => setRemoving(r)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
+                            <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-1 text-lg leading-none text-slate-300 hover:text-red-600 sm:ml-0">×</button>
                           </div>
                         ))}
                       </div>

@@ -794,7 +794,7 @@ export default function Estimate() {
       </section>
 
       {/* Pinned title-block totals bar (sits above the phone tab bar) */}
-      <div className="fixed inset-x-0 bottom-[3.4rem] z-20 border-t-2 border-slate-800 bg-white sm:bottom-0">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-slate-800 bg-white">
         <div className="mx-auto flex max-w-6xl items-stretch divide-x-2 divide-slate-800 overflow-x-auto border-x-2 border-slate-800 font-mono">
           <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
           <TotalCell label="Added costs" value={fmtMoney(pricing.addersTotal)} />
@@ -1004,7 +1004,7 @@ function TotalCell({
 }) {
   const toneCls = tone === 'bad' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-emerald-700' : ''
   return (
-    <div className={`flex min-w-[5.75rem] flex-1 flex-col px-3 py-2 sm:min-w-[7.5rem] ${muted ? 'bg-slate-50' : ''}`} title={title}>
+    <div className={`flex min-w-fit flex-1 flex-col whitespace-nowrap px-3 py-2 sm:min-w-[7.5rem] ${muted ? 'bg-slate-50' : ''}`} title={title}>
       <span className="text-[9px] uppercase tracking-widest text-slate-400">{label}</span>
       <span className={`tabular-nums ${strong ? 'text-lg font-semibold' : 'text-sm'} ${toneCls}`}>{value}</span>
     </div>
