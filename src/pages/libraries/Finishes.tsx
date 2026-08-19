@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import type { Finish } from '../../lib/types'
 import { fmtCost } from '../../lib/format'
-import { GroupTitle, StaleBadge } from '../../components/LibraryBits'
+import { GroupTitle, StaleBadge, confirmPrice } from '../../components/LibraryBits'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { CostCell } from './Materials'
 
@@ -105,7 +105,11 @@ export default function Finishes() {
                       )}
                     </td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
-                      <StaleBadge costUpdatedAt={f.cost_updated_at} thresholdDays={staleDays} />
+                      <StaleBadge
+                        costUpdatedAt={f.cost_updated_at}
+                        thresholdDays={staleDays}
+                        onConfirm={isAdmin ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
+                      />
                       {isAdmin && (
                         <>
                           <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">

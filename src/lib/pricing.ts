@@ -65,6 +65,8 @@ export function buildContext(
 export interface Warning {
   kind: 'no-cost' | 'stale' | 'unassigned-slot' | 'no-assembly'
   message: string
+  /** stale warnings point at the library row so the UI can offer "still good" */
+  ref?: { table: 'materials' | 'finishes'; id: string }
 }
 
 export interface BomDetailRow {
@@ -135,6 +137,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     let cost: number | null = null
     let sourceName = row.label ?? ''
     let costUpdatedAt: string | null = null
+    let ref: Warning['ref']
     if (row.slot) {
       const finish = ctx.finishBySlot.get(row.slot)
       if (!finish) {
@@ -144,6 +147,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       cost = finish.cost == null ? null : Number(finish.cost)
       sourceName = finish.name
       costUpdatedAt = finish.cost_updated_at
+      ref = { table: 'finishes', id: finish.id }
     } else if (row.material_id) {
       // spec swaps: this room's pick → job-wide pick → standard
       const effectiveId = resolveMaterialId(ctx, area.id, row.material_id)
@@ -151,6 +155,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       cost = material?.cost == null ? null : Number(material.cost)
       sourceName = material?.name ?? sourceName
       costUpdatedAt = material?.cost_updated_at ?? null
+      if (material) ref = { table: 'materials', id: material.id }
     }
     if (cost == null) {
       warnings.push({ kind: 'no-cost', message: `${sourceName}: no cost in the library` })
@@ -158,7 +163,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       continue
     }
     if (costUpdatedAt && daysSince(costUpdatedAt) >= ctx.staleDays) {
-      warnings.push({ kind: 'stale', message: `${sourceName}: price is ${daysSince(costUpdatedAt)} days old` })
+      warnings.push({ kind: 'stale', message: `${sourceName}: price is ${daysSince(costUpdatedAt)} days old`, ref })
     }
     const rowCost = Number(row.qty) * (1 + Number(row.waste_pct)) * cost
     bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unitCost: cost, rowCost })

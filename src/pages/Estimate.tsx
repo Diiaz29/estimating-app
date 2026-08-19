@@ -10,6 +10,7 @@ import { buildContext, priceBid, priceLine, resolveMaterialId } from '../lib/pri
 import { fmtCost, fmtDueDate, fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
+import { StillGoodButton, confirmPrice } from '../components/LibraryBits'
 
 const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
@@ -476,7 +477,8 @@ export default function Estimate() {
     if (error) setError(error.message)
   }
 
-  const uniqueWarnings = [...new Set(pricing.warnings.map((w) => w.message))]
+  // one line per distinct message; stale ones remember which library row to re-stamp
+  const uniqueWarnings = [...new Map(pricing.warnings.map((w) => [w.message, w])).values()]
 
   // client-facing options exclude draft change-order areas — those get their own CO doc
   const clientOptionsTotal = areas
@@ -515,9 +517,32 @@ export default function Estimate() {
           <summary className="cursor-pointer font-semibold">
             ⚠︎ {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
           </summary>
+          {isAdmin && uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                const refs = [...new Map(uniqueWarnings.filter((w) => w.ref).map((w) => [`${w.ref!.table}:${w.ref!.id}`, w.ref!])).values()]
+                void Promise.all(refs.map((r) => confirmPrice(r.table, r.id))).then((errs) => {
+                  const e = errs.find(Boolean)
+                  if (e) setError(e)
+                  else void loadAll()
+                })
+              }}
+              className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-800 hover:bg-emerald-100"
+            >
+              ✓ all of these prices are still good
+            </button>
+          )}
           <ul className="mt-2 list-disc pl-5 space-y-0.5">
             {uniqueWarnings.map((w) => (
-              <li key={w}>{w}</li>
+              <li key={w.message} className="flex flex-wrap items-center gap-2">
+                <span>{w.message}</span>
+                {isAdmin && w.kind === 'stale' && w.ref && (
+                  <StillGoodButton
+                    onClick={() => void confirmPrice(w.ref!.table, w.ref!.id).then((e) => { if (e) setError(e); else void loadAll() })}
+                  />
+                )}
+              </li>
             ))}
           </ul>
         </details>
