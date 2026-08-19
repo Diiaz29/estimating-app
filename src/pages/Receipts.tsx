@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import JSZip from 'jszip'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
@@ -48,8 +49,41 @@ interface OverheadCategory {
   name: string
   sort_order: number
 }
+/** A receipt file that's uploaded and read but not saved yet */
+interface Pending {
+  key: string
+  path: string
+  name: string
+  previewUrl: string
+  isPdf: boolean
+  read: { state: 'reading' | 'read' | 'failed'; detail?: string }
+  found?: { date: string | null; total: number | null; merchant: string | null; cardId: string | null }
+  applied: boolean // pushed into the form yet?
+}
 const monthLabel = (iso: string) =>
   new Date(`${iso.slice(0, 7)}-15T12:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
+/** Phone photos run 4–8 MB; shrink big images to ≤2000px JPEG before upload so
+ *  they store small and the reader (5 MB image cap) can take them. Anything that
+ *  can't be decoded (HEIC on non-Safari, etc.) goes up untouched. */
+async function shrinkImage(file: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) || file.size < 1_200_000) return file
+  try {
+    const bmp = await createImageBitmap(file)
+    const max = 2000
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bmp.width * scale)
+    canvas.height = Math.round(bmp.height * scale)
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    bmp.close()
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.85))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
 /** Company-wide receipt inbox: upload against any job; every receipt lands on
  *  that job's Actuals tab (same table). Sorted by job → category → date. */
 export default function Receipts() {
@@ -86,8 +120,14 @@ export default function Receipts() {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  // did the uploader change the date by hand? if not, the date read off the receipt wins
+  const [dateTouched, setDateTouched] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
+  // files waiting to be reviewed: uploaded to storage, read by Claude, but no
+  // receipt row until the uploader checks the numbers and hits Save
+  const [pending, setPending] = useState<Pending[]>([])
+  const current = pending[0]
 
   async function load() {
     const [jobRes, recRes, catRes, pmRes] = await Promise.all([
@@ -131,41 +171,126 @@ export default function Receipts() {
     void load()
   }, [])
 
-  async function uploadFiles(files: File[]) {
-    if (!isOverhead && !jobId) return
-    const ok = files.filter((f) => /^image\//.test(f.type) || f.type === 'application/pdf')
-    if (ok.length === 0) return
-    setUploading(true)
-    let first = true
-    for (const file of ok) {
-      const folder = isOverhead ? 'overhead' : jobId
-      const path = `${folder}/${Date.now()}_${file.name.replace(/[^\w.\-]/g, '_')}`
-      const { error: upErr } = await supabase!.storage.from('receipts').upload(path, file)
-      if (upErr) {
-        setError(upErr.message)
-        continue
-      }
-      const { error } = await supabase!.from('receipts').insert({
-        bid_id: isOverhead ? null : jobId,
-        is_overhead: isOverhead,
-        overhead_category: isOverhead ? overheadCat : null,
-        payment_method_id: methodId || null,
-        // no card on file for this person → office needs to sort out which card
-        needs_card_review: !methodId && noCard,
-        file_path: path,
-        amount: first && amount !== '' ? Number(amount) : null,
-        category: isOverhead ? 'other' : category,
-        note: first && note.trim() ? note.trim() : null,
-        receipt_date: date || null,
-        uploaded_by: session?.user.email ?? null,
-      })
-      if (error) setError(error.message)
-      first = false
+  // Step 1: drop/choose files → upload to storage and read them. Nothing is
+  // filed yet; each file waits in `pending` until the uploader hits Save.
+  async function stageFiles(files: File[]) {
+    // phone cameras sometimes hand over a file with no type at all — go by the name then
+    const looksLikeReceipt = (f: File) =>
+      /^image\//.test(f.type) || f.type === 'application/pdf' || (!f.type && /\.(jpe?g|png|heic|heif|webp|pdf)$/i.test(f.name))
+    const ok = files.filter(looksLikeReceipt)
+    if (ok.length === 0) {
+      setError(`That file type isn't supported (${files.map((f) => f.type || f.name).join(', ')}) — use a photo or PDF.`)
+      return
     }
+    setUploading(true)
+    try {
+      for (const raw of ok) {
+        const file = await shrinkImage(raw)
+        const folder = isOverhead ? 'overhead' : jobId || 'unsorted'
+        const ext = file.name.includes('.') ? '' : file.type === 'application/pdf' ? '.pdf' : '.jpg'
+        const path = `${folder}/${Date.now()}_${file.name.replace(/[^\w.\-]/g, '_')}${ext}`
+        const { error: upErr } = await supabase!.storage.from('receipts').upload(path, file, {
+          contentType: file.type || (ext === '.pdf' ? 'application/pdf' : 'image/jpeg'),
+        })
+        if (upErr) {
+          setError(`Upload failed: ${upErr.message}`)
+          continue
+        }
+        const key = `${Date.now()}_${Math.random()}`
+        setPending((p) => [
+          ...p,
+          { key, path, name: raw.name || 'photo', previewUrl: URL.createObjectURL(file), isPdf: file.type === 'application/pdf', read: { state: 'reading' }, applied: false },
+        ])
+        void readPending(key, path)
+      }
+    } catch (e) {
+      setError(`Upload failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Ask the read-receipt function for date / total / store / card.
+  async function readPending(key: string, path: string) {
+    const { data, error } = await supabase!.functions.invoke('read-receipt', { body: { path } })
+    const res = data as { ok: boolean; reason?: string; date: string | null; total: number | null; merchant: string | null; card_last4: string | null } | null
+    const update = (patch: Partial<Pending>) => setPending((p) => p.map((x) => (x.key === key ? { ...x, ...patch } : x)))
+    if (error || !res?.ok) {
+      update({ read: { state: 'failed', detail: res?.reason ?? error?.message ?? 'no answer' } })
+      return
+    }
+    if (res.date == null && res.total == null) {
+      update({ read: { state: 'failed', detail: "couldn't make out a date or total" } })
+      return
+    }
+    // a card named with those four digits ("Amex 1234") gets picked automatically
+    const hits = res.card_last4 ? activeMethods.filter((m) => m.name.includes(res.card_last4!)) : []
+    const cardId = hits.length === 1 ? hits[0].id : null
+    const bits: string[] = []
+    if (res.date) bits.push(res.date.slice(5).replace('-', '/'))
+    if (res.total != null) bits.push(fmtMoney(res.total))
+    if (res.merchant) bits.push(res.merchant)
+    if (res.card_last4) bits.push(cardId ? hits[0].name : `card …${res.card_last4}`)
+    update({
+      read: { state: 'read', detail: bits.join(' · ') },
+      found: { date: res.date, total: res.total, merchant: res.merchant, cardId },
+    })
+  }
+
+  // When the file at the front of the queue has been read, drop what it found
+  // into the form — but never over something the uploader already typed.
+  useEffect(() => {
+    if (!current || current.applied || current.read.state === 'reading') return
+    const f = current.found
+    if (f) {
+      if (f.date && !dateTouched) setDate(f.date)
+      if (f.total != null && amount === '') setAmount(String(f.total))
+      if (f.merchant && note.trim() === '') setNote(f.merchant)
+      if (f.cardId && !methodId) setMethodId(f.cardId)
+    }
+    setPending((p) => p.map((x) => (x.key === current.key ? { ...x, applied: true } : x)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.key, current?.read.state])
+
+  function resetForm() {
     setAmount('')
     setNote('')
-    setUploading(false)
+    setMethodId(myCards.length === 1 ? myCards[0].id : '')
+  }
+
+  function dropCurrent() {
+    if (!current) return
+    URL.revokeObjectURL(current.previewUrl)
+    setPending((p) => p.slice(1))
+    resetForm()
+  }
+
+  // Step 2: the uploader checked the numbers → file the receipt for real.
+  async function saveCurrent() {
+    if (!current || (!isOverhead && !jobId)) return
+    const { error } = await supabase!.from('receipts').insert({
+      bid_id: isOverhead ? null : jobId,
+      is_overhead: isOverhead,
+      overhead_category: isOverhead ? overheadCat : null,
+      payment_method_id: methodId || null,
+      // no card on file for this person → office needs to sort out which card
+      needs_card_review: !methodId && noCard,
+      file_path: current.path,
+      amount: amount !== '' ? Number(amount) : null,
+      category: isOverhead ? 'other' : category,
+      note: note.trim() || null,
+      receipt_date: date || null,
+      uploaded_by: session?.user.email ?? null,
+    })
+    if (error) return setError(error.message)
+    dropCurrent()
     void load()
+  }
+
+  async function discardCurrent() {
+    if (!current) return
+    await supabase!.storage.from('receipts').remove([current.path])
+    dropCurrent()
   }
 
   async function patch(r: Receipt, fields: Partial<Receipt>) {
@@ -178,6 +303,49 @@ export default function Receipts() {
     const { data, error } = await supabase!.storage.from('receipts').createSignedUrl(r.file_path, 300)
     if (error) setError(error.message)
     else if (data) window.open(data.signedUrl, '_blank')
+  }
+
+  // a clean filename for QBO: date_job_what.ext
+  function niceName(r: Receipt) {
+    const ext = r.file_path.split('.').pop() ?? 'jpg'
+    const date = r.receipt_date ?? r.created_at.slice(0, 10)
+    const where = r.is_overhead ? 'overhead' : jobById.get(r.bid_id ?? '')?.job_number ?? 'job'
+    const what = (r.note ?? 'receipt').replace(/[^\w\-]+/g, '_').slice(0, 40)
+    return `${date}_${where}_${what}.${ext}`
+  }
+
+  async function download(r: Receipt) {
+    const { data, error } = await supabase!.storage.from('receipts').download(r.file_path)
+    if (error || !data) return setError(error?.message ?? 'Download failed')
+    triggerDownload(data, niceName(r))
+  }
+
+  const [zipping, setZipping] = useState(false)
+  async function downloadZip(rows: Receipt[], label: string) {
+    if (rows.length === 0) return
+    setZipping(true)
+    try {
+      const zip = new JSZip()
+      for (const r of rows) {
+        const { data } = await supabase!.storage.from('receipts').download(r.file_path)
+        if (data) zip.file(niceName(r), data)
+      }
+      const blob = await zip.generateAsync({ type: 'blob' })
+      triggerDownload(blob, `receipts_${label}.zip`)
+    } finally {
+      setZipping(false)
+    }
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   async function remove(r: Receipt) {
@@ -271,13 +439,16 @@ export default function Receipts() {
   const reportTotal = report.reduce((s, r) => s + Number(r.amount ?? 0), 0)
   const repRangeLabel = `${fmtDay(repFrom)} — ${fmtDay(repTo)}`
 
-  if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
-
   const missingAmount = receipts.filter((r) => r.amount == null && (r.is_overhead || (r.bid_id && jobById.get(r.bid_id)))).length
 
   return (
     <div className="max-w-4xl space-y-5 print:max-w-none">
+      {error && (
+        <p className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 print:hidden">
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-700" title="Dismiss">×</button>
+        </p>
+      )}
       <div className="print:hidden">
         <h1 className="text-lg font-semibold tracking-tight">Receipts</h1>
         <p className="mt-0.5 text-sm text-slate-500">
@@ -295,12 +466,39 @@ export default function Receipts() {
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
-          void uploadFiles([...e.dataTransfer.files])
+          void stageFiles([...e.dataTransfer.files])
         }}
         className={`rounded-lg border-2 bg-white p-4 transition-colors print:hidden ${
           dragging ? 'border-dashed border-emerald-600 bg-emerald-50' : 'border-slate-800'
         }`}
       >
+        {/* The receipt being reviewed: preview + what the reader found */}
+        {current && (
+          <div className="mb-3 flex flex-wrap items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3">
+            {current.isPdf ? (
+              <a href={current.previewUrl} target="_blank" rel="noreferrer" className="flex h-24 w-20 flex-col items-center justify-center rounded border border-slate-300 bg-white text-2xl">
+                📄<span className="mt-1 text-[10px] text-slate-500">open</span>
+              </a>
+            ) : (
+              <a href={current.previewUrl} target="_blank" rel="noreferrer" title="Open full size">
+                <img src={current.previewUrl} alt="" className="h-24 w-20 rounded border border-slate-300 bg-white object-cover" />
+              </a>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-slate-800">{current.name}</p>
+              {current.read.state === 'reading' && <p className="mt-1 animate-pulse text-xs text-slate-500">Reading the receipt…</p>}
+              {current.read.state === 'read' && (
+                <p className="mt-1 text-xs text-emerald-800">✓ Read: {current.read.detail} — check the fields below, then save.</p>
+              )}
+              {current.read.state === 'failed' && (
+                <p className="mt-1 text-xs text-amber-800" title={current.read.detail}>
+                  Couldn't read this one — fill in the fields below by hand, then save.
+                </p>
+              )}
+              {pending.length > 1 && <p className="mt-1 text-[11px] text-slate-400">{pending.length - 1} more waiting after this one</p>}
+            </div>
+          </div>
+        )}
         <label className="mb-3 flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
@@ -383,35 +581,83 @@ export default function Receipts() {
             )}
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Date on receipt</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input mt-0.5" />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => {
+                  setDate(e.target.value)
+                  setDateTouched(true)
+                }}
+                className="input mt-0.5"
+              />
             </label>
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Amount ($)</span>
-              <input type="number" step="any" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="input mt-0.5" />
+              <input type="number" step="any" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="read from receipt" className="input mt-0.5" />
             </label>
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">What is it</span>
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="McKillican sheet order" className="input mt-0.5" />
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="read from receipt" className="input mt-0.5" />
             </label>
+            {!current && (
+              <p className="text-xs text-slate-500 sm:col-span-2">
+                Add the photo or PDF first — date, amount, store and card get read off it and filled in here for
+                you to check. Nothing is saved until you hit Save.
+              </p>
+            )}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <p className={`flex-1 rounded-md border border-dashed px-3 py-2 text-center text-xs ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-400'}`}>
-              {dragging ? 'Drop to upload' : 'Drag the photo or PDF here'}
-            </p>
-            <label className={`cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-white ${uploading ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-700'}`}>
-              {uploading ? 'Uploading…' : '+ Upload receipt'}
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                multiple
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  if (e.target.files?.length) void uploadFiles([...e.target.files])
-                  e.target.value = ''
-                }}
-              />
-            </label>
+            {current ? (
+              <>
+                <button
+                  onClick={() => void saveCurrent()}
+                  disabled={current.read.state === 'reading' || (!isOverhead && !jobId)}
+                  className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:bg-slate-400"
+                >
+                  {current.read.state === 'reading' ? 'Reading…' : '✓ Save receipt'}
+                </button>
+                <button
+                  onClick={() => void discardCurrent()}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-red-400 hover:text-red-700"
+                >
+                  Discard
+                </button>
+                <label className={`ml-auto cursor-pointer rounded-md border border-dashed px-3 py-2 text-xs ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-500 hover:border-slate-500'}`}>
+                  {dragging ? 'Drop to add' : '+ add another'}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    multiple
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      if (e.target.files?.length) void stageFiles([...e.target.files])
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <p className={`flex-1 rounded-md border border-dashed px-3 py-2 text-center text-xs ${dragging ? 'border-emerald-500 font-semibold text-emerald-700' : 'border-slate-300 text-slate-400'}`}>
+                  {dragging ? 'Drop to read it' : 'Drag the photo or PDF here'}
+                </p>
+                <label className={`cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-white ${uploading ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-700'}`}>
+                  {uploading ? 'Uploading…' : '+ Add receipt'}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    multiple
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      if (e.target.files?.length) void stageFiles([...e.target.files])
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              </>
+            )}
           </div>
         </div>
 
@@ -465,8 +711,16 @@ export default function Receipts() {
                   </button>
                 )}
                 <button
+                  onClick={() => void downloadZip(report, `${repFrom}_to_${repTo}`)}
+                  disabled={zipping || report.length === 0}
+                  title="Every receipt file in this report, zipped and named date_job_what — ready for QuickBooks"
+                  className="ml-auto self-end rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  {zipping ? 'Zipping…' : `⬇ Download ${report.length} file${report.length === 1 ? '' : 's'}`}
+                </button>
+                <button
                   onClick={() => window.print()}
-                  className="ml-auto self-end rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                  className="self-end rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
                 >
                   🖨 Print
                 </button>
@@ -698,6 +952,9 @@ export default function Receipts() {
                       <button onClick={() => void view(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">
                         view
                       </button>
+                      <button onClick={() => void download(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900" title="Save the file to your computer">
+                        save
+                      </button>
                       <button onClick={() => setRemoving(r)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
                     </div>
                   ))}
@@ -817,6 +1074,9 @@ export default function Receipts() {
                             )}
                             <button onClick={() => void view(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">
                               view
+                            </button>
+                            <button onClick={() => void download(r)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900" title="Save the file to your computer">
+                              save
                             </button>
                             <button onClick={() => setRemoving(r)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
                           </div>
