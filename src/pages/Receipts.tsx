@@ -11,6 +11,15 @@ import ConfirmDialog from '../components/ConfirmDialog'
 const fmtDay = (iso: string) =>
   new Date(`${iso}T12:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+// local time (not UTC) so late evenings don't roll into next month
+const localYm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+const thisMonth = () => localYm(new Date())
+const monthLabel = (ym: string) => new Date(`${ym}-15T12:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+const shiftMonth = (ym: string, by: number) => {
+  const d = new Date(`${ym}-15T12:00`)
+  d.setMonth(d.getMonth() + by)
+  return localYm(d)
+}
 
 interface Receipt {
   id: string
@@ -65,8 +74,6 @@ const parseMoney = (s: string): number | null => {
   const clean = s.replace(/[^0-9.-]/g, '')
   return clean === '' ? null : Number(clean)
 }
-const monthLabel = (iso: string) =>
-  new Date(`${iso.slice(0, 7)}-15T12:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
 /** Phone photos run 4–8 MB; shrink big images to ≤2000px JPEG before upload so
  *  they store small and the reader (5 MB image cap) can take them. Anything that
@@ -105,6 +112,9 @@ export default function Receipts() {
   const [managingCats, setManagingCats] = useState(false)
   const [methods, setMethods] = useState<PaymentMethod[]>([])
   const [filterMethod, setFilterMethod] = useState('') // '' = any
+  const [filterJob, setFilterJob] = useState('') // '' = any | 'overhead' | bid id
+  // the lists show one month at a time so they stay short; 'all' opens everything
+  const [month, setMonth] = useState<string>(thisMonth)
 
   // printable expense report (office/admin)
   const [reportOpen, setReportOpen] = useState(false)
@@ -288,6 +298,8 @@ export default function Receipts() {
       uploaded_by: session?.user.email ?? null,
     })
     if (error) return setError(error.message)
+    // jump to the month it landed in so the new row is on screen
+    if (date && month !== 'all') setMonth(date.slice(0, 7))
     dropCurrent()
     void load()
   }
@@ -364,41 +376,86 @@ export default function Receipts() {
 
   // office/admin see everything; everyone else only what they filed.
   // "paid with" filter narrows both lists (for card statement reconciliation).
+  // Sorted here (not just by the query) so a row moves as soon as its date is edited.
   const visible = useMemo(() => {
     const mine = reconciles ? receipts : receipts.filter((r) => r.uploaded_by === session?.user.email)
-    return filterMethod ? mine.filter((r) => r.payment_method_id === filterMethod) : mine
-  }, [receipts, filterMethod, reconciles, session?.user.email])
+    const byCard = filterMethod ? mine.filter((r) => r.payment_method_id === filterMethod) : mine
+    const byJob =
+      filterJob === 'overhead' ? byCard.filter((r) => r.is_overhead) : filterJob ? byCard.filter((r) => r.bid_id === filterJob) : byCard
+    const list = month === 'all' ? byJob : byJob.filter((r) => (r.receipt_date ?? r.created_at).slice(0, 7) === month)
+    return [...list].sort(
+      (a, b) => (b.receipt_date ?? '').localeCompare(a.receipt_date ?? '') || b.created_at.localeCompare(a.created_at),
+    )
+  }, [receipts, filterMethod, filterJob, month, reconciles, session?.user.email])
 
-  // overhead → category → receipts
-  const overheadGrouped = useMemo(() => {
+  // Split a list into overhead → category and job → category → receipts
+  // (rows arrive date-sorted from the query).
+  function groupReceipts(list: Receipt[]) {
     const byCat = new Map<string, Receipt[]>()
-    for (const r of visible) {
-      if (!r.is_overhead) continue
-      const c = r.overhead_category ?? 'other'
-      if (!byCat.has(c)) byCat.set(c, [])
-      byCat.get(c)!.push(r)
-    }
-    return [...byCat.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [visible])
-  const overheadTotal = visible.filter((r) => r.is_overhead).reduce((s, r) => s + Number(r.amount ?? 0), 0)
-
-  // job → category → receipts (already date-sorted from the query)
-  const grouped = useMemo(() => {
     const byJob = new Map<string, Map<string, Receipt[]>>()
-    for (const r of visible) {
-      if (r.is_overhead || !r.bid_id) continue
+    for (const r of list) {
+      if (r.is_overhead) {
+        const c = r.overhead_category ?? 'other'
+        if (!byCat.has(c)) byCat.set(c, [])
+        byCat.get(c)!.push(r)
+        continue
+      }
+      if (!r.bid_id) continue
       const job = jobById.get(r.bid_id)
       if (!job) continue
-      if (!showCompleted && job.completed_at) continue
+      if (!showCompleted && job.completed_at && filterJob !== r.bid_id) continue
       if (!byJob.has(r.bid_id)) byJob.set(r.bid_id, new Map())
       const cats = byJob.get(r.bid_id)!
       if (!cats.has(r.category)) cats.set(r.category, [])
       cats.get(r.category)!.push(r)
     }
-    return [...byJob.entries()].sort((a, b) =>
-      (jobById.get(a[0])?.job_number ?? '').localeCompare(jobById.get(b[0])?.job_number ?? ''),
+    return {
+      overheadGrouped: [...byCat.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      grouped: [...byJob.entries()].sort((a, b) =>
+        (jobById.get(a[0])?.job_number ?? '').localeCompare(jobById.get(b[0])?.job_number ?? ''),
+      ),
+      overheadTotal: list.filter((r) => r.is_overhead).reduce((s, r) => s + Number(r.amount ?? 0), 0),
+    }
+  }
+  const { overheadGrouped, grouped, overheadTotal } = useMemo(() => groupReceipts(visible), [visible, jobById, showCompleted, filterJob]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Within a job (or overhead), receipts are split by the card they went on so
+  // the office can reconcile each statement. Everyone sees the split; the card
+  // header only shows when it says something (office/admin, or several cards).
+  function splitByCard(rows: Receipt[], catOf: (r: Receipt) => string) {
+    const buckets = new Map<string, { key: string; name: string; flag: boolean; total: number; byCat: Map<string, Receipt[]> }>()
+    const order = (key: string) => (key === 'none' ? Infinity : methods.findIndex((m) => m.id === key))
+    for (const r of rows) {
+      const key = r.payment_method_id ?? 'none'
+      if (!buckets.has(key)) {
+        const m = methods.find((x) => x.id === key)
+        buckets.set(key, {
+          key,
+          name: m ? m.name + (m.active ? '' : ' (retired)') : 'No card set',
+          flag: !m,
+          total: 0,
+          byCat: new Map(),
+        })
+      }
+      const b = buckets.get(key)!
+      b.total += Number(r.amount ?? 0)
+      const c = catOf(r)
+      if (!b.byCat.has(c)) b.byCat.set(c, [])
+      b.byCat.get(c)!.push(r)
+    }
+    return [...buckets.values()].sort((a, b) => order(a.key) - order(b.key))
+  }
+  const showCardHeaders = reconciles || methods.filter((m) => m.active && m.owner_id === myId).length > 1
+  function cardHeader(b: { key: string; name: string; flag: boolean; total: number }) {
+    if (!showCardHeaders) return null
+    return (
+      <div className={`flex items-center gap-2 px-4 py-1.5 ${b.flag ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+        <span className="font-mono text-[10px] uppercase tracking-widest opacity-70">{b.flag ? '⚑' : 'card'}</span>
+        <span className="text-xs font-semibold">{b.name}</span>
+        <span className="ml-auto text-xs font-semibold tabular-nums">{fmtMoney(b.total)}</span>
+      </div>
     )
-  }, [visible, jobById, showCompleted])
+  }
   const filteredTotal = visible
     .filter((r) => r.is_overhead || (r.bid_id && jobById.get(r.bid_id)))
     .reduce((s, r) => s + Number(r.amount ?? 0), 0)
@@ -444,6 +501,251 @@ export default function Receipts() {
   const reportTotal = report.reduce((s, r) => s + Number(r.amount ?? 0), 0)
   const repRangeLabel = `${fmtDay(repFrom)} — ${fmtDay(repTo)}`
 
+  // The two receipt lists: overhead → card → category, jobs → job → card → category.
+  function renderLists(
+    overheadGrouped: [string, Receipt[]][],
+    grouped: [string, Map<string, Receipt[]>][],
+    overheadTotal: number,
+  ) {
+    return (
+      <>
+      {/* ---------- Overhead receipts ---------- */}
+      {overheadGrouped.length > 0 && (
+        <section className="print:hidden">
+          <div className="mb-2 flex items-baseline">
+            <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
+              Overhead receipts — not for a job
+            </h2>
+          </div>
+          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+            <div className="flex flex-wrap items-center gap-3 border-b-2 border-slate-800 bg-slate-50 px-4 py-2">
+              <span className="font-mono text-xs text-slate-500">OH</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">Overhead / office / shop</span>
+              <span className="text-sm font-semibold tabular-nums">{fmtMoney(overheadTotal)}</span>
+            </div>
+            {splitByCard(overheadGrouped.flatMap(([, rows]) => rows), (r) => r.overhead_category ?? 'other').map((b) => (
+              <div key={b.key} className="border-t-2 border-slate-800 first:border-t-0">
+                {cardHeader(b)}
+            {[...b.byCat.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([cat, rows]) => {
+              const catTotal = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0)
+              return (
+                <div key={cat} className="border-t border-slate-100 first:border-t-0">
+                  <div className="flex items-center px-4 pt-2 pb-1">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{cat}</span>
+                    <span className="ml-auto text-xs tabular-nums text-slate-500">{fmtMoney(catTotal)}</span>
+                  </div>
+                  {rows.map((r) => (
+                    <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
+                      <input
+                        type="date"
+                        defaultValue={r.receipt_date ?? ''}
+                        onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
+                        className="order-1 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:flex-none sm:basis-auto sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
+                      />
+                      <input
+                        defaultValue={r.note ?? ''}
+                        placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
+                        onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
+                        className="order-3 min-w-0 flex-1 basis-full rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-24 sm:border-transparent sm:px-1.5 sm:py-0.5"
+                      />
+                      <select
+                        value={r.overhead_category ?? 'other'}
+                        onChange={(e) => void patch(r, { overhead_category: e.target.value })}
+                        className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
+                      >
+                        {[...new Set([...catNames, r.overhead_category ?? 'other'])].map((x) => (
+                          <option key={x} value={x}>{x}</option>
+                        ))}
+                      </select>
+                      <span className="relative order-2 flex min-w-0 flex-1 basis-[38%] items-center sm:order-4 sm:flex-none sm:basis-auto">
+                        <span className="pointer-events-none absolute left-2 text-xs text-slate-400 sm:left-1.5">$</span>
+                        <input
+                          type="text" inputMode="decimal"
+                          defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
+                          placeholder="0.00"
+                          onBlur={(e) => {
+                            const v = parseMoney(e.target.value)
+                            if (v !== null && Number.isNaN(v)) { e.target.value = r.amount == null ? '' : Number(r.amount).toFixed(2); return }
+                            e.target.value = v == null ? '' : v.toFixed(2)
+                            if (v !== (r.amount == null ? null : Number(r.amount))) void patch(r, { amount: v })
+                          }}
+                          className={`w-full min-w-0 rounded border py-2 pl-5 pr-2 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none sm:w-24 sm:py-0.5 sm:pl-4 sm:pr-1.5 ${
+                            r.amount == null ? 'border-amber-400 bg-amber-50' : 'border-slate-200'
+                          }`}
+                        />
+                      </span>
+                      {reconciles ? (
+                        <select
+                          value={r.payment_method_id ?? ''}
+                          onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
+                          title="Paid with"
+                          className={`order-5 min-w-0 flex-1 basis-[38%] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:max-w-[9rem] sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px] ${
+                            r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
+                          }`}
+                        >
+                          <option value="">{r.needs_card_review ? '⚑ which card?' : 'paid with…'}</option>
+                          {methods.filter((m) => m.active || m.id === r.payment_method_id).map((m) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        r.payment_method_id && (
+                          <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
+                        )
+                      )}
+                      <button onClick={() => void view(r)} className="order-2 ml-auto px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:ml-0 sm:px-0 sm:py-0 sm:text-xs">
+                        view
+                      </button>
+                      <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
+                        save
+                      </button>
+                      <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ---------- Job receipts ---------- */}
+      <section className="print:hidden">
+        <div className="mb-2 flex flex-wrap items-center gap-3">
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
+            Job receipts — by job, then what they're for
+          </h2>
+          {missingAmount > 0 && (
+            <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800">
+              {missingAmount} missing an amount
+            </span>
+          )}
+          {jobs.some((j) => j.completed_at) && (
+            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+              <input type="checkbox" checked={showCompleted} onChange={(e) => setShowCompleted(e.target.checked)} className="accent-slate-900" />
+              show completed jobs
+            </label>
+          )}
+        </div>
+
+        {grouped.length === 0 ? (
+          <p className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            No job receipts filed yet.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {grouped.map(([bidId, cats]) => {
+              const job = jobById.get(bidId)!
+              const jobTotal = [...cats.values()].flat().reduce((s, r) => s + Number(r.amount ?? 0), 0)
+              return (
+                <div key={bidId} className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+                  <div className="flex flex-wrap items-center gap-3 border-b-2 border-slate-800 bg-slate-50 px-4 py-2">
+                    <span className="font-mono text-xs text-slate-500">{job.job_number}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{job.name}</span>
+                    <span className="text-sm font-semibold tabular-nums">{fmtMoney(jobTotal)}</span>
+                    <Link
+                      to={`/bids/${bidId}/actuals`}
+                      className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                    >
+                      Actuals →
+                    </Link>
+                  </div>
+                  {splitByCard([...cats.values()].flat(), (r) => r.category).map((b) => (
+                    <div key={b.key} className="border-t-2 border-slate-800 first:border-t-0">
+                      {cardHeader(b)}
+                  {CATEGORIES.filter((c) => b.byCat.has(c)).map((c) => {
+                    const rows = b.byCat.get(c)!
+                    const catTotal = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0)
+                    return (
+                      <div key={c} className="border-t border-slate-100 first:border-t-0">
+                        <div className="flex items-center bg-white px-4 pt-2 pb-1">
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{CATEGORY_LABEL[c]}</span>
+                          <span className="ml-auto text-xs tabular-nums text-slate-500">{fmtMoney(catTotal)}</span>
+                        </div>
+                        {rows.map((r) => (
+                          <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
+                            <input
+                              type="date"
+                              defaultValue={r.receipt_date ?? ''}
+                              onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
+                              className="order-1 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:flex-none sm:basis-auto sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
+                            />
+                            <input
+                              defaultValue={r.note ?? ''}
+                              placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
+                              onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
+                              className="order-3 min-w-0 flex-1 basis-full rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-24 sm:border-transparent sm:px-1.5 sm:py-0.5"
+                            />
+                            <select
+                              value={r.category}
+                              onChange={(e) => void patch(r, { category: e.target.value as Receipt['category'] })}
+                              className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
+                            >
+                              {CATEGORIES.map((x) => (
+                                <option key={x} value={x}>{x}</option>
+                              ))}
+                            </select>
+                            <span className="relative order-2 flex min-w-0 flex-1 basis-[38%] items-center sm:order-4 sm:flex-none sm:basis-auto">
+                              <span className="pointer-events-none absolute left-2 text-xs text-slate-400 sm:left-1.5">$</span>
+                              <input
+                                type="text" inputMode="decimal"
+                                defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
+                                placeholder="0.00"
+                                onBlur={(e) => {
+                                  const v = parseMoney(e.target.value)
+                                  if (v !== null && Number.isNaN(v)) { e.target.value = r.amount == null ? '' : Number(r.amount).toFixed(2); return }
+                                  e.target.value = v == null ? '' : v.toFixed(2)
+                                  if (v !== (r.amount == null ? null : Number(r.amount))) void patch(r, { amount: v })
+                                }}
+                                className={`w-full min-w-0 rounded border py-2 pl-5 pr-2 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none sm:w-24 sm:py-0.5 sm:pl-4 sm:pr-1.5 ${
+                                  r.amount == null ? 'border-amber-400 bg-amber-50' : 'border-slate-200'
+                                }`}
+                              />
+                            </span>
+                            {reconciles ? (
+                              <select
+                                value={r.payment_method_id ?? ''}
+                                onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
+                                title="Paid with"
+                                className={`order-5 min-w-0 flex-1 basis-[38%] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:max-w-[9rem] sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px] ${
+                                  r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
+                                }`}
+                              >
+                                <option value="">{r.needs_card_review ? '⚑ which card?' : 'paid with…'}</option>
+                                {methods.filter((m) => m.active || m.id === r.payment_method_id).map((m) => (
+                                  <option key={m.id} value={m.id}>{m.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              r.payment_method_id && (
+                                <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
+                              )
+                            )}
+                            <button onClick={() => void view(r)} className="order-2 ml-auto px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:ml-0 sm:px-0 sm:py-0 sm:text-xs">
+                              view
+                            </button>
+                            <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
+                              save
+                            </button>
+                            <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+      </>
+    )
+  }
   const missingAmount = receipts.filter((r) => r.amount == null && (r.is_overhead || (r.bid_id && jobById.get(r.bid_id)))).length
 
   return (
@@ -867,249 +1169,93 @@ export default function Receipts() {
       )}
 
       {/* ---------- Paid-with filter (statement reconciliation) ---------- */}
-      {reconciles && methods.length > 0 && receipts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-slate-800 bg-white px-4 py-2.5 print:hidden">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Show receipts paid with</span>
-          <select
-            value={filterMethod}
-            onChange={(e) => setFilterMethod(e.target.value)}
-            className="input mt-0 w-auto py-1.5"
-          >
-            <option value="">any</option>
-            {methods.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}{m.active ? '' : ' (retired)'}</option>
-            ))}
-          </select>
-          {filterMethod && (
-            <span className="ml-auto text-sm">
-              <span className="text-slate-500">total on {methodName(filterMethod)}:</span>{' '}
-              <span className="font-semibold tabular-nums">{fmtMoney(filteredTotal)}</span>
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* ---------- Overhead receipts ---------- */}
-      {overheadGrouped.length > 0 && (
-        <section className="print:hidden">
-          <div className="mb-2 flex items-baseline">
-            <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
-              Overhead / office / shop — by category
-            </h2>
-            <span className="ml-auto text-sm font-semibold tabular-nums">{fmtMoney(overheadTotal)}</span>
-          </div>
-          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-            {overheadGrouped.map(([cat, rows]) => {
-              const catTotal = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0)
-              return (
-                <div key={cat} className="border-t border-slate-100 first:border-t-0">
-                  <div className="flex items-center px-4 pt-2 pb-1">
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{cat}</span>
-                    <span className="ml-auto text-xs tabular-nums text-slate-500">{fmtMoney(catTotal)}</span>
-                  </div>
-                  {rows.map((r) => (
-                    <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
-                      <input
-                        type="date"
-                        defaultValue={r.receipt_date ?? ''}
-                        onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                        className="order-1 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:flex-none sm:basis-auto sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
-                      />
-                      <input
-                        defaultValue={r.note ?? ''}
-                        placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
-                        onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
-                        className="order-3 min-w-0 flex-1 basis-full rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-40 sm:border-transparent sm:px-1.5 sm:py-0.5"
-                      />
-                      <span className="hidden text-xs text-slate-400 sm:inline">{r.receipt_date ? monthLabel(r.receipt_date) : ''}</span>
-                      <select
-                        value={r.overhead_category ?? 'other'}
-                        onChange={(e) => void patch(r, { overhead_category: e.target.value })}
-                        className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
-                      >
-                        {[...new Set([...catNames, r.overhead_category ?? 'other'])].map((x) => (
-                          <option key={x} value={x}>{x}</option>
-                        ))}
-                      </select>
-                      <span className="relative order-2 flex min-w-0 flex-1 basis-[38%] items-center sm:order-4 sm:flex-none sm:basis-auto">
-                        <span className="pointer-events-none absolute left-2 text-xs text-slate-400 sm:left-1.5">$</span>
-                        <input
-                          type="text" inputMode="decimal"
-                          defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
-                          placeholder="0.00"
-                          onBlur={(e) => {
-                            const v = parseMoney(e.target.value)
-                            if (v !== null && Number.isNaN(v)) { e.target.value = r.amount == null ? '' : Number(r.amount).toFixed(2); return }
-                            e.target.value = v == null ? '' : v.toFixed(2)
-                            if (v !== (r.amount == null ? null : Number(r.amount))) void patch(r, { amount: v })
-                          }}
-                          className={`w-full min-w-0 rounded border py-2 pl-5 pr-2 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none sm:w-24 sm:py-0.5 sm:pl-4 sm:pr-1.5 ${
-                            r.amount == null ? 'border-amber-400 bg-amber-50' : 'border-slate-200'
-                          }`}
-                        />
-                      </span>
-                      {reconciles ? (
-                        <select
-                          value={r.payment_method_id ?? ''}
-                          onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
-                          title="Paid with"
-                          className={`order-5 min-w-0 flex-1 basis-[38%] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:max-w-[9rem] sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px] ${
-                            r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
-                          }`}
-                        >
-                          <option value="">{r.needs_card_review ? '⚑ which card?' : 'paid with…'}</option>
-                          {methods.filter((m) => m.active || m.id === r.payment_method_id).map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        r.payment_method_id && (
-                          <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
-                        )
-                      )}
-                      <button onClick={() => void view(r)} className="order-2 ml-auto px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:ml-0 sm:px-0 sm:py-0 sm:text-xs">
-                        view
-                      </button>
-                      <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
-                        save
-                      </button>
-                      <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ---------- Job receipts ---------- */}
-      <section className="print:hidden">
-        <div className="mb-2 flex flex-wrap items-center gap-3">
-          <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
-            Job receipts — by job, then what they're for
-          </h2>
-          {missingAmount > 0 && (
-            <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800">
-              {missingAmount} missing an amount
-            </span>
-          )}
-          {jobs.some((j) => j.completed_at) && (
-            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
-              <input type="checkbox" checked={showCompleted} onChange={(e) => setShowCompleted(e.target.checked)} className="accent-slate-900" />
-              show completed jobs
+      {receipts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border-2 border-slate-800 bg-white px-4 py-2.5 print:hidden">
+          {reconciles && methods.length > 0 && (
+            <label className="flex items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Paid with</span>
+              <select
+                value={filterMethod}
+                onChange={(e) => setFilterMethod(e.target.value)}
+                className="input mt-0 w-auto py-1.5"
+              >
+                <option value="">any card</option>
+                {methods.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}{m.active ? '' : ' (retired)'}</option>
+                ))}
+              </select>
             </label>
           )}
+          <label className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Job</span>
+            <select
+              value={filterJob}
+              onChange={(e) => setFilterJob(e.target.value)}
+              className="input mt-0 w-auto max-w-[16rem] py-1.5"
+            >
+              <option value="">any job</option>
+              <option value="overhead">Overhead only</option>
+              {jobs.filter((j) => !j.completed_at).map((j) => (
+                <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>
+              ))}
+              {jobs.some((j) => j.completed_at) && (
+                <optgroup label="Completed jobs">
+                  {jobs.filter((j) => j.completed_at).map((j) => (
+                    <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+          {(filterMethod || filterJob) && (
+            <button
+              type="button"
+              onClick={() => { setFilterMethod(''); setFilterJob('') }}
+              className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900"
+            >
+              clear filters
+            </button>
+          )}
         </div>
+      )}
 
-        {grouped.length === 0 ? (
-          <p className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-            No job receipts filed yet.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {grouped.map(([bidId, cats]) => {
-              const job = jobById.get(bidId)!
-              const jobTotal = [...cats.values()].flat().reduce((s, r) => s + Number(r.amount ?? 0), 0)
-              return (
-                <div key={bidId} className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-                  <div className="flex flex-wrap items-center gap-3 border-b-2 border-slate-800 bg-slate-50 px-4 py-2">
-                    <span className="font-mono text-xs text-slate-500">{job.job_number}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{job.name}</span>
-                    <span className="text-sm font-semibold tabular-nums">{fmtMoney(jobTotal)}</span>
-                    <Link
-                      to={`/bids/${bidId}/actuals`}
-                      className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
-                    >
-                      Actuals →
-                    </Link>
-                  </div>
-                  {CATEGORIES.filter((c) => cats.has(c)).map((c) => {
-                    const rows = cats.get(c)!
-                    const catTotal = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0)
-                    return (
-                      <div key={c} className="border-t border-slate-100 first:border-t-0">
-                        <div className="flex items-center bg-white px-4 pt-2 pb-1">
-                          <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{CATEGORY_LABEL[c]}</span>
-                          <span className="ml-auto text-xs tabular-nums text-slate-500">{fmtMoney(catTotal)}</span>
-                        </div>
-                        {rows.map((r) => (
-                          <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
-                            <input
-                              type="date"
-                              defaultValue={r.receipt_date ?? ''}
-                              onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                              className="order-1 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:flex-none sm:basis-auto sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
-                            />
-                            <input
-                              defaultValue={r.note ?? ''}
-                              placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
-                              onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
-                              className="order-3 min-w-0 flex-1 basis-full rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-40 sm:border-transparent sm:px-1.5 sm:py-0.5"
-                            />
-                            <select
-                              value={r.category}
-                              onChange={(e) => void patch(r, { category: e.target.value as Receipt['category'] })}
-                              className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
-                            >
-                              {CATEGORIES.map((x) => (
-                                <option key={x} value={x}>{x}</option>
-                              ))}
-                            </select>
-                            <span className="relative order-2 flex min-w-0 flex-1 basis-[38%] items-center sm:order-4 sm:flex-none sm:basis-auto">
-                              <span className="pointer-events-none absolute left-2 text-xs text-slate-400 sm:left-1.5">$</span>
-                              <input
-                                type="text" inputMode="decimal"
-                                defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
-                                placeholder="0.00"
-                                onBlur={(e) => {
-                                  const v = parseMoney(e.target.value)
-                                  if (v !== null && Number.isNaN(v)) { e.target.value = r.amount == null ? '' : Number(r.amount).toFixed(2); return }
-                                  e.target.value = v == null ? '' : v.toFixed(2)
-                                  if (v !== (r.amount == null ? null : Number(r.amount))) void patch(r, { amount: v })
-                                }}
-                                className={`w-full min-w-0 rounded border py-2 pl-5 pr-2 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none sm:w-24 sm:py-0.5 sm:pl-4 sm:pr-1.5 ${
-                                  r.amount == null ? 'border-amber-400 bg-amber-50' : 'border-slate-200'
-                                }`}
-                              />
-                            </span>
-                            {reconciles ? (
-                              <select
-                                value={r.payment_method_id ?? ''}
-                                onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
-                                title="Paid with"
-                                className={`order-5 min-w-0 flex-1 basis-[38%] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:max-w-[9rem] sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px] ${
-                                  r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
-                                }`}
-                              >
-                                <option value="">{r.needs_card_review ? '⚑ which card?' : 'paid with…'}</option>
-                                {methods.filter((m) => m.active || m.id === r.payment_method_id).map((m) => (
-                                  <option key={m.id} value={m.id}>{m.name}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              r.payment_method_id && (
-                                <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
-                              )
-                            )}
-                            <button onClick={() => void view(r)} className="order-2 ml-auto px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:ml-0 sm:px-0 sm:py-0 sm:text-xs">
-                              view
-                            </button>
-                            <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
-                              save
-                            </button>
-                            <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
+      {/* ---------- Month picker ---------- */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-slate-800 bg-white px-3 py-2 print:hidden">
+        <button
+          type="button"
+          onClick={() => setMonth((m) => shiftMonth(m === 'all' ? thisMonth() : m, -1))}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+          title="Previous month"
+        >
+          ‹
+        </button>
+        <span className="min-w-[9rem] text-center text-sm font-semibold">{month === 'all' ? 'All months' : monthLabel(month)}</span>
+        <button
+          type="button"
+          onClick={() => setMonth((m) => shiftMonth(m === 'all' ? thisMonth() : m, 1))}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+          title="Next month"
+        >
+          ›
+        </button>
+        {month !== thisMonth() && (
+          <button type="button" onClick={() => setMonth(thisMonth())} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">
+            this month
+          </button>
         )}
-      </section>
+        <button
+          type="button"
+          onClick={() => setMonth((m) => (m === 'all' ? thisMonth() : 'all'))}
+          className="ml-auto text-xs text-slate-500 underline decoration-dotted hover:text-slate-900"
+        >
+          {month === 'all' ? 'one month at a time' : 'show all months'}
+        </button>
+        <span className="text-sm text-slate-500">
+          {visible.length} receipt{visible.length === 1 ? '' : 's'} · <span className="font-semibold tabular-nums">{fmtMoney(filteredTotal)}</span>
+        </span>
+      </div>
+
+      {renderLists(overheadGrouped, grouped, overheadTotal)}
 
       {managingCats && (
         <ListManager
