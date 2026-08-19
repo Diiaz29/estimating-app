@@ -897,7 +897,7 @@ export default function Receipts() {
                         type="date"
                         defaultValue={r.receipt_date ?? ''}
                         onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                        className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-xs sm:w-36 text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                        className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-sm text-slate-500 sm:w-36 sm:text-xs hover:border-slate-200 focus:border-slate-800 focus:outline-none"
                       />
                       <input
                         defaultValue={r.note ?? ''}
@@ -1021,7 +1021,7 @@ export default function Receipts() {
                               type="date"
                               defaultValue={r.receipt_date ?? ''}
                               onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                              className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-xs sm:w-36 text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                              className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-sm text-slate-500 sm:w-36 sm:text-xs hover:border-slate-200 focus:border-slate-800 focus:outline-none"
                             />
                             <input
                               defaultValue={r.note ?? ''}
