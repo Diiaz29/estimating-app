@@ -925,13 +925,13 @@ export default function Receipts() {
                       <select
                         value={r.overhead_category ?? 'other'}
                         onChange={(e) => void patch(r, { overhead_category: e.target.value })}
-                        className="order-4 rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:px-1 sm:py-0.5 sm:text-[10px]"
+                        className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
                       >
                         {[...new Set([...catNames, r.overhead_category ?? 'other'])].map((x) => (
                           <option key={x} value={x}>{x}</option>
                         ))}
                       </select>
-                      <span className="order-2 ml-auto flex items-center gap-0.5 sm:order-4 sm:ml-0">
+                      <span className="order-2 flex items-center gap-0.5 sm:order-4">
                         <span className="text-xs text-slate-400">$</span>
                         <input
                           type="text" inputMode="decimal"
@@ -953,7 +953,7 @@ export default function Receipts() {
                           value={r.payment_method_id ?? ''}
                           onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                           title="Paid with"
-                          className={`order-5 max-w-[9rem] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:px-1 sm:py-0.5 sm:text-[10px] ${
+                          className={`order-5 min-w-0 flex-1 basis-[38%] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:max-w-[9rem] sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px] ${
                             r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
                           }`}
                         >
@@ -970,7 +970,7 @@ export default function Receipts() {
                       <button onClick={() => void view(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs">
                         view
                       </button>
-                      <button onClick={() => void download(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs" title="Save the file to your computer">
+                      <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
                         save
                       </button>
                       <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
@@ -1050,13 +1050,13 @@ export default function Receipts() {
                             <select
                               value={r.category}
                               onChange={(e) => void patch(r, { category: e.target.value as Receipt['category'] })}
-                              className="order-4 rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:px-1 sm:py-0.5 sm:text-[10px]"
+                              className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
                             >
                               {CATEGORIES.map((x) => (
                                 <option key={x} value={x}>{x}</option>
                               ))}
                             </select>
-                            <span className="order-2 ml-auto flex items-center gap-0.5 sm:order-4 sm:ml-0">
+                            <span className="order-2 flex items-center gap-0.5 sm:order-4">
                               <span className="text-xs text-slate-400">$</span>
                               <input
                                 type="text" inputMode="decimal"
@@ -1078,7 +1078,7 @@ export default function Receipts() {
                                 value={r.payment_method_id ?? ''}
                                 onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                                 title="Paid with"
-                                className={`order-5 max-w-[9rem] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:px-1 sm:py-0.5 sm:text-[10px] ${
+                                className={`order-5 min-w-0 flex-1 basis-[38%] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:max-w-[9rem] sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px] ${
                                   r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
                                 }`}
                               >
@@ -1095,7 +1095,7 @@ export default function Receipts() {
                             <button onClick={() => void view(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs">
                               view
                             </button>
-                            <button onClick={() => void download(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs" title="Save the file to your computer">
+                            <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
                               save
                             </button>
                             <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
