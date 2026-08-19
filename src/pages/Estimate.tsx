@@ -513,7 +513,7 @@ export default function Estimate() {
       {uniqueWarnings.length > 0 && (
         <details className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           <summary className="cursor-pointer font-semibold">
-            ⚠ {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
+            ⚠︎ {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
           </summary>
           <ul className="mt-2 list-disc pl-5 space-y-0.5">
             {uniqueWarnings.map((w) => (
@@ -1503,7 +1503,7 @@ function LineRow({
             className="-my-2 ml-0.5 px-2 py-2 align-middle text-amber-500"
             title={p.warnings.map((w) => w.message).join('\n')}
           >
-            ⚠
+            ⚠︎
           </button>
         )}
         {showWarn && p.warnings.length > 0 && (

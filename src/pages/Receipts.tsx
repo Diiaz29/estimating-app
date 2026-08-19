@@ -477,7 +477,7 @@ export default function Receipts() {
           <div className="mb-3 flex flex-wrap items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3">
             {current.isPdf ? (
               <a href={current.previewUrl} target="_blank" rel="noreferrer" className="flex h-24 w-20 flex-col items-center justify-center rounded border border-slate-300 bg-white text-2xl">
-                📄<span className="mt-1 text-[10px] text-slate-500">open</span>
+                <span className="text-xs font-semibold">PDF</span><span className="mt-1 text-[10px] text-slate-500">open</span>
               </a>
             ) : (
               <a href={current.previewUrl} target="_blank" rel="noreferrer" title="Open full size">
@@ -671,7 +671,7 @@ export default function Receipts() {
                 reportOpen ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
               }`}
             >
-              📄 Expense report {reportOpen ? '▴' : '▾'}
+              ▤ Expense report {reportOpen ? '▴' : '▾'}
             </button>
             {reportOpen && (
               <>
@@ -716,13 +716,13 @@ export default function Receipts() {
                   title="Every receipt file in this report, zipped and named date_job_what — ready for QuickBooks"
                   className="ml-auto self-end rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40"
                 >
-                  {zipping ? 'Zipping…' : `⬇ Download ${report.length} file${report.length === 1 ? '' : 's'}`}
+                  {zipping ? 'Zipping…' : `↓ Download ${report.length} file${report.length === 1 ? '' : 's'}`}
                 </button>
                 <button
                   onClick={() => window.print()}
                   className="self-end rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
                 >
-                  🖨 Print
+                  Print
                 </button>
               </>
             )}

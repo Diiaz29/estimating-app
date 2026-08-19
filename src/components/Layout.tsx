@@ -94,7 +94,7 @@ export default function Layout() {
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
             >
-              {theme === 'dark' ? '☀' : '🌙'}
+              {theme === 'dark' ? '☼' : '☾'}
             </button>
             {realRole === 'admin' && (
               <label className="flex items-center gap-1.5" title="Preview the app as another role (screen only — you keep your admin powers)">

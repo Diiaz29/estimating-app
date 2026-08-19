@@ -152,7 +152,7 @@ export default function ChangeOrderDoc() {
           onClick={() => window.print()}
           className="ml-auto rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
         >
-          🖨 Print / save PDF
+          Print / save PDF
         </button>
       </div>
 

@@ -201,7 +201,7 @@ export default function Actuals() {
 
       {missingAmounts > 0 && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          ⚠ {missingAmounts} receipt{missingAmounts > 1 ? 's have' : ' has'} no amount yet — they
+          ⚠︎ {missingAmounts} receipt{missingAmounts > 1 ? 's have' : ' has'} no amount yet — they
           count as $0 until you fill them in below.
         </p>
       )}
@@ -520,7 +520,7 @@ function Row({
         {fromReceipts ? (
           <span className="tabular-nums" title="Summed from receipts below">
             {actual == null ? <span className="text-slate-300">no receipts</span> : fmt(actual)}
-            {actual != null && <span className="ml-1 text-[10px] text-slate-400">🧾</span>}
+            {actual != null && <span className="ml-1 text-[10px] text-slate-400">▤</span>}
           </span>
         ) : (
           <input

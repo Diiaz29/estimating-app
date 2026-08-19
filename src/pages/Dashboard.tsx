@@ -187,7 +187,7 @@ export default function Dashboard() {
                       overdue ? 'font-semibold text-red-600' : 'text-slate-500'
                     }`}
                   >
-                    {overdue ? '⚠ ' : ''}
+                    {overdue ? '⚠︎ ' : ''}
                     {b.due_at ? fmtDueDate(b.due_at) : 'no due date'}
                   </span>
                 </div>
@@ -239,7 +239,7 @@ export default function Dashboard() {
                   >
                     {followUp
                       ? followUpDue
-                        ? '☎ follow up'
+                        ? '☎︎ follow up'
                         : `follow up ${fmtFollowUp(followUp)}`
                       : '—'}
                   </span>

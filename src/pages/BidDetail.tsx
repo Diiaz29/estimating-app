@@ -199,7 +199,7 @@ export default function BidDetail() {
             const due = f.getTime() <= Date.now()
             return (
               <span className={`pb-2 text-sm ${due ? 'font-semibold text-amber-600' : 'text-slate-500'}`}>
-                {due ? '☎ Follow up now' : `Follow up ${fmtFollowUp(f)}`}
+                {due ? '☎︎ Follow up now' : `Follow up ${fmtFollowUp(f)}`}
               </span>
             )
           })()}

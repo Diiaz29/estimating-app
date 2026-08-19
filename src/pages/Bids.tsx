@@ -119,7 +119,7 @@ export default function Bids() {
                       followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
                     }`}
                   >
-                    {followUpDue ? '☎ follow up' : `follow up ${fmtFollowUp(followUp)}`}
+                    {followUpDue ? '☎︎ follow up' : `follow up ${fmtFollowUp(followUp)}`}
                   </span>
                 ) : (
                   <span

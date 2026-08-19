@@ -247,7 +247,7 @@ export default function JobSchedule() {
                       />
                     </td>
                     <td className={`px-2 py-1.5 text-xs whitespace-nowrap ${overdue ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
-                      {finish ? `${overdue ? '⚠ ' : ''}${fmtDay(finish)}` : '—'}
+                      {finish ? `${overdue ? '⚠︎ ' : ''}${fmtDay(finish)}` : '—'}
                     </td>
                     <td className="px-3 py-1.5 text-right">
                       <button onClick={() => setRemoving(t)} className="text-slate-300 hover:text-red-600">×</button>

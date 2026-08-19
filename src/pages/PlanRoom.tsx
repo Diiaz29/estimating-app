@@ -418,7 +418,7 @@ export default function PlanRoom() {
               }`}
               title="Click two ends of a known dimension, then type its real length"
             >
-              ⚖ Calibrate
+              ✛ Calibrate
             </button>
             <button
               onClick={() => {
@@ -430,7 +430,7 @@ export default function PlanRoom() {
               }`}
               title="Click two points to measure the real distance"
             >
-              📏 Measure
+              ↔︎ Measure
             </button>
             <select
               value={denom}
@@ -454,7 +454,7 @@ export default function PlanRoom() {
               </button>
             )}
             <span className={`font-mono text-[10px] uppercase tracking-wider ${ftPerPt ? 'text-emerald-700' : 'text-amber-700'}`}>
-              {ftPerPt ? '✓ sheet calibrated' : tool === 'measure' ? '⚠ calibrate this sheet first' : 'not calibrated'}
+              {ftPerPt ? '✓ sheet calibrated' : tool === 'measure' ? '⚠︎ calibrate this sheet first' : 'not calibrated'}
             </span>
           </div>
         )}
@@ -729,7 +729,7 @@ function MeasureLines({
   return (
     <>
       {/* the sheet's saved calibration reference, always visible in green */}
-      {calLine && segment(calLine.a, calLine.b, '#059669', `⚖ ${calLabel ?? ''}`, 'saved-cal')}
+      {calLine && segment(calLine.a, calLine.b, '#059669', `✛ ${calLabel ?? ''}`, 'saved-cal')}
       {calLine && hitArea(calLine.a, calLine.b, 'cal', 'saved-cal-hit')}
       {calLine && selected === 'cal' &&
         deleteBtn(calLine.a, calLine.b, onDeleteCalibration, 'saved-cal-x', 'Remove this sheet’s calibration')}
