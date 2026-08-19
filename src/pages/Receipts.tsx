@@ -60,6 +60,11 @@ interface Pending {
   found?: { date: string | null; total: number | null; merchant: string | null; cardId: string | null }
   applied: boolean // pushed into the form yet?
 }
+/** "$1,234.5" → 1234.5; "" → null; junk → NaN */
+const parseMoney = (s: string): number | null => {
+  const clean = s.replace(/[^0-9.-]/g, '')
+  return clean === '' ? null : Number(clean)
+}
 const monthLabel = (iso: string) =>
   new Date(`${iso.slice(0, 7)}-15T12:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
@@ -244,7 +249,7 @@ export default function Receipts() {
     const f = current.found
     if (f) {
       if (f.date && !dateTouched) setDate(f.date)
-      if (f.total != null && amount === '') setAmount(String(f.total))
+      if (f.total != null && amount === '') setAmount(f.total.toFixed(2))
       if (f.merchant && note.trim() === '') setNote(f.merchant)
       if (f.cardId && !methodId) setMethodId(f.cardId)
     }
@@ -276,7 +281,7 @@ export default function Receipts() {
       // no card on file for this person → office needs to sort out which card
       needs_card_review: !methodId && noCard,
       file_path: current.path,
-      amount: amount !== '' ? Number(amount) : null,
+      amount: (() => { const v = parseMoney(amount); return v == null || Number.isNaN(v) ? null : v })(),
       category: isOverhead ? 'other' : category,
       note: note.trim() || null,
       receipt_date: date || null,
@@ -593,7 +598,18 @@ export default function Receipts() {
             </label>
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Amount ($)</span>
-              <input type="number" step="any" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="read from receipt" className="input mt-0.5" />
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                onBlur={() => {
+                  const v = parseMoney(amount)
+                  if (v != null && !Number.isNaN(v)) setAmount(v.toFixed(2))
+                }}
+                placeholder="read from receipt"
+                className="input mt-0.5"
+              />
             </label>
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">What is it</span>
@@ -892,24 +908,24 @@ export default function Receipts() {
                     <span className="ml-auto text-xs tabular-nums text-slate-500">{fmtMoney(catTotal)}</span>
                   </div>
                   {rows.map((r) => (
-                    <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-1.5 text-sm">
+                    <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
                       <input
                         type="date"
                         defaultValue={r.receipt_date ?? ''}
                         onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                        className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-sm text-slate-500 sm:w-36 sm:text-xs hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                        className="order-1 w-32 rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
                       />
                       <input
                         defaultValue={r.note ?? ''}
                         placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
                         onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
-                        className="order-3 min-w-0 basis-full rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:flex-1 sm:basis-40"
+                        className="order-3 min-w-0 flex-1 basis-[55%] rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-40 sm:border-transparent sm:px-1.5 sm:py-0.5"
                       />
                       <span className="hidden text-xs text-slate-400 sm:inline">{r.receipt_date ? monthLabel(r.receipt_date) : ''}</span>
                       <select
                         value={r.overhead_category ?? 'other'}
                         onChange={(e) => void patch(r, { overhead_category: e.target.value })}
-                        className="order-4 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3"
+                        className="order-4 rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:px-1 sm:py-0.5 sm:text-[10px]"
                       >
                         {[...new Set([...catNames, r.overhead_category ?? 'other'])].map((x) => (
                           <option key={x} value={x}>{x}</option>
@@ -918,14 +934,16 @@ export default function Receipts() {
                       <span className="order-2 ml-auto flex items-center gap-0.5 sm:order-4 sm:ml-0">
                         <span className="text-xs text-slate-400">$</span>
                         <input
-                          type="number" step="any" min="0"
-                          defaultValue={r.amount == null ? '' : Number(r.amount)}
-                          placeholder="0"
+                          type="text" inputMode="decimal"
+                          defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
+                          placeholder="0.00"
                           onBlur={(e) => {
-                            const v = e.target.value === '' ? null : Number(e.target.value)
+                            const v = parseMoney(e.target.value)
+                            if (v !== null && Number.isNaN(v)) { e.target.value = r.amount == null ? '' : Number(r.amount).toFixed(2); return }
+                            e.target.value = v == null ? '' : v.toFixed(2)
                             if (v !== (r.amount == null ? null : Number(r.amount))) void patch(r, { amount: v })
                           }}
-                          className={`w-24 rounded border px-1.5 py-0.5 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none ${
+                          className={`w-24 rounded border px-2 py-2 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none sm:px-1.5 sm:py-0.5 ${
                             r.amount == null ? 'border-amber-400 bg-amber-50' : 'border-slate-200'
                           }`}
                         />
@@ -935,7 +953,7 @@ export default function Receipts() {
                           value={r.payment_method_id ?? ''}
                           onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                           title="Paid with"
-                          className={`order-5 max-w-[9rem] rounded border px-1 py-0.5 text-[10px] focus:border-slate-800 focus:outline-none ${
+                          className={`order-5 max-w-[9rem] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:px-1 sm:py-0.5 sm:text-[10px] ${
                             r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
                           }`}
                         >
@@ -949,13 +967,13 @@ export default function Receipts() {
                           <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
                         )
                       )}
-                      <button onClick={() => void view(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6">
+                      <button onClick={() => void view(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs">
                         view
                       </button>
-                      <button onClick={() => void download(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6" title="Save the file to your computer">
+                      <button onClick={() => void download(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs" title="Save the file to your computer">
                         save
                       </button>
-                      <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-1 text-lg leading-none text-slate-300 hover:text-red-600 sm:ml-0">×</button>
+                      <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
                     </div>
                   ))}
                 </div>
@@ -1016,23 +1034,23 @@ export default function Receipts() {
                           <span className="ml-auto text-xs tabular-nums text-slate-500">{fmtMoney(catTotal)}</span>
                         </div>
                         {rows.map((r) => (
-                          <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-1.5 text-sm">
+                          <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
                             <input
                               type="date"
                               defaultValue={r.receipt_date ?? ''}
                               onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
-                              className="order-1 w-32 rounded border border-transparent px-1 py-0.5 font-mono text-sm text-slate-500 sm:w-36 sm:text-xs hover:border-slate-200 focus:border-slate-800 focus:outline-none"
+                              className="order-1 w-32 rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
                             />
                             <input
                               defaultValue={r.note ?? ''}
                               placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
                               onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
-                              className="order-3 min-w-0 basis-full rounded border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:flex-1 sm:basis-40"
+                              className="order-3 min-w-0 flex-1 basis-[55%] rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-40 sm:border-transparent sm:px-1.5 sm:py-0.5"
                             />
                             <select
                               value={r.category}
                               onChange={(e) => void patch(r, { category: e.target.value as Receipt['category'] })}
-                              className="order-4 rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3"
+                              className="order-4 rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:px-1 sm:py-0.5 sm:text-[10px]"
                             >
                               {CATEGORIES.map((x) => (
                                 <option key={x} value={x}>{x}</option>
@@ -1041,14 +1059,16 @@ export default function Receipts() {
                             <span className="order-2 ml-auto flex items-center gap-0.5 sm:order-4 sm:ml-0">
                               <span className="text-xs text-slate-400">$</span>
                               <input
-                                type="number" step="any" min="0"
-                                defaultValue={r.amount == null ? '' : Number(r.amount)}
-                                placeholder="0"
+                                type="text" inputMode="decimal"
+                                defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
+                                placeholder="0.00"
                                 onBlur={(e) => {
-                                  const v = e.target.value === '' ? null : Number(e.target.value)
+                                  const v = parseMoney(e.target.value)
+                                  if (v !== null && Number.isNaN(v)) { e.target.value = r.amount == null ? '' : Number(r.amount).toFixed(2); return }
+                                  e.target.value = v == null ? '' : v.toFixed(2)
                                   if (v !== (r.amount == null ? null : Number(r.amount))) void patch(r, { amount: v })
                                 }}
-                                className={`w-24 rounded border px-1.5 py-0.5 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none ${
+                                className={`w-24 rounded border px-2 py-2 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none sm:px-1.5 sm:py-0.5 ${
                                   r.amount == null ? 'border-amber-400 bg-amber-50' : 'border-slate-200'
                                 }`}
                               />
@@ -1058,7 +1078,7 @@ export default function Receipts() {
                                 value={r.payment_method_id ?? ''}
                                 onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                                 title="Paid with"
-                                className={`order-5 max-w-[9rem] rounded border px-1 py-0.5 text-[10px] focus:border-slate-800 focus:outline-none ${
+                                className={`order-5 max-w-[9rem] rounded border px-2 py-2 text-xs focus:border-slate-800 focus:outline-none sm:px-1 sm:py-0.5 sm:text-[10px] ${
                                   r.needs_card_review ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-500'
                                 }`}
                               >
@@ -1072,13 +1092,13 @@ export default function Receipts() {
                                 <span className="order-5 text-[10px] text-slate-400">{methodName(r.payment_method_id)}</span>
                               )
                             )}
-                            <button onClick={() => void view(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6">
+                            <button onClick={() => void view(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs">
                               view
                             </button>
-                            <button onClick={() => void download(r)} className="order-1 text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6" title="Save the file to your computer">
+                            <button onClick={() => void download(r)} className="order-3 px-1 py-2 text-sm text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:px-0 sm:py-0 sm:text-xs" title="Save the file to your computer">
                               save
                             </button>
-                            <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-1 text-lg leading-none text-slate-300 hover:text-red-600 sm:ml-0">×</button>
+                            <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
                           </div>
                         ))}
                       </div>
