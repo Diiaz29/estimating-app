@@ -14,7 +14,7 @@ interface GcLink {
 }
 
 export default function Bids() {
-  const { canManageBids: canEdit, isOffice } = useAuth()
+  const { canManageBids: canEdit, seesMoney } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
@@ -100,15 +100,15 @@ export default function Bids() {
                   i > 0 ? 'border-t border-slate-200' : ''
                 }`}
               >
-                <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
                 <span className="flex min-w-0 flex-1 basis-40 items-center gap-3">
                   <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
                   {gcLabel(b.id) && (
                     <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                   )}
                 </span>
-                {!isOffice && (
-                  <span className="hidden sm:block w-24 text-right text-xs tabular-nums text-slate-500">
+                {seesMoney && b.bid_value != null && (
+                  <span className="ml-auto text-right text-xs tabular-nums text-slate-500 sm:ml-0 sm:w-24">
                     {fmtMoney(b.bid_value)}
                   </span>
                 )}

@@ -16,6 +16,8 @@ interface AuthState {
   canManageBids: boolean
   /** office role: receipts + bid setup + team time, no estimates or profit */
   isOffice: boolean
+  /** admin / estimator / pm see dollar amounts; office and viewer don't */
+  seesMoney: boolean
   /** the account's true role (ignores view-as) */
   realRole: Role | null
   /** admin-only preview: see the app as another role (UI only) */
@@ -32,6 +34,7 @@ const AuthContext = createContext<AuthState>({
   canSchedule: false,
   canManageBids: false,
   isOffice: false,
+  seesMoney: false,
   realRole: null,
   viewAs: null,
   setViewAs: () => {},
@@ -95,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         canSchedule: role === 'admin' || role === 'estimator' || role === 'pm',
         canManageBids: role === 'admin' || role === 'estimator' || role === 'office',
         isOffice: role === 'office',
+        seesMoney: role === 'admin' || role === 'estimator' || role === 'pm',
         realRole,
         viewAs: realRole === 'admin' ? viewAs : null,
         setViewAs,

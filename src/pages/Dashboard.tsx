@@ -14,7 +14,7 @@ interface GcLink {
 }
 
 export default function Dashboard() {
-  const { isAdmin, canManageBids: canEdit, isOffice } = useAuth()
+  const { isAdmin, canManageBids: canEdit, isOffice, seesMoney } = useAuth()
   const navigate = useNavigate()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
@@ -128,7 +128,7 @@ export default function Dashboard() {
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-2xl font-semibold tabular-nums">{inStage.length}</span>
                   <span className="min-w-0 truncate text-xs text-slate-500 tabular-nums">
-                  {value > 0 && !isOffice ? fmtMoney(value) :' '}
+                  {value > 0 && seesMoney ? fmtMoney(value) : ' '}
                   </span>
                 </div>
               </Link>
@@ -170,7 +170,7 @@ export default function Dashboard() {
                   }`}
                 >
                   <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
-                    <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                    <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
                     <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
                     {gcLabel(b.id) && (
                       <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
@@ -212,28 +212,30 @@ export default function Dashboard() {
                     i > 0 ? 'border-t border-slate-200' : ''
                   }`}
                 >
-                  <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
-                    <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                  <Link to={`/bids/${b.id}`} className="order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                    <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
                     <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
                     {gcLabel(b.id) && (
                       <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                     )}
                   </Link>
-                  {!isOffice && (
-                    <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Estimate
+                  <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
+                    {!isOffice && (
+                      <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                        Estimate
+                      </Link>
+                    )}
+                    <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Proposal
                     </Link>
-                  )}
-                  <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Proposal
-                  </Link>
-                  {!isOffice && (
-                    <span className="hidden sm:block text-xs tabular-nums text-slate-500">
+                  </span>
+                  {seesMoney && b.bid_value != null && (
+                    <span className="order-2 ml-auto text-xs tabular-nums text-slate-500 sm:order-3 sm:ml-0">
                       {fmtMoney(b.bid_value)}
                     </span>
                   )}
                   <span
-                    className={`whitespace-nowrap text-xs ${
+                    className={`order-4 ml-auto whitespace-nowrap text-xs sm:ml-0 ${
                       followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
                     }`}
                   >
@@ -267,14 +269,14 @@ export default function Dashboard() {
                   i > 0 ? 'border-t border-slate-200' : ''
                 }`}
               >
-                <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
-                  <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                <Link to={`/bids/${b.id}`} className="order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                  <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
                   <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
                   {gcLabel(b.id) && (
                     <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                   )}
                 </Link>
-                <span className="flex flex-wrap items-center gap-2">
+                <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
                   {!isOffice && (
                     <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
                       Estimate
@@ -294,8 +296,8 @@ export default function Dashboard() {
                     </Link>
                   )}
                 </span>
-                {!isOffice && (
-                  <span className="text-sm font-semibold tabular-nums">
+                {seesMoney && (
+                  <span className="order-2 ml-auto text-sm font-semibold tabular-nums sm:order-3 sm:ml-0">
                     {jobValue(b) == null ? '—' : fmtMoney(jobValue(b))}
                   </span>
                 )}

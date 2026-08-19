@@ -12,7 +12,7 @@ interface GcLink {
 }
 
 export default function Jobs() {
-  const { isAdmin, canManageBids: canEdit, isOffice } = useAuth()
+  const { isAdmin, canManageBids: canEdit, isOffice, seesMoney } = useAuth()
   const [jobs, setJobs] = useState<Bid[] | null>(null)
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
@@ -74,7 +74,7 @@ export default function Jobs() {
           <p className="mt-0.5 text-sm text-slate-500">Won work — this is what the shop builds.</p>
         </div>
         <div className="ml-auto rounded-lg border-2 border-slate-800 bg-white px-4 py-2 text-right shadow-[3px_3px_0_0_rgba(15,23,42,0.12)]">
-          {!isOffice && <div className="text-lg font-semibold tabular-nums">{fmtMoney(totalValue)}</div>}
+          {seesMoney && <div className="text-lg font-semibold tabular-nums">{fmtMoney(totalValue)}</div>}
           <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
             {activeJobs.length} active job{activeJobs.length === 1 ? '' : 's'}
           </div>
@@ -116,14 +116,14 @@ export default function Jobs() {
                 key={b.id}
                 className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
               >
-                <Link to={`/bids/${b.id}`} className="flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
-                  <span className="font-mono text-xs text-slate-500">{b.job_number}</span>
+                <Link to={`/bids/${b.id}`} className="order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                  <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
                   <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
                   {gc && (
                     <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gc}</span>
                   )}
                 </Link>
-                <span className="flex flex-wrap items-center gap-2">
+                <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
                   {!isOffice && (
                     <>
                       <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
@@ -150,14 +150,14 @@ export default function Jobs() {
                     </Link>
                   )}
                 </span>
-                {!isOffice && (
-                  <span className="text-sm font-semibold tabular-nums">{value == null ? '—' : fmtMoney(value)}</span>
+                {seesMoney && (
+                  <span className="order-2 ml-auto text-sm font-semibold tabular-nums sm:order-3 sm:ml-0">{value == null ? '—' : fmtMoney(value)}</span>
                 )}
                 {canEdit && (
                   <button
                     onClick={() => void setComplete(b, !b.completed_at)}
                     title={b.completed_at ? 'Put this job back on the active list' : 'Job is finished — move it off the active list'}
-                    className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                    className={`order-4 hidden rounded-md border px-2 py-0.5 text-xs font-medium sm:inline-block ${
                       b.completed_at
                         ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
                         : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'
