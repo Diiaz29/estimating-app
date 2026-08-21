@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
   Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish,
-  BidMaterialOverride, ChangeOrder, LineItem, Material, Setting,
+  BidMaterialOverride, ChangeOrder, LineItem, Material, Profile, Setting,
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
@@ -15,7 +15,12 @@ import VendorSignature from '../components/VendorSignature'
  *  Draft COs price live; approved COs print their locked numbers. */
 export default function ChangeOrderDoc() {
   const { id, coId } = useParams<{ id: string; coId: string }>()
-  const { canEdit } = useAuth()
+  const { canEdit, session } = useAuth()
+  const [signers, setSigners] = useState<Profile[]>([])
+  const [signed, setSigned] = useState(false)
+  useEffect(() => {
+    supabase!.from('profiles').select('id, email, role, created_at, signature_data, signer_name, signer_title').then(({ data }) => setSigners((data ?? []) as Profile[]))
+  }, [])
   const [bid, setBid] = useState<Bid | null>(null)
   const [co, setCo] = useState<ChangeOrder | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
@@ -113,6 +118,10 @@ export default function ChangeOrderDoc() {
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!bid || !co || !pricing) return <p className="text-sm text-slate-500">Loading…</p>
 
+  // the vendor signer is whoever created the CO (fall back to the signed-in user)
+  const signer = co.created_by
+    ? signers.find((p) => p.email === co.created_by)
+    : signers.find((p) => p.id === session?.user.id)
   const coAreas = areas.filter((a) => a.change_order_id === co.id)
   const approved = co.status === 'approved'
   const coAdj = Number(co.price_adjustment ?? 0)
@@ -153,9 +162,25 @@ export default function ChangeOrderDoc() {
             Draft — numbers are live until approved
           </span>
         )}
+        {signer?.signature_data && (
+          signed ? (
+            <span className="ml-auto flex items-center gap-2 text-sm">
+              <span className="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-emerald-800">Signed</span>
+              <button onClick={() => setSigned(false)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">remove</button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setSigned(true)}
+              title="Put your signature in the vendor box"
+              className="ml-auto rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+            >
+              Sign
+            </button>
+          )
+        )}
         <button
           onClick={() => window.print()}
-          className="ml-auto rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          className={`rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 ${signer?.signature_data ? '' : 'ml-auto'}`}
         >
           Print / save PDF
         </button>
@@ -257,8 +282,9 @@ export default function ChangeOrderDoc() {
         <div className="mt-4 grid grid-cols-2 gap-8 break-inside-avoid">
           <VendorSignature
             companyName={company.company_name ?? ''}
-            signerName={company.signer_name}
-            signerTitle={company.signer_title}
+            signatureSrc={signed ? signer?.signature_data : null}
+            signerName={signed ? signer?.signer_name : null}
+            signerTitle={signed ? signer?.signer_title : null}
             date={new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
           />
           <div>

@@ -3,14 +3,16 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type {
   Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish,
-  BidMaterialOverride, Contact, LineItem, Material, Setting,
+  BidMaterialOverride, Contact, LineItem, Material, Profile, Setting,
 } from '../lib/types'
 import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
 import { fmtDueDate, fmtMoney } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 import VendorSignature from '../components/VendorSignature'
+import { useAuth } from '../lib/auth'
 
 interface SnapshotRevision {
+  created_by?: string | null
   id: string
   rev_number: number
   contract_amount: number
@@ -116,6 +118,13 @@ export default function Proposal() {
   const [source, setSource] = useState<string | null>(null) // revision id or 'live'
   const [logoOk, setLogoOk] = useState(true) // logo carries the name, so text name hides when it loads
   const [terms, setTerms] = useState<Record<string, string>>({})
+  // who signs: author of the locked revision, or the signed-in user for live numbers
+  const { session } = useAuth()
+  const [signers, setSigners] = useState<Profile[]>([])
+  const [signed, setSigned] = useState(false) // signature goes on only when the creator clicks Sign
+  useEffect(() => {
+    supabase!.from('profiles').select('id, email, role, created_at, signature_data, signer_name, signer_title').then(({ data }) => setSigners((data ?? []) as Profile[]))
+  }, [])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -131,7 +140,7 @@ export default function Proposal() {
           supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
           supabase!.from('settings').select('*'),
           supabase!.from('bid_customers').select('*, customer:customers(*)').eq('bid_id', id!),
-          supabase!.from('revisions').select('id, rev_number, contract_amount, tax, created_at, snapshot').eq('bid_id', id!).order('rev_number', { ascending: false }),
+          supabase!.from('revisions').select('id, rev_number, contract_amount, tax, created_at, created_by, snapshot').eq('bid_id', id!).order('rev_number', { ascending: false }),
           supabase!.from('text_settings').select('key, value'),
         ])
       if (bidRes.error) return setError(bidRes.error.message)
@@ -325,6 +334,11 @@ export default function Proposal() {
     }
   }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes, areaFinishOverrides])
 
+  const lockedRev = revisions.find((r) => r.id === source)
+  const signer = lockedRev?.created_by
+    ? signers.find((p) => p.email === lockedRev.created_by)
+    : signers.find((p) => p.id === session?.user.id)
+
   // Company identity lives in Settings → Company (text_settings table)
   const COMPANY = {
     name: terms.company_name ?? '',
@@ -376,9 +390,25 @@ export default function Proposal() {
         <span className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider ${data.isLocked ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-amber-400 bg-amber-50 text-amber-800'}`}>
           {data.sourceLabel}
         </span>
+        {signer?.signature_data && (
+          signed ? (
+            <span className="ml-auto flex items-center gap-2 text-sm">
+              <span className="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-emerald-800">Signed</span>
+              <button onClick={() => setSigned(false)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">remove</button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setSigned(true)}
+              title="Put your signature in the vendor box"
+              className="ml-auto rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+            >
+              Sign
+            </button>
+          )
+        )}
         <button
           onClick={() => window.print()}
-          className="ml-auto rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          className={`rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 ${signer?.signature_data ? '' : 'ml-auto'}`}
         >
           Print / Save PDF
         </button>
@@ -667,8 +697,9 @@ export default function Proposal() {
           <div className="mt-3 grid grid-cols-2 gap-8 break-inside-avoid">
             <VendorSignature
               companyName={COMPANY.name}
-              signerName={terms.signer_name}
-              signerTitle={terms.signer_title}
+              signatureSrc={signed ? signer?.signature_data : null}
+              signerName={signed ? signer?.signer_name : null}
+              signerTitle={signed ? signer?.signer_title : null}
               date={data.presentedOn}
             />
             <div>

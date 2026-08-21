@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Setting } from '../lib/types'
 import { settingFromDisplay, settingSuffix, settingToDisplay } from '../lib/format'
-import { LOGO_URL, SIGNATURE_URL } from '../lib/branding'
+import { LOGO_URL } from '../lib/branding'
 
 const GROUP_ORDER = ['Markups', 'Labor', 'Delivery', 'Travel', 'Added costs', 'Company', 'Tax', 'App']
 
@@ -293,14 +293,6 @@ export default function Settings() {
                 title="Company logo"
                 help="Shows top-left on the proposal and work authorization. PNG with a clear background works best."
                 noun="logo"
-              />
-              <ImageCard
-                path="signature"
-                url={SIGNATURE_URL}
-                title="Signature"
-                help="Prints in the vendor signature box on the work authorization and change orders. Sign on white paper, photograph or scan it, and save as a PNG with a clear background. Fill in the signer name and title below so they print under the line."
-                noun="signature"
-                accept="image/png,image/jpeg,image/webp"
               />
               <TextRowsCard
                 group="Company"

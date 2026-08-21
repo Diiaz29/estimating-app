@@ -7,6 +7,10 @@ export interface Profile {
   email: string
   role: Role
   created_at: string
+  /** drawn signature as a PNG data URL + how the name prints under it */
+  signature_data?: string | null
+  signer_name?: string | null
+  signer_title?: string | null
 }
 
 export type CustomerType = 'GC' | 'direct' | 'architect'
