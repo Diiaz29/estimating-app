@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type {
-  Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish,
+  Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish,
   BidMaterialOverride, Contact, LineItem, Material, Setting,
 } from '../lib/types'
 import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
@@ -27,6 +27,7 @@ interface SnapshotRevision {
         option_all_in?: number | null
         lines: { label: string; qty: number; entry: string | null; unit: string }[]
         hardware?: string[]
+        finishes?: string[]
         inclusions?: string | null
         exclusions?: string | null
       }[]
@@ -61,6 +62,7 @@ interface ProposalData {
     inclusions: string | null
     exclusions: string | null
     hardware: string[]
+    finishes: string[]
   }[]
   finishes: { slot: string; name: string }[]
   base: number
@@ -88,6 +90,13 @@ function scopeWording(install: boolean, delivery: boolean): string {
 }
 
 const INSTALLISH = new Set(['install', 'per_diem', 'lodging'])
+function slotLabel(slot: string): string {
+  if (slot === 'CABINET_LAM') return 'Cabinet laminate'
+  if (slot.startsWith('PLAM')) return `Countertop laminate ${slot.slice(5)}`
+  if (slot.startsWith('SS')) return `Solid surface ${slot.slice(3)}`
+  return slot
+}
+
 const isInstallish = (a: { key?: string; label: string }) =>
   a.key ? INSTALLISH.has(a.key) : /^(Install|Per diem|Lodging)/.test(a.label)
 const isDelivery = (a: { key?: string; label: string }) =>
@@ -104,6 +113,7 @@ export default function Proposal() {
   const [bidFinishes, setBidFinishes] = useState<BidFinish[]>([])
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
   const [areaOverrides, setAreaOverrides] = useState<AreaMaterialOverride[]>([])
+  const [areaFinishOverrides, setAreaFinishOverrides] = useState<AreaFinishOverride[]>([])
   const [settings, setSettings] = useState<Setting[]>([])
   const [gcs, setGcs] = useState<BidCustomer[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -134,12 +144,14 @@ export default function Proposal() {
       const areaRows = (areaRes.data ?? []) as Area[]
       setAreas(areaRows)
       if (areaRows.length > 0) {
-        const [lineRes, aoRes] = await Promise.all([
+        const [lineRes, aoRes, afoRes] = await Promise.all([
           supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)).order('sort_order'),
           supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
+          supabase!.from('area_finish_overrides').select('*, finish:finishes(*)').in('area_id', areaRows.map((a) => a.id)),
         ])
         setLines((lineRes.data ?? []) as LineItem[])
         setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
+        setAreaFinishOverrides((afoRes.data ?? []) as AreaFinishOverride[])
       }
       setAssemblies((asmRes.data ?? []) as Assembly[])
       setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -172,8 +184,9 @@ export default function Proposal() {
       settings, assemblies, bom, materials, bidFinishes,
       new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
       areaMap,
+      areaFinishOverrides,
     )
-  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides])
+  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides, areaFinishOverrides])
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
     for (const l of lines) {
@@ -214,6 +227,7 @@ export default function Proposal() {
           inclusions: a.inclusions ?? null,
           exclusions: a.exclusions ?? null,
           hardware: a.hardware ?? [],
+          finishes: a.finishes ?? [],
         })),
         finishes: d.finishes,
         base: t.contractAmount - install - delivery,
@@ -257,6 +271,9 @@ export default function Proposal() {
               .map((m) => m!.name),
           ),
         ]
+        const roomFinishes = areaFinishOverrides
+          .filter((o) => o.area_id === area.id && o.finish)
+          .map((o) => `${slotLabel(o.slot)}: ${o.finish!.name}${o.finish!.color_code ? ` ${o.finish!.color_code}` : ''}`)
         return {
           name: area.name,
           sheet_ref: area.sheet_ref,
@@ -276,6 +293,7 @@ export default function Proposal() {
             })
             .join('; '),
           hardware,
+          finishes: roomFinishes,
         }
       }),
       finishes: bidFinishes.map((bf) => ({
@@ -299,7 +317,7 @@ export default function Proposal() {
       installIncluded: bid.adders.install,
       deliveryIncluded: bid.adders.delivery,
     }
-  }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes])
+  }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes, areaFinishOverrides])
 
   // Company identity lives in Settings → Company (text_settings table)
   const COMPANY = {
@@ -494,6 +512,11 @@ export default function Proposal() {
                 {data.finishes.length > 0 && (
                   <div className="mt-0.5">
                     <b>Finishes:</b> {data.finishes.map((f) => `${f.slot}: ${f.name}`).join('; ')}
+                  </div>
+                )}
+                {area.finishes.length > 0 && (
+                  <div className="mt-0.5">
+                    <b>This room:</b> {area.finishes.join('; ')}
                   </div>
                 )}
                 {area.hardware.length > 0 && (

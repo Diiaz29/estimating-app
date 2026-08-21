@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
-  Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish,
+  Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidAdders, BidFinish,
   BidMaterialOverride, ChangeOrder, Finish, LineItem, Material, Revision, Setting,
 } from '../lib/types'
 import { buildContext, priceBid, priceLine, resolveMaterialId } from '../lib/pricing'
@@ -50,6 +50,7 @@ export default function Estimate() {
   const [settings, setSettings] = useState<Setting[]>([])
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
   const [areaOverrides, setAreaOverridesState] = useState<AreaMaterialOverride[]>([])
+  const [areaFinishOverrides, setAreaFinishOverridesState] = useState<AreaFinishOverride[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -78,7 +79,7 @@ export default function Estimate() {
     const areaRows = (areaRes.data ?? []) as Area[]
     setAreas(areaRows)
     if (areaRows.length > 0) {
-      const [lineRes, aoRes] = await Promise.all([
+      const [lineRes, aoRes, afoRes] = await Promise.all([
         supabase!
           .from('line_items')
           .select('*')
@@ -89,12 +90,18 @@ export default function Estimate() {
           .from('area_material_overrides')
           .select('*')
           .in('area_id', areaRows.map((a) => a.id)),
+        supabase!
+          .from('area_finish_overrides')
+          .select('*, finish:finishes(*)')
+          .in('area_id', areaRows.map((a) => a.id)),
       ])
       setLines((lineRes.data ?? []) as LineItem[])
       setAreaOverridesState((aoRes.data ?? []) as AreaMaterialOverride[])
+      setAreaFinishOverridesState((afoRes.data ?? []) as AreaFinishOverride[])
     } else {
       setLines([])
       setAreaOverridesState([])
+      setAreaFinishOverridesState([])
     }
     setBidFinishes((bfRes.data ?? []) as BidFinish[])
     setAssemblies((asmRes.data ?? []) as Assembly[])
@@ -122,8 +129,9 @@ export default function Estimate() {
       settings, assemblies, bom, materials, bidFinishes,
       new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
       areaMap,
+      areaFinishOverrides,
     )
-  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides])
+  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides, areaFinishOverrides])
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
     for (const l of lines) {
@@ -246,11 +254,17 @@ export default function Estimate() {
         source.map(({ id: _id, area_id: _a, ...rest }) => ({ ...rest, area_id: newArea.id })),
       )
     }
-    // room-specific hardware picks come along too
+    // room-specific hardware + finish picks come along too
     const roomOvr = areaOverrides.filter((o) => o.area_id === area.id)
     if (roomOvr.length > 0) {
       await supabase!.from('area_material_overrides').insert(
         roomOvr.map((o) => ({ area_id: newArea.id, from_material_id: o.from_material_id, to_material_id: o.to_material_id })),
+      )
+    }
+    const roomFin = areaFinishOverrides.filter((o) => o.area_id === area.id)
+    if (roomFin.length > 0) {
+      await supabase!.from('area_finish_overrides').insert(
+        roomFin.map((o) => ({ area_id: newArea.id, slot: o.slot, finish_id: o.finish_id })),
       )
     }
     void loadAll()
@@ -273,6 +287,19 @@ export default function Estimate() {
       .select('*')
       .in('area_id', areas.map((a) => a.id))
     setAreaOverridesState((data ?? []) as AreaMaterialOverride[])
+  }
+
+  async function setAreaFinishOverride(areaId: string, slot: string, finishId: string | null) {
+    if (finishId) {
+      await supabase!.from('area_finish_overrides').upsert({ area_id: areaId, slot, finish_id: finishId })
+    } else {
+      await supabase!.from('area_finish_overrides').delete().eq('area_id', areaId).eq('slot', slot)
+    }
+    const { data } = await supabase!
+      .from('area_finish_overrides')
+      .select('*, finish:finishes(*)')
+      .in('area_id', areas.map((a) => a.id))
+    setAreaFinishOverridesState((data ?? []) as AreaFinishOverride[])
   }
 
   async function setOverride(fromId: string, toId: string | null) {
@@ -321,6 +348,10 @@ export default function Estimate() {
             .map((m) => m!.name),
         ),
       ]
+      // finishes this room picks differently from the job (printed on its block)
+      const roomFinishes = areaFinishOverrides
+        .filter((o) => o.area_id === area.id && o.finish)
+        .map((o) => `${slotLabel(o.slot)}: ${o.finish!.name}${o.finish!.color_code ? ` ${o.finish!.color_code}` : ''}`)
       return {
         name: area.name,
         sheet_ref: area.sheet_ref,
@@ -333,6 +364,7 @@ export default function Estimate() {
         option_all_in: area.is_alternate ? pricing.alternateAllIn.get(area.id) ?? null : null,
         lines: areaLines,
         hardware,
+        finishes: roomFinishes,
       }
     })
     const { error } = await supabase!.from('revisions').insert({
@@ -635,7 +667,9 @@ export default function Estimate() {
           onPatchLine={(l, f) => void patchLine(l, f)}
           onRemoveLine={(l) => void removeLine(l)}
           onSetAreaOverride={(from, to) => void setAreaOverride(area.id, from, to)}
+          onSetAreaFinish={(slot, fin) => void setAreaFinishOverride(area.id, slot, fin)}
           allMaterials={materials}
+          allFinishes={finishes}
         />
       ))}
 
@@ -1142,7 +1176,7 @@ function MaterialSwaps({
 
 function AreaCard({
   area, lines, assemblies, ctx, areaTotal, optionAllIn, coNumber, onPatch, onRemove, onDuplicate, onAddLine, onPatchLine, onRemoveLine,
-  onSetAreaOverride, allMaterials,
+  onSetAreaOverride, allMaterials, onSetAreaFinish, allFinishes,
 }: {
   area: Area
   lines: LineItem[]
@@ -1158,12 +1192,15 @@ function AreaCard({
   onPatchLine: (line: LineItem, fields: Partial<LineItem>) => void
   onRemoveLine: (line: LineItem) => void
   onSetAreaOverride: (fromId: string, toId: string | null) => void
+  onSetAreaFinish: (slot: string, finishId: string | null) => void
   allMaterials: Material[]
+  allFinishes: Finish[]
 }) {
   const [name, setName] = useState(area.name)
   const [sheetRef, setSheetRef] = useState(area.sheet_ref ?? '')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [hardwareOpen, setHardwareOpen] = useState(false)
+  const [finishesOpen, setFinishesOpen] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const [inclusions, setInclusions] = useState(area.inclusions ?? '')
   const [exclusions, setExclusions] = useState(area.exclusions ?? '')
@@ -1183,6 +1220,18 @@ function AreaCard({
   }, [lines, ctx])
   const areaOvr = ctx.areaOverrides.get(area.id)
   const roomSwapCount = roomHardware.filter((std) => areaOvr?.has(std.id)).length
+
+  // finish slots this room's cabinets/tops actually use (laminate, solid surface)
+  const roomSlots = useMemo(() => {
+    const used = new Set<string>()
+    for (const l of lines) {
+      if (!l.assembly_id) continue
+      for (const row of ctx.bomByAssembly.get(l.assembly_id) ?? []) if (row.slot) used.add(row.slot)
+    }
+    return SLOTS.filter((s) => used.has(s))
+  }, [lines, ctx])
+  const areaFinOvr = ctx.areaFinishOverrides.get(area.id)
+  const roomFinishCount = roomSlots.filter((s) => areaFinOvr?.has(s)).length
 
   useEffect(() => setName(area.name), [area.name])
   useEffect(() => setSheetRef(area.sheet_ref ?? ''), [area.sheet_ref])
@@ -1318,6 +1367,43 @@ function AreaCard({
         </div>
       )}
 
+      {finishesOpen && roomSlots.length > 0 && (
+        <div className="border-t border-slate-100 bg-slate-50 px-4 py-2.5">
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+            Finishes in this room — overrides the job pick
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {roomSlots.map((slot) => {
+              const jobPick = ctx.finishBySlot.get(slot)
+              const current = areaFinOvr?.get(slot)?.id ?? ''
+              const options = allFinishes
+                .filter((fin) => fin.active && (slot.startsWith('SS') ? fin.type === 'Solid surface' : fin.type === 'Laminate'))
+                .sort((a, b) => a.name.localeCompare(b.name))
+              return (
+                <label key={slot} className="block" title={slot}>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                    {slotLabel(slot)}
+                    {areaFinOvr?.has(slot) && <span className="ml-1 font-semibold text-violet-700">— this room</span>}
+                  </span>
+                  <select
+                    value={current}
+                    onChange={(e) => onSetAreaFinish(slot, e.target.value || null)}
+                    className="input mt-0.5 py-1.5"
+                  >
+                    <option value="">{jobPick ? `${jobPick.name} (job pick)` : '— same as job (unassigned) —'}</option>
+                    {options.map((fin) => (
+                      <option key={fin.id} value={fin.id}>
+                        {fin.name}{fin.color_code ? ` ${fin.color_code}` : ''} — {fmtCost(fin.cost)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {hardwareOpen && roomHardware.length > 0 && (
         <div className="border-t border-slate-100 bg-slate-50 px-4 py-2.5">
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-slate-500">
@@ -1391,6 +1477,19 @@ function AreaCard({
             <button onClick={() => setPickerOpen(true)} className="rounded-md border border-slate-300 px-2.5 py-2 text-xs font-medium sm:py-1 text-slate-600 hover:bg-slate-100">
               + Cabinet / countertop
             </button>
+            {roomSlots.length > 0 && (
+              <button
+                onClick={() => setFinishesOpen((v) => !v)}
+                className={`rounded-md border px-2.5 py-2 text-xs font-medium sm:py-1 ${
+                  roomFinishCount > 0
+                    ? 'border-violet-500 bg-violet-50 text-violet-800'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Laminate / solid surface for just this room — the rest of the job keeps the pick from the panel above"
+              >
+                Finishes{roomFinishCount > 0 ? ` (${roomFinishCount} custom)` : ''} {finishesOpen ? '▴' : '▾'}
+              </button>
+            )}
             {roomHardware.length > 0 && (
               <button
                 onClick={() => setHardwareOpen((v) => !v)}

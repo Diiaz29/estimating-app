@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
-  Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride,
+  Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride,
   Finish, LineItem, Material,
 } from '../lib/types'
 import { fmtCost, fmtMoney } from '../lib/format'
@@ -34,6 +34,7 @@ export default function OrderSheet() {
   const [bidFinishes, setBidFinishes] = useState<BidFinish[]>([])
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
   const [areaOverrides, setAreaOverrides] = useState<AreaMaterialOverride[]>([])
+  const [areaFinishOverrides, setAreaFinishOverrides] = useState<AreaFinishOverride[]>([])
   const [checks, setChecks] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
 
@@ -54,12 +55,14 @@ export default function OrderSheet() {
       const areaRows = (areaRes.data ?? []) as Area[]
       setAreas(areaRows)
       if (areaRows.length > 0) {
-        const [lineRes, aoRes] = await Promise.all([
+        const [lineRes, aoRes, afoRes] = await Promise.all([
           supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)),
           supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
+          supabase!.from('area_finish_overrides').select('*, finish:finishes(*)').in('area_id', areaRows.map((a) => a.id)),
         ])
         setLines((lineRes.data ?? []) as LineItem[])
         setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
+        setAreaFinishOverrides((afoRes.data ?? []) as AreaFinishOverride[])
       }
       setAssemblies((asmRes.data ?? []) as Assembly[])
       setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -80,6 +83,12 @@ export default function OrderSheet() {
     }
     const matById = new Map(materials.map((m) => [m.id, m]))
     const finBySlot = new Map(bidFinishes.map((bf) => [bf.slot, bf.finish!]))
+    const areaFinOvr = new Map<string, Map<string, Finish>>()
+    for (const o of areaFinishOverrides) {
+      if (!o.finish) continue
+      if (!areaFinOvr.has(o.area_id)) areaFinOvr.set(o.area_id, new Map())
+      areaFinOvr.get(o.area_id)!.set(o.slot, o.finish)
+    }
     const ovr = new Map(overrides.map((o) => [o.from_material_id, o.to_material_id]))
     const areaOvr = new Map<string, Map<string, string>>()
     for (const o of areaOverrides) {
@@ -98,7 +107,8 @@ export default function OrderSheet() {
         const qty = Number(row.qty) * (1 + Number(row.waste_pct)) * mult
         let key: string, name: string, unit: string, supplier: string, cost: number | null
         if (row.slot) {
-          const fin = finBySlot.get(row.slot) as Finish | undefined
+          // room finish pick beats the job-wide assignment
+          const fin = (areaFinOvr.get(area.id)?.get(row.slot) ?? finBySlot.get(row.slot)) as Finish | undefined
           if (!fin) continue
           key = `fin:${fin.id}`
           name = `${fin.name}${fin.color_code ? ` (${fin.color_code})` : ''}`
@@ -132,7 +142,7 @@ export default function OrderSheet() {
       map.get(row.supplier)!.push(row)
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [bid, areas, lines, assemblies, bom, materials, bidFinishes, overrides, areaOverrides])
+  }, [bid, areas, lines, assemblies, bom, materials, bidFinishes, overrides, areaOverrides, areaFinishOverrides])
 
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>

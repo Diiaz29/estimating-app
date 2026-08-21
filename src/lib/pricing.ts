@@ -1,6 +1,7 @@
 // The pricing engine — plan §5, implemented as pure functions.
 // Everything reads from the libraries and Settings; nothing is hardcoded here.
 import type {
+  AreaFinishOverride,
   Area,
   Assembly,
   AssemblyMaterial,
@@ -23,6 +24,8 @@ export interface PricingContext {
   materialOverrides: Map<string, string>
   /** per-area swaps, keyed by area id — beat the job-level swap */
   areaOverrides: Map<string, Map<string, string>>
+  /** per-area finish picks, area id → slot → finish — beat finishBySlot */
+  areaFinishOverrides: Map<string, Map<string, Finish>>
   staleDays: number
 }
 
@@ -30,6 +33,12 @@ export interface PricingContext {
 export function resolveMaterialId(ctx: PricingContext, areaId: string | null, materialId: string): string {
   const areaHit = areaId ? ctx.areaOverrides.get(areaId)?.get(materialId) : undefined
   return areaHit ?? ctx.materialOverrides.get(materialId) ?? materialId
+}
+
+/** A room's finish pick for a slot beats the job-wide assignment. */
+export function resolveFinish(ctx: PricingContext, areaId: string | null, slot: string): Finish | undefined {
+  const areaHit = areaId ? ctx.areaFinishOverrides.get(areaId)?.get(slot) : undefined
+  return areaHit ?? ctx.finishBySlot.get(slot)
 }
 
 export function buildContext(
@@ -40,6 +49,7 @@ export function buildContext(
   bidFinishes: BidFinish[],
   materialOverrides: Map<string, string> = new Map(),
   areaOverrides: Map<string, Map<string, string>> = new Map(),
+  areaFinishOverrides: AreaFinishOverride[] = [],
 ): PricingContext {
   const s: Record<string, number> = {}
   for (const row of settings) s[row.key] = Number(row.value)
@@ -50,6 +60,12 @@ export function buildContext(
   }
   const finishBySlot = new Map<string, Finish>()
   for (const bf of bidFinishes) if (bf.finish) finishBySlot.set(bf.slot, bf.finish)
+  const afo = new Map<string, Map<string, Finish>>()
+  for (const o of areaFinishOverrides) {
+    if (!o.finish) continue
+    if (!afo.has(o.area_id)) afo.set(o.area_id, new Map())
+    afo.get(o.area_id)!.set(o.slot, o.finish)
+  }
   return {
     settings: s,
     assemblies: new Map(assemblies.map((a) => [a.id, a])),
@@ -58,6 +74,7 @@ export function buildContext(
     finishBySlot,
     materialOverrides,
     areaOverrides,
+    areaFinishOverrides: afo,
     staleDays: s.price_staleness_days ?? 90,
   }
 }
@@ -139,7 +156,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     let costUpdatedAt: string | null = null
     let ref: Warning['ref']
     if (row.slot) {
-      const finish = ctx.finishBySlot.get(row.slot)
+      const finish = resolveFinish(ctx, area.id, row.slot)
       if (!finish) {
         warnings.push({ kind: 'unassigned-slot', message: `${assembly.name}: slot ${row.slot} has no finish assigned` })
         continue

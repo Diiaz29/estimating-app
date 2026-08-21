@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
-  Area, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride,
+  Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride,
   LineItem, Material, Setting,
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
@@ -23,6 +23,7 @@ export default function Budget() {
   const [bidFinishes, setBidFinishes] = useState<BidFinish[]>([])
   const [overrides, setOverrides] = useState<BidMaterialOverride[]>([])
   const [areaOverrides, setAreaOverrides] = useState<AreaMaterialOverride[]>([])
+  const [areaFinishOverrides, setAreaFinishOverrides] = useState<AreaFinishOverride[]>([])
   const [settings, setSettings] = useState<Setting[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -43,12 +44,14 @@ export default function Budget() {
       const areaRows = (areaRes.data ?? []) as Area[]
       setAreas(areaRows)
       if (areaRows.length > 0) {
-        const [lineRes, aoRes] = await Promise.all([
+        const [lineRes, aoRes, afoRes] = await Promise.all([
           supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)).order('sort_order'),
           supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
+          supabase!.from('area_finish_overrides').select('*, finish:finishes(*)').in('area_id', areaRows.map((a) => a.id)),
         ])
         setLines((lineRes.data ?? []) as LineItem[])
         setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
+        setAreaFinishOverrides((afoRes.data ?? []) as AreaFinishOverride[])
       }
       setAssemblies((asmRes.data ?? []) as Assembly[])
       setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -69,8 +72,9 @@ export default function Budget() {
       settings, assemblies, bom, materials, bidFinishes,
       new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
       areaMap,
+      areaFinishOverrides,
     )
-  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides])
+  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides, areaFinishOverrides])
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
     for (const l of lines) {

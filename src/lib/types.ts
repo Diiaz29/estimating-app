@@ -213,6 +213,14 @@ export interface AreaMaterialOverride {
   to_material_id: string
 }
 
+/** A room's finish pick for a slot (laminate/solid surface) — beats the job pick */
+export interface AreaFinishOverride {
+  area_id: string
+  slot: string
+  finish_id: string
+  finish?: Finish
+}
+
 export interface OverheadItem {
   id: string
   name: string

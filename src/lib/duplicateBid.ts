@@ -104,6 +104,13 @@ export async function duplicateBid(source: Bid): Promise<string> {
     if (roomSwaps && roomSwaps.length > 0) {
       await sb.from('area_material_overrides').insert(roomSwaps.map((s) => ({ ...s, area_id: newArea.id })))
     }
+    const { data: roomFinishes } = await sb
+      .from('area_finish_overrides')
+      .select('slot, finish_id')
+      .eq('area_id', a.id)
+    if (roomFinishes && roomFinishes.length > 0) {
+      await sb.from('area_finish_overrides').insert(roomFinishes.map((s) => ({ ...s, area_id: newArea.id })))
+    }
   }
 
   return newId

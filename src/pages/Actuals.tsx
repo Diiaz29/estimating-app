@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type {
-  Area, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride, LineItem, Material, Setting,
+  Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidFinish, BidMaterialOverride, LineItem, Material, Setting,
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
@@ -48,6 +48,8 @@ export default function Actuals() {
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
+  const [areaOverrides, setAreaOverrides] = useState<AreaMaterialOverride[]>([])
+  const [areaFinishOverrides, setAreaFinishOverrides] = useState<AreaFinishOverride[]>([])
   const [assemblies, setAssemblies] = useState<Assembly[]>([])
   const [bom, setBom] = useState<AssemblyMaterial[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
@@ -89,9 +91,14 @@ export default function Actuals() {
       const areaRows = (areaRes.data ?? []) as Area[]
       setAreas(areaRows)
       if (areaRows.length > 0) {
-        const { data } = await supabase!
-          .from('line_items').select('*').in('area_id', areaRows.map((a) => a.id))
-        setLines((data ?? []) as LineItem[])
+        const [lineRes, aoRes, afoRes] = await Promise.all([
+          supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)),
+          supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
+          supabase!.from('area_finish_overrides').select('*, finish:finishes(*)').in('area_id', areaRows.map((a) => a.id)),
+        ])
+        setLines((lineRes.data ?? []) as LineItem[])
+        setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
+        setAreaFinishOverrides((afoRes.data ?? []) as AreaFinishOverride[])
       }
       setAssemblies((asmRes.data ?? []) as Assembly[])
       setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -107,14 +114,19 @@ export default function Actuals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isAdmin])
 
-  const ctx = useMemo(
-    () =>
-      buildContext(
-        settings, assemblies, bom, materials, bidFinishes,
-        new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
-      ),
-    [settings, assemblies, bom, materials, bidFinishes, overrides],
-  )
+  const ctx = useMemo(() => {
+    const areaMap = new Map<string, Map<string, string>>()
+    for (const o of areaOverrides) {
+      if (!areaMap.has(o.area_id)) areaMap.set(o.area_id, new Map())
+      areaMap.get(o.area_id)!.set(o.from_material_id, o.to_material_id)
+    }
+    return buildContext(
+      settings, assemblies, bom, materials, bidFinishes,
+      new Map(overrides.map((o) => [o.from_material_id, o.to_material_id])),
+      areaMap,
+      areaFinishOverrides,
+    )
+  }, [settings, assemblies, bom, materials, bidFinishes, overrides, areaOverrides, areaFinishOverrides])
   const linesByArea = useMemo(() => {
     const map = new Map<string, LineItem[]>()
     for (const l of lines) {

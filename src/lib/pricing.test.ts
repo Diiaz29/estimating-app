@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildContext, priceBid, priceLine, resolveMaterialId } from './pricing'
 import type {
+  AreaFinishOverride,
   Area,
   Assembly,
   AssemblyMaterial,
@@ -115,6 +116,7 @@ function ctxWith(opts: {
   finishes?: BidFinish[]
   materialOverrides?: Map<string, string>
   areaOverrides?: Map<string, Map<string, string>>
+  areaFinishOverrides?: AreaFinishOverride[]
 } = {}) {
   return buildContext(
     SETTINGS,
@@ -124,6 +126,7 @@ function ctxWith(opts: {
     opts.finishes ?? [{ bid_id: 'bid-1', slot: 'CABINET_LAM', finish_id: 'fin-lam', finish: LAMINATE }],
     opts.materialOverrides,
     opts.areaOverrides,
+    opts.areaFinishOverrides,
   )
 }
 
@@ -227,6 +230,29 @@ describe('resolveMaterialId — area beats job beats standard', () => {
     expect(resolveMaterialId(ctx, 'area-1', 'mat-mel')).toBe('mat-nocost')
     // a different area still gets the job override
     expect(resolveMaterialId(ctx, 'area-2', 'mat-mel')).toBe('mat-prefin')
+  })
+})
+
+describe('room finish override — area pick beats the job slot assignment', () => {
+  const FANCY: Finish = { ...LAMINATE, id: 'fin-fancy', name: 'Fancy Laminate', cost: 5 }
+  it('prices the room on its own laminate and leaves other rooms on the job pick', () => {
+    const ctx = ctxWith({
+      areaFinishOverrides: [{ area_id: 'area-1', slot: 'CABINET_LAM', finish_id: 'fin-fancy', finish: FANCY }],
+    })
+    // BOM: 0.5 sheet × $40 + 6 sq ft laminate. Room pick $5/sqft vs job $2/sqft.
+    const here = priceLine(assemblyLine(), makeArea(), ctx)
+    expect(here.unitMaterialCost).toBeCloseTo(0.5 * 40 + 6 * 5, 6)
+    const elsewhere = priceLine(assemblyLine({ area_id: 'area-2' }), makeArea({ id: 'area-2' }), ctx)
+    expect(elsewhere.unitMaterialCost).toBeCloseTo(0.5 * 40 + 6 * 2, 6)
+  })
+  it('fills an unassigned slot for just that room without a warning', () => {
+    const ctx = ctxWith({
+      finishes: [],
+      areaFinishOverrides: [{ area_id: 'area-1', slot: 'CABINET_LAM', finish_id: 'fin-fancy', finish: FANCY }],
+    })
+    const p = priceLine(assemblyLine(), makeArea(), ctx)
+    expect(p.warnings.some((w) => w.kind === 'unassigned-slot')).toBe(false)
+    expect(p.unitMaterialCost).toBeCloseTo(0.5 * 40 + 6 * 5, 6)
   })
 })
 
