@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import type { Bid, Contact, Customer, CustomerType } from '../lib/types'
 import StatusBadge from '../components/StatusBadge'
 import ConfirmDialog from '../components/ConfirmDialog'
+import CustomerDocs from '../components/CustomerDocs'
 import { fmtDueDate, formatPhone } from '../lib/format'
 
 export default function CustomerDetail() {
@@ -136,6 +137,8 @@ export default function CustomerDetail() {
       </Field>
 
       <ContactsSection customerId={customer.id} contacts={contacts} onChange={() => void load()} />
+
+      <CustomerDocs customerId={customer.id} />
 
       <section>
         <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">Bid history</h2>
