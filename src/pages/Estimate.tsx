@@ -348,10 +348,19 @@ export default function Estimate() {
             .map((m) => m!.name),
         ),
       ]
-      // finishes this room picks differently from the job (printed on its block)
-      const roomFinishes = areaFinishOverrides
-        .filter((o) => o.area_id === area.id && o.finish)
-        .map((o) => `${slotLabel(o.slot)}: ${o.finish!.name}${o.finish!.color_code ? ` ${o.finish!.color_code}` : ''}`)
+      // this room's finishes as printed on its proposal block: the job list with
+      // any room pick swapped in for its slot (plus room-only slots)
+      const finName = (fin: { name: string; color_code: string | null } | undefined) => `${fin?.name ?? ''}${fin?.color_code ? ` ${fin.color_code}` : ''}`
+      const roomOvr = areaFinishOverrides.filter((o) => o.area_id === area.id && o.finish)
+      const roomFinishes = [
+        ...bidFinishes.map((bf) => {
+          const o = roomOvr.find((x) => x.slot === bf.slot)
+          return { slot: bf.slot, name: finName(o?.finish ?? bf.finish) }
+        }),
+        ...roomOvr
+          .filter((o) => !bidFinishes.some((bf) => bf.slot === o.slot))
+          .map((o) => ({ slot: o.slot, name: finName(o.finish) })),
+      ]
       return {
         name: area.name,
         sheet_ref: area.sheet_ref,

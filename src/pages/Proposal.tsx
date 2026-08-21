@@ -27,7 +27,8 @@ interface SnapshotRevision {
         option_all_in?: number | null
         lines: { label: string; qty: number; entry: string | null; unit: string }[]
         hardware?: string[]
-        finishes?: string[]
+        /** per-room effective finish list (newer snapshots); older ones fall back to the job list */
+        finishes?: { slot: string; name: string }[] | string[]
         inclusions?: string | null
         exclusions?: string | null
       }[]
@@ -62,7 +63,7 @@ interface ProposalData {
     inclusions: string | null
     exclusions: string | null
     hardware: string[]
-    finishes: string[]
+    finishes: { slot: string; name: string }[]
   }[]
   finishes: { slot: string; name: string }[]
   base: number
@@ -90,13 +91,6 @@ function scopeWording(install: boolean, delivery: boolean): string {
 }
 
 const INSTALLISH = new Set(['install', 'per_diem', 'lodging'])
-function slotLabel(slot: string): string {
-  if (slot === 'CABINET_LAM') return 'Cabinet laminate'
-  if (slot.startsWith('PLAM')) return `Countertop laminate ${slot.slice(5)}`
-  if (slot.startsWith('SS')) return `Solid surface ${slot.slice(3)}`
-  return slot
-}
-
 const isInstallish = (a: { key?: string; label: string }) =>
   a.key ? INSTALLISH.has(a.key) : /^(Install|Per diem|Lodging)/.test(a.label)
 const isDelivery = (a: { key?: string; label: string }) =>
@@ -227,7 +221,9 @@ export default function Proposal() {
           inclusions: a.inclusions ?? null,
           exclusions: a.exclusions ?? null,
           hardware: a.hardware ?? [],
-          finishes: a.finishes ?? [],
+          finishes: Array.isArray(a.finishes) && a.finishes.length > 0 && typeof a.finishes[0] === 'object'
+            ? (a.finishes as { slot: string; name: string }[])
+            : d.finishes,
         })),
         finishes: d.finishes,
         base: t.contractAmount - install - delivery,
@@ -271,9 +267,18 @@ export default function Proposal() {
               .map((m) => m!.name),
           ),
         ]
-        const roomFinishes = areaFinishOverrides
-          .filter((o) => o.area_id === area.id && o.finish)
-          .map((o) => `${slotLabel(o.slot)}: ${o.finish!.name}${o.finish!.color_code ? ` ${o.finish!.color_code}` : ''}`)
+        // the job finish list with this room's picks swapped in for their slots
+        const finName = (fin: { name: string; color_code: string | null } | undefined) => `${fin?.name ?? ''}${fin?.color_code ? ` ${fin.color_code}` : ''}`
+        const roomOvr = areaFinishOverrides.filter((o) => o.area_id === area.id && o.finish)
+        const roomFinishes = [
+          ...bidFinishes.map((bf) => {
+            const o = roomOvr.find((x) => x.slot === bf.slot)
+            return { slot: bf.slot, name: finName(o?.finish ?? bf.finish) }
+          }),
+          ...roomOvr
+            .filter((o) => !bidFinishes.some((bf) => bf.slot === o.slot))
+            .map((o) => ({ slot: o.slot, name: finName(o.finish) })),
+        ]
         return {
           name: area.name,
           sheet_ref: area.sheet_ref,
@@ -509,14 +514,9 @@ export default function Proposal() {
                     <b>Also includes:</b> <span className="whitespace-pre-wrap">{area.inclusions}</span>
                   </div>
                 )}
-                {data.finishes.length > 0 && (
-                  <div className="mt-0.5">
-                    <b>Finishes:</b> {data.finishes.map((f) => `${f.slot}: ${f.name}`).join('; ')}
-                  </div>
-                )}
                 {area.finishes.length > 0 && (
                   <div className="mt-0.5">
-                    <b>This room:</b> {area.finishes.join('; ')}
+                    <b>Finishes:</b> {area.finishes.map((f) => `${f.slot}: ${f.name}`).join('; ')}
                   </div>
                 )}
                 {area.hardware.length > 0 && (
