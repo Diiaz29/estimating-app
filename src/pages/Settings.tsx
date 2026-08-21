@@ -4,11 +4,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Setting } from '../lib/types'
 import { settingFromDisplay, settingSuffix, settingToDisplay } from '../lib/format'
-import { LOGO_URL } from '../lib/branding'
+import { LOGO_URL, SIGNATURE_URL } from '../lib/branding'
 
 const GROUP_ORDER = ['Markups', 'Labor', 'Delivery', 'Travel', 'Added costs', 'Company', 'Tax', 'App']
 
-function LogoCard() {
+/** Upload card for a fixed-path image in the public branding bucket (logo, signature). */
+function ImageCard({
+  path, url, title, help, noun, accept = 'image/png,image/jpeg,image/svg+xml,image/webp',
+}: { path: string; url: string; title: string; help: string; noun: string; accept?: string }) {
   const [version, setVersion] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [hasLogo, setHasLogo] = useState(true) // assume yes; img onError flips it
@@ -17,7 +20,7 @@ function LogoCard() {
   async function upload(file: File) {
     setUploading(true)
     setError(null)
-    const { error } = await supabase!.storage.from('branding').upload('logo', file, {
+    const { error } = await supabase!.storage.from('branding').upload(path, file, {
       upsert: true,
       contentType: file.type,
       cacheControl: '60',
@@ -36,28 +39,25 @@ function LogoCard() {
         <div className="flex h-16 w-40 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
           {hasLogo ? (
             <img
-              src={`${LOGO_URL}?v=${version}`}
-              alt="Company logo"
+              src={`${url}?v=${version}`}
+              alt={title}
               className="max-h-full max-w-full object-contain"
               onError={() => setHasLogo(false)}
             />
           ) : (
-            <span className="text-xs text-slate-400">no logo yet</span>
+            <span className="text-xs text-slate-400">no {noun} yet</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-semibold">Company logo</div>
-          <div className="mt-0.5 text-sm text-slate-500">
-            Shows top-left on the proposal and work authorization. PNG with a clear background
-            works best.
-          </div>
+          <div className="font-semibold">{title}</div>
+          <div className="mt-0.5 text-sm text-slate-500">{help}</div>
           {error && <div className="mt-1 text-sm text-red-600">{error}</div>}
         </div>
         <label className={`cursor-pointer rounded-md px-3 py-2 text-sm font-semibold text-white ${uploading ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-700'}`}>
-          {uploading ? 'Uploading…' : hasLogo ? 'Replace logo' : '+ Upload logo'}
+          {uploading ? 'Uploading…' : hasLogo ? `Replace ${noun}` : `+ Upload ${noun}`}
           <input
             type="file"
-            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            accept={accept}
             className="hidden"
             disabled={uploading}
             onChange={(e) => {
@@ -287,7 +287,21 @@ export default function Settings() {
         <div className="min-w-0 max-w-2xl flex-1 space-y-5">
           {active === 'Company' && (
             <>
-              <LogoCard />
+              <ImageCard
+                path="logo"
+                url={LOGO_URL}
+                title="Company logo"
+                help="Shows top-left on the proposal and work authorization. PNG with a clear background works best."
+                noun="logo"
+              />
+              <ImageCard
+                path="signature"
+                url={SIGNATURE_URL}
+                title="Signature"
+                help="Prints in the vendor signature box on the work authorization and change orders. Sign on white paper, photograph or scan it, and save as a PNG with a clear background. Fill in the signer name and title below so they print under the line."
+                noun="signature"
+                accept="image/png,image/jpeg,image/webp"
+              />
               <TextRowsCard
                 group="Company"
                 intro="Shows on the proposal, work authorization, and app header. Everything customer-facing pulls from here."

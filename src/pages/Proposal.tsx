@@ -8,6 +8,7 @@ import type {
 import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
 import { fmtDueDate, fmtMoney } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
+import VendorSignature from '../components/VendorSignature'
 
 interface SnapshotRevision {
   id: string
@@ -664,12 +665,12 @@ export default function Proposal() {
           <SectionTitle small>Acceptance</SectionTitle>
           <p>By signing below, both parties accept the terms set forth in this Work Authorization Agreement.</p>
           <div className="mt-3 grid grid-cols-2 gap-8 break-inside-avoid">
-            <div>
-              <div className="font-semibold">VENDOR — {COMPANY.name}</div>
-              <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[9px] uppercase tracking-wider text-slate-500">
-                Signature / Printed Name / Title / Date
-              </div>
-            </div>
+            <VendorSignature
+              companyName={COMPANY.name}
+              signerName={terms.signer_name}
+              signerTitle={terms.signer_title}
+              date={data.presentedOn}
+            />
             <div>
               <div className="font-semibold">CONTRACTOR — {gc?.company ?? '[GC NAME]'}</div>
               <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[9px] uppercase tracking-wider text-slate-500">

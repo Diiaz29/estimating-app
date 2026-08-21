@@ -9,6 +9,7 @@ import type {
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
+import VendorSignature from '../components/VendorSignature'
 
 /** Printable change order: original contract, the change, new contract, signatures.
  *  Draft COs price live; approved COs print their locked numbers. */
@@ -254,12 +255,12 @@ export default function ChangeOrderDoc() {
           in this Change Order.
         </p>
         <div className="mt-4 grid grid-cols-2 gap-8 break-inside-avoid">
-          <div>
-            <div className="font-semibold">VENDOR — {company.company_name ?? ''}</div>
-            <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[9px] uppercase tracking-wider text-slate-500">
-              Signature / Printed Name / Title / Date
-            </div>
-          </div>
+          <VendorSignature
+            companyName={company.company_name ?? ''}
+            signerName={company.signer_name}
+            signerTitle={company.signer_title}
+            date={new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+          />
           <div>
             <div className="font-semibold">CONTRACTOR — {gc?.company ?? '[GC NAME]'}</div>
             <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[9px] uppercase tracking-wider text-slate-500">
