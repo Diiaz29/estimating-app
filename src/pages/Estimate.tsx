@@ -795,7 +795,13 @@ export default function Estimate() {
             visible={bid.adjustment_visible}
             onSave={(price_adjustment, adjustment_note) => {
               setBid((b) => (b ? { ...b, price_adjustment, adjustment_note } : b))
-              void supabase!.from('bids').update({ price_adjustment, adjustment_note }).eq('id', bid.id)
+              void supabase!
+                .from('bids')
+                .update({ price_adjustment, adjustment_note })
+                .eq('id', bid.id)
+                .then(({ error }) => {
+                  if (error) setError(`Adjustment did not save: ${error.message}`)
+                })
             }}
             onToggleVisible={() => {
               const adjustment_visible = !bid.adjustment_visible
@@ -949,7 +955,7 @@ function CoAdjInput({ value, onSave }: { value: number; onSave: (v: number) => v
   const [draft, setDraft] = useState(value === 0 ? '' : String(value))
   useEffect(() => setDraft(value === 0 ? '' : String(value)), [value])
   function commit() {
-    const v = draft === '' ? 0 : Number(draft)
+    const v = parseLooseMoney(draft)
     if (!Number.isNaN(v) && v !== value) onSave(v)
   }
   const timer = useRef<number | undefined>(undefined)
@@ -966,8 +972,8 @@ function CoAdjInput({ value, onSave }: { value: number; onSave: (v: number) => v
     <label className="flex items-center gap-1" title="Price adjustment for this change order — negative for a discount. Prints on the CO doc.">
       <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">adj $</span>
       <input
-        type="number"
-        step="any"
+        type="text"
+        inputMode="decimal"
         value={draft}
         onChange={(e) => {
           setDraft(e.target.value)
@@ -1014,6 +1020,12 @@ function NewCoRow({ first, onAdd }: { first: boolean; onAdd: (title: string) => 
 }
 
 /** Manual discount / add on the whole bid — a pure price move, no cost behind it. */
+/** "$-1,500" -> -1500; "" -> 0; junk -> NaN. Typed dollars are never strict. */
+function parseLooseMoney(s: string): number {
+  const clean = s.replace(/[^0-9.-]/g, '')
+  return clean === '' ? 0 : Number(clean)
+}
+
 function AdjustmentRow({
   amount, note, visible, onSave, onToggleVisible,
 }: {
@@ -1030,7 +1042,7 @@ function AdjustmentRow({
   useEffect(() => setNoteDraft(note ?? ''), [note])
 
   function commit() {
-    const v = amtDraft === '' ? 0 : Number(amtDraft)
+    const v = parseLooseMoney(amtDraft)
     if (Number.isNaN(v)) return
     if (v !== amount || (noteDraft.trim() || null) !== note) onSave(v, noteDraft.trim() || null)
   }
@@ -1068,8 +1080,8 @@ function AdjustmentRow({
       <div className="flex items-center gap-1">
         <span className="text-xs text-slate-400">$</span>
         <input
-          type="number"
-          step="any"
+          type="text"
+          inputMode="decimal"
           value={amtDraft}
           onChange={(e) => {
             setAmtDraft(e.target.value)
