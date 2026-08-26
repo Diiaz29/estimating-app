@@ -385,7 +385,8 @@ export function priceBid(
   const addersTotal = adders.reduce((sum, a) => sum + (a.enabled ? a.price : 0), 0)
   // manual discount (negative) or add (positive) — pure price move, no cost behind it
   const adjustment = Number(bid.price_adjustment ?? 0)
-  const contractAmount = cabinetTotal + addersTotal + adjustment
+  // the hidden adjustment joins the contract silently — never shown as a line
+  const contractAmount = cabinetTotal + addersTotal + adjustment + Number(bid.hidden_adjustment ?? 0)
   const tax = bid.tax_exempt ? 0 : contractAmount * (s.tax_rate ?? 0)
 
   // Cost/margin side: materials at cost + labor at cost rate + subs at quote

@@ -34,6 +34,7 @@ export async function duplicateBid(source: Bid): Promise<string> {
       exclusions: source.exclusions,
       notes: source.notes,
       price_adjustment: source.price_adjustment ?? 0,
+      hidden_adjustment: source.hidden_adjustment ?? 0,
       adjustment_note: source.adjustment_note,
       adjustment_visible: source.adjustment_visible ?? true,
     })

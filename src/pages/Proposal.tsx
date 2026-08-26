@@ -229,6 +229,10 @@ export default function Proposal() {
       const d = rev.snapshot.display
       const t = rev.snapshot.totals
       const snapBid = rev.snapshot.bid
+      // the hidden adjustment spreads across base-room prices so a client who
+      // adds the breakdown up lands exactly on the contract amount
+      const hidden = Number(snapBid?.hidden_adjustment ?? 0)
+      const k = hidden !== 0 && t.cabinetTotal > 0 ? (t.cabinetTotal + hidden) / t.cabinetTotal : 1
       const install = d.adders.filter((a) => a.enabled && isInstallish(a)).reduce((s, a) => s + a.price, 0)
       const delivery = d.adders.filter((a) => a.enabled && isDelivery(a)).reduce((s, a) => s + a.price, 0)
       return {
@@ -252,14 +256,21 @@ export default function Proposal() {
           finishes: Array.isArray(a.finishes) && a.finishes.length > 0 && typeof a.finishes[0] === 'object'
             ? (a.finishes as { slot: string; name: string }[])
             : d.finishes,
-          breakdown: a.lines.map((l) => ({
-            label: l.label,
-            qtyLabel: l.entry ?? `${Math.round(l.qty * 1000) / 1000} ${l.unit}`,
-            price: l.linePrice ?? 0,
-            materials: l.detail?.materials ?? [],
-            laborHours: l.detail?.laborHours ?? 0,
-            laborPrice: l.detail?.laborPrice ?? 0,
-          })),
+          breakdown: a.lines.map((l) => {
+            const s = a.is_alternate ? 1 : k
+            return {
+              label: l.label,
+              qtyLabel: l.entry
+                ? Number.isNaN(parseFloat(l.entry))
+                  ? a.multiplier > 1 ? `${l.entry} × ${a.multiplier}` : l.entry
+                  : `${Math.round(parseFloat(l.entry) * a.multiplier * 100) / 100} LF`
+                : `${Math.round(l.qty * a.multiplier * 1000) / 1000} ${l.unit}`,
+              price: (l.linePrice ?? 0) * s,
+              materials: (l.detail?.materials ?? []).map((mrow) => ({ ...mrow, price: mrow.price * s })),
+              laborHours: l.detail?.laborHours ?? 0,
+              laborPrice: (l.detail?.laborPrice ?? 0) * s,
+            }
+          }),
         })),
         finishes: d.finishes,
         addersDetail: d.adders.map((ad) => ({ label: ad.label, price: ad.price, enabled: ad.enabled })),
@@ -286,6 +297,9 @@ export default function Proposal() {
     }
     const install = adder('install') + adder('per_diem') + adder('lodging')
     const delivery = adder('delivery')
+    // spread the hidden adjustment across base-room prices in the breakdown
+    const hidden = Number(bid.hidden_adjustment ?? 0)
+    const kLive = hidden !== 0 && pricing.cabinetTotal > 0 ? (pricing.cabinetTotal + hidden) / pricing.cabinetTotal : 1
     return {
       refLabel: bid.job_number,
       sourceLabel: 'Live numbers — snapshot before sending!',
@@ -339,27 +353,32 @@ export default function Proposal() {
           breakdown: areaLines.map((l) => {
             const p = priceLine(l, area, ctx)
             const asm = l.assembly_id ? ctx.assemblies.get(l.assembly_id) : undefined
-            const qtyLabel = l.entry_mode === 'feet' ? `${l.entry_value} LF` : `${Number(l.quantity)} ${asm?.pricing_unit ?? 'EA'}`
+            // the price covers every unit of the room, so the qty does too
+            const m = Number(area.multiplier)
+            const qtyLabel = l.entry_mode === 'feet'
+              ? `${Math.round(Number(l.entry_value) * m * 100) / 100} LF`
+              : `${Number(l.quantity) * m} ${asm?.pricing_unit ?? 'EA'}`
             const mult = Number(area.multiplier) * Number(l.quantity)
             const computed = p.materialPrice + p.laborPrice
             const scale = l.rate_override != null && computed > 0 ? p.linePrice / computed : 1
             const markup = ctx.settings.material_markup ?? 1
             const rate = ctx.settings.price_shop_rate ?? 0
+            const s = area.is_alternate ? 1 : kLive
             return {
               label: asm?.name ?? l.name ?? '',
               qtyLabel,
-              price: p.linePrice,
+              price: p.linePrice * s,
               materials:
                 l.kind === 'assembly'
                   ? p.bomDetail.map((r) => ({
                       name: r.source,
                       qty: Math.round(r.qty * (1 + r.wastePct) * mult * 100) / 100,
                       unit: r.unit,
-                      price: r.rowCost * mult * markup * scale,
+                      price: r.rowCost * mult * markup * scale * s,
                     }))
                   : [],
               laborHours: l.kind === 'assembly' && rate > 0 ? Math.round((p.laborPrice / rate) * 10) / 10 : 0,
-              laborPrice: l.kind === 'assembly' ? p.laborPrice * scale : 0,
+              laborPrice: l.kind === 'assembly' ? p.laborPrice * scale * s : 0,
             }
           }),
         }
@@ -641,7 +660,7 @@ export default function Proposal() {
                           <span>{l.label} — {l.qtyLabel}</span>
                           <span className="tabular-nums">{fmtMoney(l.price)}</span>
                         </div>
-                        {l.materials.map((m, k) => (
+                        {[...l.materials].sort((x, y) => x.name.localeCompare(y.name)).map((m, k) => (
                           <div key={k} className="flex justify-between gap-4 px-4 py-px text-slate-600">
                             <span>{m.name} — {m.qty}{m.unit ? ` ${m.unit}` : ''}</span>
                             <span className="tabular-nums">{fmtMoney(m.price)}</span>

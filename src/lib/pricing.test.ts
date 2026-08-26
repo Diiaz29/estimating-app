@@ -94,7 +94,7 @@ function makeBid(over: Partial<Bid> = {}): Bid {
     tax_exempt: false, bid_value: null, drawings_date: null, adders: NO_ADDERS,
     inclusions: null, exclusions: null, notes: null, lost_reason: null,
     sent_at: null, followup_days: null, completed_at: null,
-    price_adjustment: 0, adjustment_note: null, adjustment_visible: false, detail_breakdown: false,
+    price_adjustment: 0, adjustment_note: null, adjustment_visible: false, detail_breakdown: false, hidden_adjustment: 0,
     created_at: FRESH, updated_at: FRESH, ...over,
   }
 }
@@ -259,6 +259,16 @@ describe('room finish override — area pick beats the job slot assignment', () 
 // --- priceBid ---------------------------------------------------------------
 
 describe('priceBid — totals and adders', () => {
+  it('folds the hidden adjustment into the contract without exposing it', () => {
+    const ctx = ctxWith()
+    const areas = [makeArea()]
+    const lines = new Map([['area-1', [assemblyLine()]]])
+    const base = priceBid(makeBid(), areas, lines, ctx)
+    const p = priceBid(makeBid({ hidden_adjustment: 250 }), areas, lines, ctx)
+    expect(p.contractAmount).toBeCloseTo(base.contractAmount + 250, 6)
+    expect(p.adjustment).toBe(0)
+  })
+
   const areas = [makeArea()]
   const lines = new Map([['area-1', [assemblyLine()]]])
 

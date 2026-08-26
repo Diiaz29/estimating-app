@@ -61,6 +61,8 @@ export interface Bid {
   adjustment_visible: boolean
   /** print the full material/labor/added-cost breakdown on the proposal */
   detail_breakdown: boolean
+  /** folded silently into the contract, never printed anywhere */
+  hidden_adjustment: number
   created_at: string
   updated_at: string
 }

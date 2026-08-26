@@ -809,6 +809,21 @@ export default function Estimate() {
           </div>
         ))}
         {canEdit && (
+          <HiddenAdjRow
+            amount={Number(bid.hidden_adjustment ?? 0)}
+            onSave={(hidden_adjustment) => {
+              setBid((b) => (b ? { ...b, hidden_adjustment } : b))
+              void supabase!
+                .from('bids')
+                .update({ hidden_adjustment })
+                .eq('id', bid.id)
+                .then(({ error }) => {
+                  if (error) setError(`Baked-in adjustment did not save: ${error.message}`)
+                })
+            }}
+          />
+        )}
+        {canEdit && (
           <AdjustmentRow
             amount={Number(bid.price_adjustment ?? 0)}
             note={bid.adjustment_note}
@@ -1044,6 +1059,54 @@ function NewCoRow({ first, onAdd }: { first: boolean; onAdd: (title: string) => 
 function parseLooseMoney(s: string): number {
   const clean = s.replace(/[^0-9.-]/g, '')
   return clean === '' ? 0 : Number(clean)
+}
+
+/** A price add that never prints — folded silently into the contract. For
+ *  recovering a cost (insurance, rush fees) a client would push back on. */
+function HiddenAdjRow({ amount, onSave }: { amount: number; onSave: (v: number) => void }) {
+  const [draft, setDraft] = useState(amount === 0 ? '' : String(amount))
+  useEffect(() => setDraft(amount === 0 ? '' : String(amount)), [amount])
+  function commit() {
+    const v = parseLooseMoney(draft)
+    if (!Number.isNaN(v) && v !== amount) onSave(v)
+  }
+  const timer = useRef<number | undefined>(undefined)
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+      commitRef.current()
+    },
+    [],
+  )
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-4 py-2">
+      <span className="text-sm font-medium">Baked-in adjustment</span>
+      <span className="min-w-0 flex-1 basis-48 text-xs text-slate-400">
+        never prints — folds silently into the contract (e.g. insurance this client shouldn't see as a line)
+      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-slate-400">$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            window.clearTimeout(timer.current)
+            timer.current = window.setTimeout(() => commitRef.current(), 600)
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          placeholder="0"
+          className={`w-28 rounded border px-2 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none sm:text-sm ${
+            amount !== 0 ? 'border-violet-500 bg-violet-50' : 'border-slate-200'
+          }`}
+        />
+      </div>
+    </div>
+  )
 }
 
 function AdjustmentRow({
