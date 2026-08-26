@@ -94,7 +94,7 @@ function makeBid(over: Partial<Bid> = {}): Bid {
     tax_exempt: false, bid_value: null, drawings_date: null, adders: NO_ADDERS,
     inclusions: null, exclusions: null, notes: null, lost_reason: null,
     sent_at: null, followup_days: null, completed_at: null,
-    price_adjustment: 0, adjustment_note: null, adjustment_visible: false,
+    price_adjustment: 0, adjustment_note: null, adjustment_visible: false, detail_breakdown: false,
     created_at: FRESH, updated_at: FRESH, ...over,
   }
 }

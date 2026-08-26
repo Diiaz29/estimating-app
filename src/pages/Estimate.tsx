@@ -335,6 +335,26 @@ export default function Estimate() {
           entry: line.entry_mode === 'feet' ? `${line.entry_value} FT` : null,
           unit: line.kind === 'assembly' ? assembly?.pricing_unit ?? 'EA' : 'EA',
           linePrice: p.linePrice,
+          // customer-facing detail: materials incl. waste and labor, at the
+          // charged price (rate overrides scale the rows so they still sum)
+          detail: (() => {
+            if (line.kind !== 'assembly') return null
+            const mult = Number(area.multiplier) * Number(line.quantity)
+            const computed = p.materialPrice + p.laborPrice
+            const scale = line.rate_override != null && computed > 0 ? p.linePrice / computed : 1
+            const markup = ctx.settings.material_markup ?? 1
+            const rate = ctx.settings.price_shop_rate ?? 0
+            return {
+              materials: p.bomDetail.map((r) => ({
+                name: r.source,
+                qty: Math.round(r.qty * (1 + r.wastePct) * mult * 100) / 100,
+                unit: r.unit,
+                price: r.rowCost * mult * markup * scale,
+              })),
+              laborHours: rate > 0 ? Math.round((p.laborPrice / rate) * 10) / 10 : 0,
+              laborPrice: p.laborPrice * scale,
+            }
+          })(),
           note: line.note,
         }
       })

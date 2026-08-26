@@ -59,6 +59,8 @@ export interface Bid {
   price_adjustment: number
   adjustment_note: string | null
   adjustment_visible: boolean
+  /** print the full material/labor/added-cost breakdown on the proposal */
+  detail_breakdown: boolean
   created_at: string
   updated_at: string
 }

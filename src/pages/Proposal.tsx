@@ -5,7 +5,7 @@ import type {
   Area, AreaFinishOverride, AreaMaterialOverride, Assembly, AssemblyMaterial, Bid, BidCustomer, BidFinish,
   BidMaterialOverride, Contact, LineItem, Material, Profile, Setting,
 } from '../lib/types'
-import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
+import { buildContext, priceBid, priceLine, resolveMaterialId } from '../lib/pricing'
 import { fmtDueDate, fmtMoney, partyLabels } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 import VendorSignature from '../components/VendorSignature'
@@ -28,7 +28,14 @@ interface SnapshotRevision {
         change_order?: boolean
         total: number
         option_all_in?: number | null
-        lines: { label: string; qty: number; entry: string | null; unit: string }[]
+        lines: {
+          label: string
+          qty: number
+          entry: string | null
+          unit: string
+          linePrice?: number
+          detail?: { materials: { name: string; qty: number; unit: string | null; price: number }[]; laborHours: number; laborPrice: number } | null
+        }[]
         hardware?: string[]
         /** per-room effective finish list (newer snapshots); older ones fall back to the job list */
         finishes?: { slot: string; name: string }[] | string[]
@@ -67,8 +74,17 @@ interface ProposalData {
     exclusions: string | null
     hardware: string[]
     finishes: { slot: string; name: string }[]
+    breakdown: {
+      label: string
+      qtyLabel: string
+      price: number
+      materials: { name: string; qty: number; unit: string | null; price: number }[]
+      laborHours: number
+      laborPrice: number
+    }[]
   }[]
   finishes: { slot: string; name: string }[]
+  addersDetail: { label: string; price: number; enabled: boolean }[]
   base: number
   install: number
   delivery: number
@@ -119,9 +135,10 @@ export default function Proposal() {
   const [logoOk, setLogoOk] = useState(true) // logo carries the name, so text name hides when it loads
   const [terms, setTerms] = useState<Record<string, string>>({})
   // who signs: author of the locked revision, or the signed-in user for live numbers
-  const { session } = useAuth()
+  const { session, canManageBids } = useAuth()
   const [signers, setSigners] = useState<Profile[]>([])
   const [signed, setSigned] = useState(false) // signature goes on only when the creator clicks Sign
+  const [showDetail, setShowDetail] = useState(false) // bids.detail_breakdown
   useEffect(() => {
     supabase!.from('profiles').select('id, email, role, created_at, signature_data, signer_name, signer_title').then(({ data }) => setSigners((data ?? []) as Profile[]))
   }, [])
@@ -145,6 +162,7 @@ export default function Proposal() {
         ])
       if (bidRes.error) return setError(bidRes.error.message)
       setBid(bidRes.data as Bid)
+      setShowDetail((bidRes.data as Bid).detail_breakdown)
       const areaRows = (areaRes.data ?? []) as Area[]
       setAreas(areaRows)
       if (areaRows.length > 0) {
@@ -234,8 +252,17 @@ export default function Proposal() {
           finishes: Array.isArray(a.finishes) && a.finishes.length > 0 && typeof a.finishes[0] === 'object'
             ? (a.finishes as { slot: string; name: string }[])
             : d.finishes,
+          breakdown: a.lines.map((l) => ({
+            label: l.label,
+            qtyLabel: l.entry ?? `${Math.round(l.qty * 1000) / 1000} ${l.unit}`,
+            price: l.linePrice ?? 0,
+            materials: l.detail?.materials ?? [],
+            laborHours: l.detail?.laborHours ?? 0,
+            laborPrice: l.detail?.laborPrice ?? 0,
+          })),
         })),
         finishes: d.finishes,
+        addersDetail: d.adders.map((ad) => ({ label: ad.label, price: ad.price, enabled: ad.enabled })),
         base: t.contractAmount - install - delivery,
         install,
         delivery,
@@ -309,12 +336,39 @@ export default function Proposal() {
             .join('; '),
           hardware,
           finishes: roomFinishes,
+          breakdown: areaLines.map((l) => {
+            const p = priceLine(l, area, ctx)
+            const asm = l.assembly_id ? ctx.assemblies.get(l.assembly_id) : undefined
+            const qtyLabel = l.entry_mode === 'feet' ? `${l.entry_value} LF` : `${Number(l.quantity)} ${asm?.pricing_unit ?? 'EA'}`
+            const mult = Number(area.multiplier) * Number(l.quantity)
+            const computed = p.materialPrice + p.laborPrice
+            const scale = l.rate_override != null && computed > 0 ? p.linePrice / computed : 1
+            const markup = ctx.settings.material_markup ?? 1
+            const rate = ctx.settings.price_shop_rate ?? 0
+            return {
+              label: asm?.name ?? l.name ?? '',
+              qtyLabel,
+              price: p.linePrice,
+              materials:
+                l.kind === 'assembly'
+                  ? p.bomDetail.map((r) => ({
+                      name: r.source,
+                      qty: Math.round(r.qty * (1 + r.wastePct) * mult * 100) / 100,
+                      unit: r.unit,
+                      price: r.rowCost * mult * markup * scale,
+                    }))
+                  : [],
+              laborHours: l.kind === 'assembly' && rate > 0 ? Math.round((p.laborPrice / rate) * 10) / 10 : 0,
+              laborPrice: l.kind === 'assembly' ? p.laborPrice * scale : 0,
+            }
+          }),
         }
       }),
       finishes: bidFinishes.map((bf) => ({
         slot: bf.slot,
         name: `${bf.finish?.name ?? ''}${bf.finish?.color_code ? ` ${bf.finish.color_code}` : ''}`,
       })),
+      addersDetail: pricing.adders.map((a) => ({ label: a.label, price: a.price, enabled: a.enabled })),
       base: pricing.contractAmount - install - delivery,
       install,
       delivery,
@@ -392,6 +446,24 @@ export default function Proposal() {
         <span className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider ${data.isLocked ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-amber-400 bg-amber-50 text-amber-800'}`}>
           {data.sourceLabel}
         </span>
+        {canManageBids && (
+          <label
+            className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-600"
+            title="Print each cabinet's materials and labor at the charged price, plus every added cost"
+          >
+            <input
+              type="checkbox"
+              checked={showDetail}
+              onChange={(e) => {
+                const v = e.target.checked
+                setShowDetail(v)
+                void supabase!.from('bids').update({ detail_breakdown: v }).eq('id', bid.id)
+              }}
+              className="h-4 w-4 accent-slate-900"
+            />
+            Detailed breakdown
+          </label>
+        )}
         {signer?.signature_data && (
           signed ? (
             <span className="ml-auto flex items-center gap-2 text-sm">
@@ -527,6 +599,25 @@ export default function Proposal() {
           </tbody>
         </table>
 
+        {showDetail && data.addersDetail.some((a) => a.enabled) && (
+          <div className="mt-2 border border-slate-400 text-[11px]">
+            <div className="border-b border-slate-400 bg-slate-100 px-2 py-1 font-semibold">
+              Added costs — included in the total above
+            </div>
+            {data.addersDetail.filter((a) => a.enabled).map((a) => (
+              <div key={a.label} className="flex justify-between gap-4 border-t border-slate-200 px-2 py-0.5 first:border-t-0">
+                <span>{a.label}</span>
+                <span className="tabular-nums">{fmtMoney(a.price)}</span>
+              </div>
+            ))}
+            {data.addersDetail.some((a) => !a.enabled) && (
+              <div className="border-t border-slate-300 px-2 py-0.5 text-slate-500">
+                Not included: {data.addersDetail.filter((a) => !a.enabled).map((a) => a.label).join('; ')}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ---------- Item blocks ---------- */}
         <div className="mt-4 space-y-3">
           {data.areas.map((area, i) => (
@@ -542,6 +633,30 @@ export default function Proposal() {
                 <div>
                   <b>Includes:</b> {area.includes}
                 </div>
+                {showDetail && area.breakdown.length > 0 && (
+                  <div className="mt-1.5 border border-slate-400 text-[11px]">
+                    {area.breakdown.map((l, j) => (
+                      <div key={j} className={j > 0 ? 'border-t border-slate-400' : ''}>
+                        <div className="flex justify-between gap-4 bg-slate-50 px-2 py-0.5 font-semibold">
+                          <span>{l.label} — {l.qtyLabel}</span>
+                          <span className="tabular-nums">{fmtMoney(l.price)}</span>
+                        </div>
+                        {l.materials.map((m, k) => (
+                          <div key={k} className="flex justify-between gap-4 px-4 py-px text-slate-600">
+                            <span>{m.name} — {m.qty}{m.unit ? ` ${m.unit}` : ''}</span>
+                            <span className="tabular-nums">{fmtMoney(m.price)}</span>
+                          </div>
+                        ))}
+                        {l.laborPrice > 0 && (
+                          <div className="flex justify-between gap-4 px-4 py-px text-slate-600">
+                            <span>Shop labor & fabrication — {l.laborHours} hrs</span>
+                            <span className="tabular-nums">{fmtMoney(l.laborPrice)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {area.inclusions && (
                   <div className="mt-0.5">
                     <b>Also includes:</b> <span className="whitespace-pre-wrap">{area.inclusions}</span>

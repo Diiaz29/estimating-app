@@ -91,6 +91,7 @@ export interface BomDetailRow {
   source: string          // resolved material/finish name
   qty: number             // per pricing unit
   wastePct: number
+  unit: string | null     // SHEET / EA / SQ FT — for customer-facing detail
   unitCost: number | null
   rowCost: number         // qty × (1+waste) × unitCost, per pricing unit
 }
@@ -154,6 +155,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
     let cost: number | null = null
     let sourceName = row.label ?? ''
     let costUpdatedAt: string | null = null
+    let unit: string | null = null
     let ref: Warning['ref']
     if (row.slot) {
       const finish = resolveFinish(ctx, area.id, row.slot)
@@ -164,6 +166,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       cost = finish.cost == null ? null : Number(finish.cost)
       sourceName = finish.name
       costUpdatedAt = finish.cost_updated_at
+      unit = finish.unit
       ref = { table: 'finishes', id: finish.id }
     } else if (row.material_id) {
       // spec swaps: this room's pick → job-wide pick → standard
@@ -172,18 +175,19 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
       cost = material?.cost == null ? null : Number(material.cost)
       sourceName = material?.name ?? sourceName
       costUpdatedAt = material?.cost_updated_at ?? null
+      unit = material?.unit ?? null
       if (material) ref = { table: 'materials', id: material.id }
     }
     if (cost == null) {
       warnings.push({ kind: 'no-cost', message: `${sourceName}: no cost in the library` })
-      bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unitCost: null, rowCost: 0 })
+      bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unit, unitCost: null, rowCost: 0 })
       continue
     }
     if (costUpdatedAt && daysSince(costUpdatedAt) >= ctx.staleDays) {
       warnings.push({ kind: 'stale', message: `${sourceName}: price is ${daysSince(costUpdatedAt)} days old`, ref })
     }
     const rowCost = Number(row.qty) * (1 + Number(row.waste_pct)) * cost
-    bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unitCost: cost, rowCost })
+    bomDetail.push({ label: row.label ?? sourceName, source: sourceName, qty: Number(row.qty), wastePct: Number(row.waste_pct), unit, unitCost: cost, rowCost })
     unitMaterialCost += rowCost
   }
 
