@@ -138,6 +138,7 @@ input[type='month']::-webkit-date-and-time-value {
 .dark .light-doc { background-color: #fff; color: #0f172a; }
 .dark .light-doc .bg-white { background-color: #fff; }
 .dark .light-doc .bg-slate-100 { background-color: #f1f5f9; }
+.dark .light-doc .bg-slate-50 { background-color: #f8fafc; }
 .dark .light-doc .text-slate-900 { color: #0f172a; }
 .dark .light-doc .text-slate-600 { color: #475569; }
 .dark .light-doc .text-slate-500 { color: #64748b; }
