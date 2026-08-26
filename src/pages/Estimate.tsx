@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -948,6 +948,20 @@ export default function Estimate() {
 function CoAdjInput({ value, onSave }: { value: number; onSave: (v: number) => void }) {
   const [draft, setDraft] = useState(value === 0 ? '' : String(value))
   useEffect(() => setDraft(value === 0 ? '' : String(value)), [value])
+  function commit() {
+    const v = draft === '' ? 0 : Number(draft)
+    if (!Number.isNaN(v) && v !== value) onSave(v)
+  }
+  const timer = useRef<number | undefined>(undefined)
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+      commitRef.current()
+    },
+    [],
+  )
   return (
     <label className="flex items-center gap-1" title="Price adjustment for this change order — negative for a discount. Prints on the CO doc.">
       <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">adj $</span>
@@ -955,11 +969,12 @@ function CoAdjInput({ value, onSave }: { value: number; onSave: (v: number) => v
         type="number"
         step="any"
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          const v = draft === '' ? 0 : Number(draft)
-          if (!Number.isNaN(v) && v !== value) onSave(v)
+        onChange={(e) => {
+          setDraft(e.target.value)
+          window.clearTimeout(timer.current)
+          timer.current = window.setTimeout(() => commitRef.current(), 600)
         }}
+        onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         placeholder="0"
         className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none sm:text-sm"
@@ -1020,12 +1035,32 @@ function AdjustmentRow({
     if (v !== amount || (noteDraft.trim() || null) !== note) onSave(v, noteDraft.trim() || null)
   }
 
+  // saves as you type (debounced) and when the row unmounts — leaving the
+  // page mid-edit must never lose the adjustment
+  const timer = useRef<number | undefined>(undefined)
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  function touch() {
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => commitRef.current(), 600)
+  }
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+      commitRef.current()
+    },
+    [],
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-3 border-t-2 border-slate-200 px-4 py-2">
       <span className="text-sm font-medium">Price adjustment</span>
       <input
         value={noteDraft}
-        onChange={(e) => setNoteDraft(e.target.value)}
+        onChange={(e) => {
+          setNoteDraft(e.target.value)
+          touch()
+        }}
         onBlur={commit}
         placeholder="reason — shows on the proposal (e.g. Preferred-customer discount)"
         className="min-w-0 flex-1 basis-48 rounded border border-slate-200 px-2 py-1 text-base focus:border-slate-800 focus:outline-none sm:text-sm"
@@ -1036,7 +1071,10 @@ function AdjustmentRow({
           type="number"
           step="any"
           value={amtDraft}
-          onChange={(e) => setAmtDraft(e.target.value)}
+          onChange={(e) => {
+            setAmtDraft(e.target.value)
+            touch()
+          }}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           placeholder="0"

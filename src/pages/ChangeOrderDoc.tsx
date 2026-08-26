@@ -7,7 +7,7 @@ import type {
   BidMaterialOverride, ChangeOrder, LineItem, Material, Profile, Setting,
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
-import { fmtMoney } from '../lib/format'
+import { fmtMoney, partyLabels } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 import VendorSignature from '../components/VendorSignature'
 
@@ -134,6 +134,8 @@ export default function ChangeOrderDoc() {
   const newContract = prior + amount
 
   const gc = (gcs.find((g) => g.won_through) ?? gcs[0])?.customer
+  const party = partyLabels(gc?.type)
+  const namePlaceholder = `[${party.short.toUpperCase()} NAME]`
   const docDate = approved && co.approved_at ? new Date(co.approved_at) : new Date()
   const dateLabel = docDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -222,7 +224,7 @@ export default function ChangeOrderDoc() {
             <CoRow k="Date" v={dateLabel} />
             <CoRow k="Project" v={`${bid.job_number} — ${bid.name}`} />
             {bid.address && <CoRow k="Project Address" v={bid.address} />}
-            <CoRow k="Issued To" v={gc?.company ?? '[GC NAME]'} />
+            <CoRow k="Issued To" v={gc?.company ?? namePlaceholder} />
             <CoRow k="Reference" v={`${company.company_name ?? ''} Est. # ${bid.job_number}`} />
           </tbody>
         </table>
@@ -288,7 +290,7 @@ export default function ChangeOrderDoc() {
             date={new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
           />
           <div>
-            <div className="font-semibold">CONTRACTOR — {gc?.company ?? '[GC NAME]'}</div>
+            <div className="font-semibold">{party.signer} — {gc?.company ?? namePlaceholder}</div>
             <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[9px] uppercase tracking-wider text-slate-500">
               Signature / Printed Name / Title / Date
             </div>

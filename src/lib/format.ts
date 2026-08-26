@@ -105,3 +105,10 @@ export function nextJobNumber(existing: string[]): string {
   }
   return `${prefix}${String(max + 1).padStart(3, '0')}`
 }
+
+/** What to call the other party on printed agreements, by contractor category. */
+export function partyLabels(type?: string | null) {
+  if (type === 'direct') return { short: 'Client', signer: 'CLIENT' }
+  if (type === 'architect') return { short: 'Architect', signer: 'ARCHITECT' }
+  return { short: 'GC', signer: 'CONTRACTOR' }
+}

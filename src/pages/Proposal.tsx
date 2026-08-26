@@ -6,7 +6,7 @@ import type {
   BidMaterialOverride, Contact, LineItem, Material, Profile, Setting,
 } from '../lib/types'
 import { buildContext, priceBid, resolveMaterialId } from '../lib/pricing'
-import { fmtDueDate, fmtMoney } from '../lib/format'
+import { fmtDueDate, fmtMoney, partyLabels } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 import VendorSignature from '../components/VendorSignature'
 import { useAuth } from '../lib/auth'
@@ -364,6 +364,8 @@ export default function Proposal() {
   const primary = gcs.find((g) => g.won_through) ?? gcs[0]
   const gc = primary?.customer
   const contact = contacts[0]
+  const party = partyLabels(gc?.type)
+  const namePlaceholder = `[${party.short.toUpperCase()} NAME]`
 
   return (
     <div className="proposal-page">
@@ -599,9 +601,9 @@ export default function Proposal() {
             <tbody>
               <WaRow k="Date" v={data.presentedOn} />
               <WaRow k="Agreement No." v={data.refLabel} />
-              <WaRow k="Issued To" v={gc?.company ?? '[GC NAME]'} />
-              <WaRow k="GC Address" v={gc?.address ?? '—'} />
-              <WaRow k="GC Contact" v={contact ? [contact.name, contact.email, contact.phone].filter(Boolean).join(' / ') : '—'} />
+              <WaRow k="Issued To" v={gc?.company ?? namePlaceholder} />
+              <WaRow k={`${party.short} Address`} v={gc?.address ?? '—'} />
+              <WaRow k={`${party.short} Contact`} v={contact ? [contact.name, contact.email, contact.phone].filter(Boolean).join(' / ') : '—'} />
               <WaRow k="Project" v={bid.name} />
               <WaRow k="Project Address" v={bid.address ?? '—'} />
               <WaRow k="Estimate Ref" v={`${COMPANY.name} Est. # ${data.refLabel}, ${data.presentedOn}`} />
@@ -703,7 +705,7 @@ export default function Proposal() {
               date={data.presentedOn}
             />
             <div>
-              <div className="font-semibold">CONTRACTOR — {gc?.company ?? '[GC NAME]'}</div>
+              <div className="font-semibold">{party.signer} — {gc?.company ?? namePlaceholder}</div>
               <div className="mt-8 border-t-2 border-slate-900 pt-0.5 text-[9px] uppercase tracking-wider text-slate-500">
                 Signature / Printed Name / Title / Date
               </div>
