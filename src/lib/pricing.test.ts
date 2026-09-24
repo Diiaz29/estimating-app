@@ -191,6 +191,11 @@ describe('priceLine — assembly', () => {
 })
 
 describe('priceLine — manual and sub', () => {
+  it('uses a per-quote markup override instead of sub_markup', () => {
+    const p = priceLine(assemblyLine({ kind: 'sub', assembly_id: null, name: 'Quartz', unit_price: 1000, markup_override: 1.4 }), makeArea(), ctxWith())
+    expect(p.linePrice).toBeCloseTo(1400, 6)
+    expect(p.lineCost).toBeCloseTo(1000, 6)
+  })
   it('prices a manual line at its unit price/cost', () => {
     const line = assemblyLine({ kind: 'manual', assembly_id: null, name: 'Custom crate', unit_price: 500, unit_cost: 300, quantity: 2 })
     const p = priceLine(line, makeArea(), ctxWith())

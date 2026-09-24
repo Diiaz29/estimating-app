@@ -1706,6 +1706,40 @@ function AreaCard({
 
 // ---------------- Line row ----------------
 
+/** Markup % for one sub quote. Blank = the Settings sub markup. */
+function SubMarkupInput({ value, fallback, onSave }: { value: number | null; fallback: number; onSave: (v: number | null) => void }) {
+  const toPct = (f: number) => String(Math.round((f - 1) * 10000) / 100)
+  const [draft, setDraft] = useState(value == null ? '' : toPct(Number(value)))
+  useEffect(() => setDraft(value == null ? '' : toPct(Number(value))), [value])
+  function commit() {
+    const clean = draft.replace(/[^0-9.-]/g, '')
+    const next = clean === '' ? null : 1 + Number(clean) / 100
+    if (next != null && Number.isNaN(next)) return
+    if (next !== (value == null ? null : Number(value))) onSave(next)
+  }
+  return (
+    <label
+      className="mt-0.5 flex items-center justify-end gap-1 font-mono text-[10px] font-normal text-slate-400"
+      title="Markup for this quote only — leave blank to use the default from Settings"
+    >
+      markup
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        placeholder={toPct(fallback)}
+        className={`w-12 rounded border px-1 py-0.5 text-right text-xs tabular-nums focus:border-slate-800 focus:outline-none ${
+          value != null ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200'
+        }`}
+      />
+      %
+    </label>
+  )
+}
+
 function LineRow({
   line, area, ctx, onPatch, onRemove,
 }: {
@@ -1847,7 +1881,13 @@ function LineRow({
       </td>
       <td className="w-24 px-1 py-1.5 text-right font-medium tabular-nums whitespace-nowrap sm:w-28 sm:px-2">
         {fmtMoney(p.linePrice)}
-        {line.kind === 'sub' && <div className="font-mono text-[10px] font-normal text-slate-400">quote × markup</div>}
+        {line.kind === 'sub' && (
+          <SubMarkupInput
+            value={line.markup_override ?? null}
+            fallback={ctx.settings.sub_markup ?? 1}
+            onSave={(markup_override) => onPatch({ markup_override })}
+          />
+        )}
       </td>
       <td className="w-10 px-0 py-0 text-right sm:w-8 sm:px-3 sm:py-1.5">
         <button

@@ -173,6 +173,8 @@ export interface LineItem {
   unit_price: number | null
   unit_cost: number | null
   rate_override: number | null
+  /** sub lines only: this quote's markup factor (1.25 = 25%); null = sub_markup setting */
+  markup_override?: number | null
   note: string | null
   sort_order: number
 }

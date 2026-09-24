@@ -129,7 +129,7 @@ export function priceLine(line: LineItem, area: Area, ctx: PricingContext): Line
   if (line.kind === 'sub') {
     const quote = Number(line.unit_price ?? 0)
     if (line.unit_price == null) warnings.push({ kind: 'no-cost', message: `${line.name}: no sub quote entered` })
-    const markup = ctx.settings.sub_markup ?? 1
+    const markup = line.markup_override != null ? Number(line.markup_override) : ctx.settings.sub_markup ?? 1
     // entered forward: quote × markup — no back-division (plan §5)
     return {
       materialCost: 0, materialPrice: 0, laborPrice: 0, laborCost: 0, installHours: 0,

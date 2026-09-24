@@ -220,7 +220,8 @@ export default function MathView() {
 
                   {line.kind === 'sub' && (
                     <MathStep label="Sub quote × markup">
-                      {fmtMoney(Number(line.unit_price ?? 0))} × {n(mult, 3)} × {n(s.sub_markup ?? 1)} ={' '}
+                      {fmtMoney(Number(line.unit_price ?? 0))} × {n(mult, 3)} × {n(line.markup_override != null ? Number(line.markup_override) : s.sub_markup ?? 1)}
+                      {line.markup_override != null && ' (this quote)'} ={' '}
                       <b>{fmtMoney(p.linePrice)}</b>
                     </MathStep>
                   )}
