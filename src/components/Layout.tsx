@@ -111,7 +111,6 @@ export default function Layout() {
         <NavLink to="/" title="Dashboard" className="workspace-brand" onClick={() => setMenuOpen(false)}>
           {logoOk && LOGO_URL ? <img src={LOGO_URL} alt={companyName || 'Company logo'} onError={() => setLogoOk(false)} /> : <span>{companyName}</span>}
         </NavLink>
-        <div className="workspace-company">{companyName}<span>Estimating workspace</span></div>
         <nav ref={tabStrip} aria-label="Workspace pages">
           {groups.map(group => {
             const visible = tabs.filter(t => group.routes.includes(t.to))
@@ -125,7 +124,7 @@ export default function Layout() {
       <header inert={menuOpen} className="zaid-header workspace-context sticky top-0 z-20 bg-white print:hidden">
         <div className="workspace-context-inner">
           <button ref={menuButton} className={`workspace-menu-button ${fullWidth ? 'workspace-menu-always' : ''}`} aria-label={menuOpen ? 'Close workspace navigation' : 'Open workspace navigation'} aria-expanded={menuOpen} aria-controls="workspace-navigation" onClick={() => setMenuOpen(!menuOpen)}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-          <div className="workspace-context-label"><strong>{companyName}</strong><span>{currentPage}</span></div>
+          <div className="workspace-context-label"><span>{currentPage}</span></div>
           <div className="zaid-header-tools ml-auto flex items-center gap-3">
             <button
               onClick={toggleTheme}
