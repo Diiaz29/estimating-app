@@ -29,6 +29,6 @@
 
 - Git push and the connected GitHub repository permissions are verified.
 - Current frontend commit: `6256ac2eeac5075713a10db96e1874aa811807b7`, pushed on `codex/zaid-design-preview`.
-- GitHub reports the Vercel status on that commit as failure. Investigate before production publication.
-- The connected Vercel account currently cannot access `zaid-millwork` (`team_KZMWXiRXOgDyIvQYmeMfOgoN`). The in-app browser also requires a Vercel login. Re-check access after the owner signs in or reconnects the correct account.
+- The initial Vercel build failed because `src/lib/resetPassword.test.ts` imported an untracked function handler. Include the reset-user-password source in Git so the remote type check has its dependency; function deployment remains a separate action. Check the newest preview result before production publication.
+- The Vercel connector currently cannot access `zaid-millwork` (`team_KZMWXiRXOgDyIvQYmeMfOgoN`), but the owner is signed into that workspace in the Codex browser. Use the authenticated browser for deployment checks if connector access is unavailable.
 - No production merge or deployment is authorized merely by requesting this setup. Wait for approval of the concrete release.
