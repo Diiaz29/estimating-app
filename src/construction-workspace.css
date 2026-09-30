@@ -69,6 +69,9 @@
   .construction-project-select small { display:block; margin-top:4px; color:var(--z-muted); font-size:12px; }
   .construction-money { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .construction-row-link { color:var(--z-accent); text-decoration:underline; text-underline-offset:3px; }
+  .construction-row-actions { display:flex; flex-wrap:wrap; gap:12px; }
+  .construction-overdue { color:#b91c1c; font-weight:600; }
+  .dark .construction-overdue { color:#fca5a5; }
   .zaid-app .construction-register .index-list-foot { padding:12px 20px; margin:0; background:var(--z-canvas); }
   .zaid-app .construction-register .index-followups { margin:0; padding:20px; border-top:1px solid var(--z-line); }
   .zaid-app .construction-register .index-preview { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; padding:20px; position:sticky; top:84px; }

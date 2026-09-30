@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus } from '../lib/types'
-import { fmtDueDate, fmtFollowUp, fmtMoney, followUpAt } from '../lib/format'
+import { fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from './StatusBadge'
 import ProjectEstimatePreview from './ProjectEstimatePreview'
 import UiIcon from './UiIcon'
@@ -77,8 +77,8 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
             {visible.map(b => <tr key={b.id} className={showPreview && selected?.id === b.id ? 'construction-selected-row' : undefined}>
               <td className="construction-job-number">{b.job_number}</td>
               <td><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
-              <td>{contractor(b.id) ?? '—'}</td><td>{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</td><td><StatusBadge status={b.status} /></td>{seesMoney && <td className="construction-money">{valueFor(b) == null ? '—' : fmtMoney(valueFor(b)!)}</td>}
-              <td><Link className="construction-row-link" aria-label={`${isOffice ? 'Open project' : 'Open estimate'} for ${b.name}`} to={`/bids/${b.id}${isOffice ? '' : '/estimate'}`}>{isOffice ? 'Open project' : 'Estimate'}</Link></td>
+              <td>{contractor(b.id) ?? '—'}</td><td><span className={isOverdue(b) ? 'construction-overdue' : undefined}>{isOverdue(b) && 'Overdue · '}{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</span></td><td><StatusBadge status={b.status} /></td>{seesMoney && <td className="construction-money">{valueFor(b) == null ? '—' : fmtMoney(valueFor(b)!)}</td>}
+              <td><div className="construction-row-actions"><Link className="construction-row-link" aria-label={`Open details for ${b.name}`} to={`/bids/${b.id}`}>Details</Link>{!isOffice && <Link className="construction-row-link" aria-label={`Open estimate for ${b.name}`} to={`/bids/${b.id}/estimate`}>Estimate</Link>}</div></td>
             </tr>)}
           </tbody></table>
             {!visible.length && <div className="index-empty"><h2>No matching projects</h2><p>Try another project name, number, or contractor.</p><button onClick={() => { clearDetailFilters(); setFilter('all'); onStatusFilter?.(null) }}>{onStatusFilter ? 'Show all bids' : 'Show all projects'}</button></div>}
