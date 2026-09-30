@@ -20,11 +20,20 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
   const { isOffice, isAdmin, seesMoney } = useAuth()
   const [filter, setFilter] = useState('bids')
   const [query, setQuery] = useState('')
+  const [jobNumber, setJobNumber] = useState('')
+  const [contractorFilter, setContractorFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [sort, setSort] = useState<{ key: 'name' | 'due' | 'status'; descending: boolean } | null>(null)
   const matches = (b: Bid, key: string) => key === 'all' || (key === 'bids' ? b.status === 'received' || b.status === 'working' : key === 'jobs' ? b.status === 'won' : b.status === 'sent')
-  const visible = bids.filter(b => (statusFilter !== undefined ? statusFilter ? b.status === statusFilter : b.status !== 'won' : matches(b, filter)) && `${b.name} ${b.job_number} ${contractor(b.id) ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+  const contractors = [...new Set(bids.map(b => contractor(b.id)).filter((name): name is string => !!name))].sort((a, b) => a.localeCompare(b))
+  const matchesDetails = (b: Bid) =>
+    `${b.name} ${b.job_number} ${contractor(b.id) ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()) &&
+    b.job_number.toLowerCase().includes(jobNumber.trim().toLowerCase()) &&
+    (!contractorFilter || (contractorFilter === '__unassigned__' ? !contractor(b.id) : contractor(b.id) === contractorFilter))
+  const visible = bids.filter(b => (statusFilter !== undefined ? statusFilter ? b.status === statusFilter : b.status !== 'won' : matches(b, filter)) && matchesDetails(b))
+  const hasDetailFilters = !!(query || jobNumber || contractorFilter)
+  function clearDetailFilters() { setQuery(''); setJobNumber(''); setContractorFilter('') }
   if (statusFilter === null || statusFilter === 'received' || statusFilter === 'working' || (statusFilter === undefined && filter === 'bids')) {
     visible.sort((a, b) => !a.due_at ? !b.due_at ? 0 : 1 : !b.due_at ? -1 : new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
   }
@@ -36,6 +45,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
   })
   function sortBy(key: 'name' | 'due' | 'status') { setSort(current => ({ key, descending: current?.key === key ? !current.descending : false })) }
   const sent = bids.filter(b => b.status === 'sent')
+  const filteredSent = sent.filter(matchesDetails)
   return (
     <section className="project-index">
       <div className="project-heading">
@@ -48,9 +58,14 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
             <nav className="index-tabs" aria-label="Project filters">
               {onStatusFilter ? ([null, 'received', 'working', 'sent', 'lost', 'won'] as const).map(key => <button key={key ?? 'all'} aria-pressed={statusFilter === key} onClick={() => onStatusFilter(key)}>{key == null ? 'All bids' : ({ received: 'Received', working: 'Working', sent: 'Sent', lost: 'Lost', won: 'Jobs' })[key]}<span>{bids.filter(b => key ? b.status === key : b.status !== 'won').length}</span></button>) : (['bids', 'sent', 'jobs', 'all'] as const).map(key => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{({ bids: 'Bids', sent: 'Sent', jobs: 'Jobs', all: 'All' })[key]} <span>{bids.filter(b => matches(b, key)).length}</span></button>)}
             </nav>
-            <label className="index-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg><input type="search" aria-label="Search projects" placeholder="Find a project" value={query} onChange={e => setQuery(e.target.value)} /></label>
+            <div className="construction-register-filters">
+              <label className="construction-register-filter"><span>Search</span><span className="index-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg><input type="search" aria-label="Search projects" placeholder="Find a project" value={query} onChange={e => setQuery(e.target.value)} /></span></label>
+              <label className="construction-register-filter"><span>Job number</span><input type="search" placeholder="e.g. 26-004" value={jobNumber} onChange={e => setJobNumber(e.target.value)} /></label>
+              <label className="construction-register-filter"><span>Contractor</span><select aria-label="Contractor" value={contractorFilter} onChange={e => setContractorFilter(e.target.value)}><option value="">All contractors</option>{contractors.map(name => <option key={name} value={name}>{name}</option>)}{bids.some(b => !contractor(b.id)) && <option value="__unassigned__">No contractor assigned</option>}</select></label>
+              {hasDetailFilters && <button className="index-secondary construction-clear-filters" onClick={clearDetailFilters}>Clear filters</button>}
+            </div>
           </div>
-          <div className="construction-register-caption"><span>{visible.length} projects</span><button className="index-secondary" aria-pressed={showPreview} onClick={() => setShowPreview(!showPreview)}>{showPreview ? 'Hide project overview' : 'Show project overview'}</button></div>
+          <div className="construction-register-caption"><span>{visible.length} {visible.length === 1 ? 'project' : 'projects'}</span><button className="index-secondary" aria-pressed={showPreview} onClick={() => setShowPreview(!showPreview)}>{showPreview ? 'Hide project overview' : 'Show project overview'}</button></div>
           <div className="construction-table-scroll">
           <table className="construction-register-table"><thead><tr>
             <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name="sort" /></button></th><th scope="col">Contractor</th>
@@ -63,10 +78,10 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
               <td><Link className="construction-row-link" aria-label={`${isOffice ? 'Open project' : 'Open estimate'} for ${b.name}`} to={`/bids/${b.id}${isOffice ? '' : '/estimate'}`}>{isOffice ? 'Open project' : 'Estimate'}</Link></td>
             </tr>)}
           </tbody></table>
-            {!visible.length && <div className="index-empty"><h2>No matching projects</h2><p>Try another project name, number, or contractor.</p><button onClick={() => { setQuery(''); setFilter('all'); onStatusFilter?.(null) }}>{onStatusFilter ? 'Show all bids' : 'Show all projects'}</button></div>}
+            {!visible.length && <div className="index-empty"><h2>No matching projects</h2><p>Try another project name, number, or contractor.</p><button onClick={() => { clearDetailFilters(); setFilter('all'); onStatusFilter?.(null) }}>{onStatusFilter ? 'Show all bids' : 'Show all projects'}</button></div>}
           </div>
           <div className="index-list-foot">{visible.length} {visible.length === 1 ? 'project' : 'projects'}</div>
-          {!!sent.length && <section className="index-followups"><div className="index-section-line"><h2>Follow up</h2><span>Proposals awaiting a reply</span></div>{sent.map(b => <div className="index-follow-row" key={b.id}><div><strong>{b.name}</strong><p>{contractor(b.id)}{seesMoney && valueFor(b) != null ? ` · ${fmtMoney(valueFor(b)!)}` : ''}</p><p className="index-follow-date">{(() => { const date = followUpAt(b, followupDays); return date ? `${date.getTime() <= Date.now() ? 'Follow up due' : 'Follow up'} ${fmtFollowUp(date)}` : 'Follow-up date not set' })()}</p></div><Link className="index-secondary" to={`/bids/${b.id}`}>Open bid</Link></div>)}</section>}
+          {!!filteredSent.length && <section className="index-followups"><div className="index-section-line"><h2>Follow up</h2><span>Proposals awaiting a reply</span></div>{filteredSent.map(b => <div className="index-follow-row" key={b.id}><div><strong>{b.name}</strong><p>{contractor(b.id)}{seesMoney && valueFor(b) != null ? ` · ${fmtMoney(valueFor(b)!)}` : ''}</p><p className="index-follow-date">{(() => { const date = followUpAt(b, followupDays); return date ? `${date.getTime() <= Date.now() ? 'Follow up due' : 'Follow up'} ${fmtFollowUp(date)}` : 'Follow-up date not set' })()}</p></div><Link className="index-secondary" to={`/bids/${b.id}`}>Open bid</Link></div>)}</section>}
         </div>
         {selected && showPreview && <aside className="index-preview" aria-label="Selected project">
           <StatusBadge status={selected.status} />

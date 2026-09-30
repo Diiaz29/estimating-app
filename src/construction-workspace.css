@@ -43,6 +43,12 @@
   .zaid-app .construction-register .index-tabs { border-bottom:1px solid var(--z-line); gap:24px; margin:0 -20px; padding:0 20px; overflow:auto; }
   .zaid-app .construction-register .index-tabs button { min-height:50px; font-size:13px; padding:10px 0; }
   .zaid-app .construction-register .index-search { max-width:360px; width:100%; min-height:36px; background:var(--z-paper); border-radius:4px; }
+  .construction-register-filters { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; }
+  .construction-register-filter { display:flex; flex-direction:column; gap:6px; width:220px; max-width:100%; min-width:0; color:var(--z-ink); font-size:12px; }
+  .construction-register-filter:first-child { width:360px; }
+  .zaid-app .construction-register-filter>input, .zaid-app .construction-register-filter>select { width:100%; min-width:0; height:42px; padding:0 12px; border:1px solid var(--z-control); border-radius:4px; background:var(--z-paper); color:var(--z-ink); font-size:13px; }
+  .zaid-app .construction-register-filter>select { appearance:auto; }
+  .zaid-app .construction-clear-filters { min-height:42px; }
   .construction-register-caption { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 20px; color:var(--z-muted); font-size:12px; }
   .construction-table-scroll { overflow:auto; }
   .zaid-app .construction-register-table { width:100%; min-width:740px; border-collapse:collapse; font-size:13px; }
@@ -126,6 +132,8 @@
     .zaid-app .construction-overview>section, .zaid-app .construction-overview-column>section { padding:16px; }
   }
   @media(max-width:639px) {
+    .construction-register-filter, .construction-register-filter:first-child { width:100%; }
+    .zaid-app .construction-register-filter>input, .zaid-app .construction-register-filter>select { font-size:16px; }
     .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
     .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:auto; }
     .zaid-app .construction-register-table { min-width:650px; }
