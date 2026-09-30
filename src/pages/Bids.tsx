@@ -6,6 +6,7 @@ import type { Bid, BidStatus, Customer } from '../lib/types'
 import { STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 import NewBidForm from '../components/NewBidForm'
+import ProjectIndex from '../components/ProjectIndex'
 
 interface GcLink {
   bid_id: string
@@ -25,6 +26,7 @@ export default function Bids() {
   const [followupDays, setFollowupDays] = useState(7)
 
   async function load() {
+    setError(null)
     const [bidsRes, custRes, setRes, gcRes] = await Promise.all([
       supabase!.from('bids').select('*').order('created_at', { ascending: false }),
       supabase!.from('customers').select('*').order('company'),
@@ -59,8 +61,12 @@ export default function Bids() {
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
 
+  if (!bids) return <section className="zaid-page zaid-bids" aria-busy="true"><h1>Your bids</h1><p role="status">Loading your bids…</p></section>
+
   return (
-    <div className="space-y-4">
+    <div className="zaid-page zaid-bids space-y-4">
+      <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={(b) => b.bid_value == null ? null : Number(b.bid_value)} onNew={canEdit ? () => setShowNew(true) : undefined} title="Your bids" statusFilter={filter} onStatusFilter={(status) => setParams(status ? { status } : {})} />
+      <details className="index-activity"><summary>Detailed bid records & status filters</summary><div className="index-activity-content">
       <div className="flex flex-wrap items-center gap-2">
         <FilterChip label="All" active={!filter} onClick={() => setParams({})} />
         {STATUSES.filter((s) => s.value !== 'won').map((s) => (
@@ -136,6 +142,8 @@ export default function Bids() {
         </div>
       )}
 
+      
+      </div></details>
       {showNew && (
         <NewBidForm
           customers={customers}
@@ -155,6 +163,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={`rounded-full border px-3 py-1 text-xs font-medium ${
         active
           ? 'border-slate-900 bg-slate-900 text-white'

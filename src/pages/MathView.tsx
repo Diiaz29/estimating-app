@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -93,10 +94,10 @@ export default function MathView() {
   const n = (x: number, d = 2) => Number(x.toFixed(d)).toLocaleString()
 
   return (
-    <div className="max-w-4xl space-y-6 pb-16">
+    <div className="zaid-page zaid-mathview max-w-4xl space-y-6 pb-16">
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}/estimate`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to estimate
+          <UiIcon name="left" /> Back to estimate
         </Link>
         <span className="rounded-full border border-blue-400 bg-blue-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-blue-800">
           The math — check page

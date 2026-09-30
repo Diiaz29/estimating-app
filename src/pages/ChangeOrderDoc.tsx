@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -154,10 +155,10 @@ export default function ChangeOrderDoc() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
+    <div className="zaid-page zaid-changeorderdoc max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
       <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Link to={`/bids/${bid.id}/estimate`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← Estimate
+          <UiIcon name="left" /> Estimate
         </Link>
         {!approved && (
           <span className="rounded-full border border-amber-400 bg-amber-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-amber-800">

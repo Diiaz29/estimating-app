@@ -16,6 +16,7 @@ export default function Customers() {
   const [customers, setCustomers] = useState<Customer[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
+  const [search, setSearch] = useState('')
 
   async function load() {
     const { data, error } = await supabase!.from('customers').select('*').order('company')
@@ -31,7 +32,7 @@ export default function Customers() {
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
 
   return (
-    <div className="space-y-4">
+    <div className="zaid-page zaid-customers space-y-4">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold tracking-tight">Contractors & clients</h1>
         {canEdit && (
@@ -44,6 +45,7 @@ export default function Customers() {
         )}
       </div>
 
+      <div className="directory-tools"><span>{customers?.length ?? 0} contacts</span><label className="index-search"><input type="search" aria-label="Search contractors and clients" placeholder="Find a contractor" value={search} onChange={(e) => setSearch(e.target.value)} /></label></div>
       {!customers ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : customers.length === 0 ? (
@@ -52,7 +54,7 @@ export default function Customers() {
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {customers.map((c) => (
+          {customers.filter((c) => `${c.company} ${c.email ?? ''} ${c.phone ?? ''}`.toLowerCase().includes(search.toLowerCase())).map((c) => (
             <Link
               key={c.id}
               to={`/contractors/${c.id}`}
@@ -70,6 +72,8 @@ export default function Customers() {
           ))}
         </div>
       )}
+
+      {customers && customers.length > 0 && !customers.some((c) => `${c.company} ${c.email ?? ''} ${c.phone ?? ''}`.toLowerCase().includes(search.toLowerCase())) && <div className="index-empty"><h2>No matching contacts</h2><p>Try a company name, email, or phone number.</p><button className="index-secondary" onClick={() => setSearch('')}>Clear search</button></div>}
 
       {showNew && (
         <NewCustomerForm

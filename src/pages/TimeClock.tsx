@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
@@ -148,7 +149,7 @@ export default function TimeClock() {
   const rangeLabel = `${fmtDay(repFrom)} — ${fmtDay(repTo)}`
 
   return (
-    <div className="max-w-2xl space-y-5 print:max-w-none">
+    <div className="zaid-page zaid-timeclock max-w-2xl space-y-5 print:max-w-none">
       <div className="print:hidden">
         <h1 className="text-lg font-semibold tracking-tight">Time</h1>
         <p className="mt-0.5 text-sm text-slate-500">
@@ -266,7 +267,7 @@ export default function TimeClock() {
                   : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
               }`}
             >
-              People: {pickedWorkers.length === 0 ? 'all' : pickedWorkers.length} ▾
+              People: {pickedWorkers.length === 0 ? 'all' : pickedWorkers.length} <UiIcon name="down" />
             </button>
             <button
               onClick={() => setShowPicker('jobs')}
@@ -276,7 +277,7 @@ export default function TimeClock() {
                   : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
               }`}
             >
-              Jobs: {pickedJobs.length === 0 ? 'all' : pickedJobs.length} ▾
+              Jobs: {pickedJobs.length === 0 ? 'all' : pickedJobs.length} <UiIcon name="down" />
             </button>
             {(pickedWorkers.length > 0 || pickedJobs.length > 0) && (
               <button

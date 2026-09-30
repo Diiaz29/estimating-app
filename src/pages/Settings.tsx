@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -232,7 +233,7 @@ export default function Settings() {
   const dirtyGroups = new Set(changed.map((s) => s.group_name))
 
   return (
-    <div className="space-y-5">
+    <div className="zaid-page zaid-settings space-y-5">
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
@@ -278,7 +279,7 @@ export default function Settings() {
               className="flex shrink-0 items-center rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
               title="List real costs (salaries, rent, trucks) and get an honest cost rate per shop hour"
             >
-              Overhead →
+              Overhead <UiIcon name="right" />
             </Link>
           </div>
         </nav>

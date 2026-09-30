@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react'
+import UiIcon from '../components/UiIcon'
+import { useSaveQueue, useUnsavedWarning } from '../lib/useSaveQueue'
+import { checkedWrite } from '../lib/saveQueue'
+import SaveFeedback from '../components/SaveFeedback'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -17,12 +21,17 @@ export default function BidDetail() {
   const [gcs, setGcs] = useState<BidCustomer[]>([])
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])
   const [error, setError] = useState<string | null>(null)
+  const saves = useSaveQueue(false)
+  const [dirty, setDirty] = useState(false)
+  const editVersion = useRef(0)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmDuplicate, setConfirmDuplicate] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
   const [followupDefault, setFollowupDefault] = useState(7)
+
+  useUnsavedWarning(dirty || busy || saves.pending > 0)
 
   async function load() {
     const [bidRes, gcRes, custRes, setRes] = await Promise.all([
@@ -39,65 +48,73 @@ export default function BidDetail() {
   }
 
   useEffect(() => {
-    void load()
+    setBid(null)
+    setDirty(false)
+    setSaved(false)
+    setError(null)
+    void load().catch(e => setError(String(e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  if (error)
+  if (error && !bid)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!bid) return <p className="text-sm text-slate-500">Loading…</p>
 
   function patch(fields: Partial<Bid>) {
     setBid((b) => (b ? { ...b, ...fields } : b))
     setSaved(false)
+    setDirty(true)
+    editVersion.current += 1
   }
 
   async function save() {
-    if (!bid) return
+    if (!bid || busy) return
+    const version = editVersion.current
     setBusy(true)
-    const { id: _id, created_at, updated_at, ...fields } = bid
-    const { error } = await supabase!.from('bids').update(fields).eq('id', bid.id)
-    setBusy(false)
-    if (error) setError(error.message)
-    else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
-    }
+    setError(null)
+    try {
+      const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...fields } = bid
+      await checkedWrite(supabase!.from('bids').update(fields).eq('id', bid.id).select('id').single())
+      if (version === editVersion.current) { setDirty(false); setSaved(true) }
+    } catch (e) { setError(e instanceof Error ? e.message : 'The server did not confirm your changes.') }
+    finally { setBusy(false) }
   }
 
   // Refresh only the GC links — never the bid itself, so unsaved edits
   // (like a status change waiting on Save) don't get wiped.
   async function loadGcs() {
-    const { data } = await supabase!
+    const { data, error: gcError } = await supabase!
       .from('bid_customers')
       .select('*, customer:customers(*)')
       .eq('bid_id', id!)
+    if (gcError) throw new Error(gcError.message)
     if (data) setGcs(data as BidCustomer[])
   }
 
   async function toggleGC(customerId: string) {
-    const existing = gcs.find((g) => g.customer_id === customerId)
-    if (existing) {
-      await supabase!.from('bid_customers').delete().eq('bid_id', bid!.id).eq('customer_id', customerId)
-    } else {
-      await supabase!.from('bid_customers').insert({ bid_id: bid!.id, customer_id: customerId })
-    }
-    void loadGcs()
+    const existing = gcs.find(g => g.customer_id === customerId)
+    saves.queue.enqueue('Contractor selection', async () => {
+      await checkedWrite(existing
+        ? supabase!.from('bid_customers').delete().eq('bid_id', bid!.id).eq('customer_id', customerId)
+        : supabase!.from('bid_customers').upsert({ bid_id: bid!.id, customer_id: customerId }))
+      await loadGcs()
+    })
   }
 
   async function setWonThrough(customerId: string) {
-    await supabase!.from('bid_customers').update({ won_through: false }).eq('bid_id', bid!.id)
-    await supabase!
-      .from('bid_customers')
-      .update({ won_through: true })
-      .eq('bid_id', bid!.id)
-      .eq('customer_id', customerId)
-    void loadGcs()
+    saves.queue.enqueue('Winning contractor', async () => {
+      await checkedWrite(supabase!.from('bid_customers').update({ won_through: false }).eq('bid_id', bid!.id))
+      await checkedWrite(supabase!.from('bid_customers').update({ won_through: true }).eq('bid_id', bid!.id).eq('customer_id', customerId).select('bid_id').single())
+      await loadGcs()
+    })
   }
 
   async function remove() {
-    await supabase!.from('bids').delete().eq('id', bid!.id)
-    navigate('/bids')
+    try {
+      await checkedWrite(supabase!.from('bids').delete().eq('id', bid!.id))
+      setDirty(false)
+      navigate('/bids')
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not delete this bid.') }
   }
 
   async function duplicate() {
@@ -116,14 +133,14 @@ export default function BidDetail() {
   const dueTime = bid.due_at ? toLocalTime(bid.due_at) : ''
 
   return (
-    <div className="space-y-5">
+    <div className="zaid-page zaid-biddetail space-y-5">
       <div className="flex items-center gap-3">
         <Link to="/bids" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Bids
+          <UiIcon name="left" /> Bids
         </Link>
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
-          {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
+          <span role="status" aria-live="polite" className="text-xs font-medium">{busy ? 'Saving…' : dirty ? 'Unsaved changes' : saved ? 'Changes saved' : ''}</span>
           {canEdit && (
             <button
               onClick={() => setConfirmDuplicate(true)}
@@ -131,7 +148,7 @@ export default function BidDetail() {
               className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
               title="Copy this bid — estimate, rooms, finishes, hardware picks — into a new bid"
             >
-              {duplicating ? 'Copying…' : '⧉ Duplicate'}
+              {duplicating ? 'Copying…' : <><UiIcon name="copy" /> Duplicate</>}
             </button>
           )}
           {canEdit && (
@@ -146,9 +163,13 @@ export default function BidDetail() {
         </div>
       </div>
 
+      {error && <div className="save-feedback save-failed" role="alert"><div><strong>This action did not complete.</strong><p>Your edits are still here. {dirty ? 'Use Retry save to save them.' : 'Check the action before trying again.'}</p><details><summary>Error details</summary>{error}</details></div>{dirty && <button className="index-secondary" disabled={busy} onClick={() => void save()}>Retry save</button>}<button className="index-secondary" onClick={() => setError(null)}>Dismiss message</button></div>}
+      {canEdit && <p className="save-feedback">Project details need Save. Contractor selections save immediately.</p>}
+      {saves.pending > 0 || saves.saved ? <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" savedMessage="Contractor selections saved." /> : null}
       {!canEdit && <ViewOnlyBanner />}
 
       <input
+        aria-label="Bid name"
         value={bid.name}
         onChange={(e) => patch({ name: e.target.value })}
         className="w-full border-0 border-b-2 border-slate-300 bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight focus:border-slate-900 focus:outline-none focus:ring-0"
@@ -159,6 +180,7 @@ export default function BidDetail() {
         {STATUSES.map((s) => (
           <button
             key={s.value}
+            aria-pressed={bid.status === s.value}
             onClick={() => {
               patch({
                 status: s.value as BidStatus,
@@ -222,9 +244,9 @@ export default function BidDetail() {
         <div className="mb-1 font-mono text-[11px] uppercase tracking-widest text-slate-500">
           Bidding to{' '}
           {bid.status === 'won' && gcs.length > 1
-            ? '(tap ★ to mark who we won through)'
+            ? '(tap the star to mark who we won through)'
             : bid.status === 'won' && gcs.length === 1
-              ? '(★ = won through)'
+              ? '(star = won through)'
               : ''}
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -238,6 +260,8 @@ export default function BidDetail() {
             return (
               <span key={c.id} className="inline-flex items-center">
                 <button
+                  aria-pressed={!!link}
+                  disabled={saves.pending > 0}
                   onClick={() => void toggleGC(c.id)}
                   className={`rounded-l-full border px-3 py-1 text-xs font-medium ${
                     link
@@ -249,15 +273,17 @@ export default function BidDetail() {
                 </button>
                 {link && bid.status === 'won' && (
                   <button
+                    disabled={saves.pending > 0}
                     onClick={() => void setWonThrough(c.id)}
                     title="Won through this GC"
+                    aria-pressed={link.won_through}
                     className={`rounded-r-full border border-l-0 px-2 py-1 text-xs ${
                       link.won_through
                         ? 'border-amber-500 bg-amber-400 text-slate-900'
                         : 'border-slate-900 bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    ★
+                    <UiIcon name="star" />
                   </button>
                 )}
               </span>
@@ -332,6 +358,7 @@ export default function BidDetail() {
         <Field label="Tax exempt">
           <div className="mt-1">
             <button
+              aria-pressed={bid.tax_exempt}
               onClick={() => patch({ tax_exempt: !bid.tax_exempt })}
               className={`rounded-md border px-3 py-2 text-sm font-medium w-full ${
                 bid.tax_exempt

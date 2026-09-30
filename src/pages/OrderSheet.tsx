@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -167,10 +168,10 @@ export default function OrderSheet() {
   const done = allRows.filter((r) => checks.has(r.key)).length
 
   return (
-    <div className="space-y-5">
+    <div className="zaid-page zaid-ordersheet space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← {bid.job_number}
+          <UiIcon name="left" /> {bid.job_number}
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — order sheet

@@ -1,3 +1,5 @@
+import UiIcon from '../components/UiIcon'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -17,6 +19,8 @@ export default function Jobs() {
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [showCompleted, setShowCompleted] = useState(false)
+  const [sort, setSort] = useState<{ field: 'job_number' | 'name'; ascending: boolean } | null>(null)
+  const [jobToComplete, setJobToComplete] = useState<Bid | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
@@ -63,11 +67,20 @@ export default function Jobs() {
   }
   const activeJobs = jobs.filter((b) => !b.completed_at)
   const completedJobs = jobs.filter((b) => b.completed_at)
-  const visible = showCompleted ? completedJobs : activeJobs
+  const visible = [...(showCompleted ? completedJobs : activeJobs)]
+  if (sort) {
+    visible.sort((a, b) => {
+      const comparison = (a[sort.field] ?? '').localeCompare(b[sort.field] ?? '', undefined, { numeric: true, sensitivity: 'base' })
+      return sort.ascending ? comparison : -comparison
+    })
+  }
+  function toggleSort(field: 'job_number' | 'name') {
+    setSort((previous) => ({ field, ascending: previous?.field === field ? !previous.ascending : field === 'name' }))
+  }
   const totalValue = activeJobs.reduce((s, b) => s + (valueFor(b) ?? 0), 0)
 
   return (
-    <div className="space-y-4">
+    <div className="zaid-page zaid-jobs space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Jobs</h1>
@@ -108,6 +121,23 @@ export default function Jobs() {
         </p>
       ) : (
         <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+          <div className="jobs-column-header">
+            {(['job_number', 'name'] as const).map((field) => (
+              <div key={field} className="jobs-column-title">
+                <span>{field === 'job_number' ? 'Job Number' : 'Name'}</span>
+                <button
+                  type="button"
+                  aria-label={`Sort by ${field === 'job_number' ? 'job number' : 'name'}`}
+                  aria-pressed={sort?.field === field}
+                  title={sort?.field === field ? (sort.ascending ? 'Ascending — click to reverse' : 'Descending — click to reverse') : 'Click to sort'}
+                  onClick={() => toggleSort(field)}
+                  className="jobs-sort-button"
+                >
+                  <UiIcon name={sort?.field === field && sort.ascending ? 'up' : 'down'} />
+                </button>
+              </div>
+            ))}
+          </div>
           {visible.map((b, i) => {
             const value = valueFor(b)
             const gc = gcFor(b.id)
@@ -116,14 +146,16 @@ export default function Jobs() {
                 key={b.id}
                 className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
               >
-                <Link to={`/bids/${b.id}`} className="order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                <Link to={`/bids/${b.id}`} className="jobs-row-identity order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
                   <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
-                  <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                  <span className="jobs-row-name min-w-0 flex items-center gap-3">
+                    <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
                   {gc && (
                     <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gc}</span>
                   )}
+                  </span>
                 </Link>
-                <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
+                <span className="jobs-row-actions order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
                   {!isOffice && (
                     <>
                       <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
@@ -151,25 +183,37 @@ export default function Jobs() {
                   )}
                 </span>
                 {seesMoney && (
-                  <span className="order-2 ml-auto text-sm font-semibold tabular-nums sm:order-3 sm:ml-0">{value == null ? '—' : fmtMoney(value)}</span>
+                  <span className="jobs-row-value order-2 ml-auto text-sm font-semibold tabular-nums sm:order-3 sm:ml-0">{value == null ? '—' : fmtMoney(value)}</span>
                 )}
                 {canEdit && (
                   <button
-                    onClick={() => void setComplete(b, !b.completed_at)}
+                    onClick={() => b.completed_at ? void setComplete(b, false) : setJobToComplete(b)}
                     title={b.completed_at ? 'Put this job back on the active list' : 'Job is finished — move it off the active list'}
-                    className={`order-4 hidden rounded-md border px-2 py-0.5 text-xs font-medium sm:inline-block ${
+                    className={`jobs-row-complete order-4 hidden rounded-md border px-2 py-0.5 text-xs font-medium sm:inline-block ${
                       b.completed_at
                         ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
                         : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'
                     }`}
                   >
-                    {b.completed_at ? 'Reopen' : '✓ Complete'}
+                    {b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}
                   </button>
                 )}
               </div>
             )
           })}
         </div>
+      )}
+      {jobToComplete && (
+        <ConfirmDialog
+          title="Mark job complete?"
+          message={`Mark “${jobToComplete.name}” complete? It will move from Active to Completed. You can reopen it later.`}
+          confirmLabel="Mark complete"
+          onCancel={() => setJobToComplete(null)}
+          onConfirm={() => {
+            void setComplete(jobToComplete, true)
+            setJobToComplete(null)
+          }}
+        />
       )}
     </div>
   )

@@ -100,7 +100,7 @@ export default function Reports() {
   const avgMargin = margins.length > 0 ? margins.reduce((s, m) => s + m, 0) / margins.length : null
 
   return (
-    <div className="space-y-6">
+    <div className="zaid-page zaid-reports space-y-6">
       <div>
         <h1 className="text-lg font-semibold tracking-tight">Reports</h1>
         <p className="mt-0.5 text-sm text-slate-500">

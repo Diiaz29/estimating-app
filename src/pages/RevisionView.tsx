@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -70,10 +71,10 @@ export default function RevisionView() {
   const totals = rev.snapshot.totals
 
   return (
-    <div className="space-y-5 pb-32">
+    <div className="zaid-page zaid-revisionview space-y-5 pb-32">
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${id}/estimate`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to live estimate
+          <UiIcon name="left" /> Back to live estimate
         </Link>
         <span className="rounded-full border border-amber-400 bg-amber-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-amber-800">
           Snapshot R{rev.rev_number} · view only

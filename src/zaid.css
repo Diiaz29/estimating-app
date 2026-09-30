@@ -1,0 +1,291 @@
+/* ZAID's approved Project index, extended to the working application.
+   Screen-only and scoped: printed documents keep their existing typesetting. */
+@media screen {
+  .zaid-app {
+    --zaid-brown: #534741;
+    --zaid-sand: #c7b299;
+    --z-canvas: #ffffff;
+    --z-paper: #faf8f5;
+    --z-soft: #efe8de;
+    --z-hover: #e7ddcf;
+    --z-ink: #171b1e;
+    --z-muted: #655d56;
+    --z-line: #e1d9cf;
+    --z-control: #8f8073;
+    --z-accent: var(--zaid-brown);
+    --z-action-hover: #403631;
+    --z-on-accent: #ffffff;
+    --z-ease: cubic-bezier(.16, 1, .3, 1);
+    background: var(--z-canvas);
+    color: var(--z-ink);
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color-scheme: light;
+    scrollbar-color: var(--z-control) var(--z-canvas);
+  }
+  .zaid-app.dark {
+    --z-canvas: #1d1b19;
+    --z-paper: #27231f;
+    --z-soft: #352e28;
+    --z-hover: #40372f;
+    --z-ink: #f4f0ea;
+    --z-muted: #bdb2a7;
+    --z-line: #48413b;
+    --z-control: #8e8174;
+    --z-accent: var(--zaid-sand);
+    --z-action-hover: #dfcbb2;
+    --z-on-accent: #171b1e;
+    color-scheme: dark;
+  }
+  .zaid-app.bg-slate-100 { background: var(--z-canvas); }
+  /* Documents retain the incumbent body defaults. Zero specificity lets each
+     document's own text-size, line-height and color utilities win unchanged. */
+  :where(.zaid-app .light-doc) {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #0f172a;
+    color-scheme: light;
+  }
+  .zaid-app :not(.light-doc, .light-doc *) { scrollbar-color: var(--z-control) var(--z-canvas); }
+  .zaid-app ::selection { background: var(--zaid-sand); color: #171b1e; }
+  .zaid-app :is(a, button, input, select, textarea, summary):not(.light-doc *) {
+    -webkit-tap-highlight-color: transparent;
+    text-underline-offset: 4px;
+    transition: background-color 160ms var(--z-ease), border-color 160ms var(--z-ease), color 160ms var(--z-ease);
+  }
+  .zaid-app :is(a, button, summary):not(.light-doc *) { touch-action: manipulation; }
+  .zaid-app :is(a, button, input, select, textarea, summary):focus-visible:not(.light-doc *) {
+    outline: 2px solid var(--z-accent);
+    outline-offset: 3px;
+  }
+  .zaid-app :is(input, select, textarea):not(.light-doc *) {
+    background-color: var(--z-paper);
+    color: var(--z-ink);
+    border-color: var(--z-control);
+    border-radius: 5px;
+    caret-color: var(--z-accent);
+    color-scheme: inherit;
+  }
+  .zaid-app :is(input, textarea)::placeholder { color: var(--z-muted); opacity: 1; }
+  .zaid-app :is(input, select, textarea).bg-transparent { background: transparent; }
+  .zaid-app :is(input[type='checkbox'], input[type='radio']) { accent-color: var(--z-accent); }
+  .zaid-app button:disabled { cursor: not-allowed; }
+  .zaid-app .input:not(.light-doc *) { min-height: 40px; box-shadow: none; }
+
+  /* Bridge the existing component vocabulary without changing their behavior. */
+  .zaid-app .bg-white:not(.light-doc, .light-doc *) { background-color: var(--z-canvas); }
+  .zaid-app :is(.bg-slate-50, .bg-slate-100):not(.light-doc, .light-doc *) { background-color: var(--z-paper); }
+  .zaid-app :is(.bg-slate-200, .bg-slate-300):not(.light-doc, .light-doc *) { background-color: var(--z-soft); }
+  .zaid-app :is(.bg-slate-900, .bg-slate-800, .bg-slate-700):not(.light-doc, .light-doc *) {
+    background-color: var(--z-accent); color: var(--z-on-accent);
+  }
+  .zaid-app :is(.text-slate-900, .text-slate-800):not(.light-doc, .light-doc *) { color: var(--z-ink); }
+  .zaid-app :is(.text-slate-700, .text-slate-600, .text-slate-500, .text-slate-400):not(.light-doc, .light-doc *) { color: var(--z-muted); }
+  .zaid-app :is(.border-slate-900, .border-slate-800, .border-slate-400, .border-slate-300, .border-slate-200, .border-slate-100):not(.light-doc, .light-doc *) { border-color: var(--z-line); }
+  .zaid-app :is(input, select, textarea, button.border, a.border):not(.light-doc *) { border-color: var(--z-control); }
+  .zaid-app :is(.border-2, .border-t-2, .border-b-2, .border-x-2):not(.light-doc, .light-doc *) { border-width: 1px; }
+  .zaid-app .border-t-2:not(.light-doc, .light-doc *) { border-width: 1px 0 0; }
+  .zaid-app .border-b-2:not(.light-doc, .light-doc *) { border-width: 0 0 1px; }
+  .zaid-app .border-x-2:not(.light-doc, .light-doc *) { border-width: 0 1px; }
+  .zaid-app :is(.divide-slate-800, .divide-slate-900, .divide-slate-100) > :not([hidden]) ~ :not([hidden]):not(.light-doc *) { border-color: var(--z-line); }
+  .zaid-app [class*='shadow-']:not(.light-doc, .light-doc *) { box-shadow: none; }
+  .zaid-app [class*='hover:-translate']:hover { transform: none; }
+  .zaid-app :is(.hover\:bg-slate-50, .hover\:bg-slate-100, .hover\:bg-slate-200):hover:not(.light-doc *) { background-color: var(--z-paper); }
+  .zaid-app :is(.hover\:bg-slate-700, .hover\:bg-slate-600):hover:not(.light-doc *) { background-color: var(--z-action-hover); color: var(--z-on-accent); }
+  .zaid-app :is(.hover\:text-slate-900, .hover\:text-slate-800):hover:not(.light-doc *) { color: var(--z-accent); }
+  .zaid-app :is(.hover\:border-slate-800, .hover\:border-slate-500):hover:not(.light-doc *) { border-color: var(--z-accent); }
+  .zaid-app .font-mono:not(.light-doc, .light-doc *, code, pre) { font-family: inherit; font-variant-numeric: tabular-nums; }
+  .zaid-app .uppercase:not(.light-doc, .light-doc *) { text-transform: none; letter-spacing: .015em; }
+  .zaid-app :is(h1, h2, h3):not(.light-doc *) { text-wrap: balance; }
+  .zaid-app h1:not(.light-doc *) { font-size: clamp(26px, 2.4vw, 36px); line-height: 1.2; font-weight: 600; letter-spacing: -.03em; }
+  .zaid-app h2[class]:not(.light-doc *) { font-size: 18px; line-height: 1.35; font-weight: 600; letter-spacing: -.015em; color: var(--z-ink); }
+  .zaid-app h3:not(.light-doc *) { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .zaid-app table:not(.light-doc *) { font-variant-numeric: tabular-nums; }
+  .zaid-app table:not(.light-doc *) th { color: var(--z-muted); font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; padding-top: 13px; padding-bottom: 13px; }
+  .zaid-app table:not(.light-doc *) td { padding-top: 13px; padding-bottom: 13px; }
+  .zaid-app :is(button, a).rounded-md:not(.light-doc *) { border-radius: 5px; }
+  .zaid-app button[class*='bg-slate-9']:not(.rounded-full, .rounded-l-full, .rounded-r-full, .light-doc *) { min-height: 38px; padding-inline: 16px; }
+  .zaid-app .zaid-biddetail button:is(.rounded-l-full, .rounded-r-full) { display:inline-flex; align-items:center; justify-content:center; min-height:28px; }
+  .zaid-app .zaid-biddetail button.rounded-r-full[aria-pressed='true'] { color:#171b1e; }
+  .zaid-app :is(.rounded-lg, .rounded-xl):not(.light-doc, .light-doc *) { border-radius: 12px; }
+
+  /* A two-line, bounded header gives every role's navigation enough room. */
+  .zaid-app .zaid-header { background: var(--z-canvas); border-color: var(--z-line); }
+  .zaid-app .zaid-header-inner { max-width: 1600px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 32px; padding: 14px 40px 0; }
+  .zaid-app .zaid-brand { display: flex; align-items: center; min-width: 0; width: 140px; height: 74px; }
+  .zaid-app .zaid-brand img { max-width: 140px; width: 140px; height: 74px; object-fit: cover; object-position: center; }
+  .zaid-app .zaid-header-tools { grid-column: 2; grid-row: 1; justify-self: end; min-width: 0; gap: 16px; }
+  .zaid-app .zaid-header-tools > span { overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
+  .zaid-app .zaid-header-tools button { min-height: 36px; }
+  .zaid-app .zaid-header-tools select { min-height: 34px; }
+  .zaid-app .zaid-desktop-nav { grid-row: 2; grid-column: 1 / -1; margin: 12px 0 0; gap: 24px; overflow-x: auto; min-width: 0; scrollbar-width: thin; }
+  .zaid-app .zaid-desktop-nav a { white-space: nowrap; flex: none; padding: 11px 0 14px; border-radius: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--z-muted); }
+  .zaid-app .zaid-desktop-nav a[aria-current='page'] { background: transparent; color: var(--z-accent); border-bottom-color: var(--z-accent); border-radius: 0; font-weight: 600; }
+  .zaid-app .zaid-desktop-nav a:hover { color: var(--z-ink); background: transparent; }
+  .zaid-app .zaid-main { max-width: 1600px; padding: 38px 40px 64px; }
+  .zaid-app .zaid-main.max-w-none { max-width: none; padding: 22px 24px; }
+  .zaid-app .zaid-bid-layout { gap: 32px; }
+  .zaid-app .zaid-bid-nav { width: 156px; }
+  .zaid-app .zaid-bid-nav > div { top: 156px; gap: 4px; }
+  .zaid-app .zaid-bid-nav a { padding: 11px 14px; }
+  .zaid-app .zaid-bid-nav a[aria-current='page'] { background: var(--z-soft); color: var(--z-ink); font-weight: 600; }
+  .zaid-app .zaid-library-nav { overflow-x: auto; padding-bottom: 12px; border-bottom: 1px solid var(--z-line); gap: 10px; }
+  .zaid-app .zaid-library-nav a { flex: none; border-radius: 5px; }
+
+  /* Main surfaces use open indexes; figures stay beside the work they explain. */
+  .zaid-app .zaid-page { min-width: 0; }
+  .zaid-app .zaid-page > :is(.space-y-4, .space-y-5) { min-width: 0; }
+  .zaid-app .zaid-page > .flex:first-child { row-gap: 14px; }
+  .zaid-app .zaid-page > section + section { margin-top: 32px; }
+  .zaid-app .zaid-page > section > h2 { margin-bottom: 16px; }
+  .zaid-app :is(.zaid-dashboard, .zaid-bids, .zaid-jobs, .zaid-customers) .overflow-hidden.rounded-lg { border-radius: 0; border-inline: 0; }
+  .zaid-app :is(.zaid-dashboard, .zaid-bids, .zaid-jobs, .zaid-customers) .overflow-hidden.rounded-lg > :is(a, div) { padding: 20px 12px; }
+  .zaid-app :is(.zaid-dashboard, .zaid-bids, .zaid-jobs) .overflow-hidden.rounded-lg .text-sm.font-medium { font-size: 16px; letter-spacing: -.01em; }
+  .zaid-app .zaid-dashboard > section:first-child { padding-bottom: 6px; }
+  .zaid-app .zaid-dashboard > section:first-child > .grid { gap: 24px; }
+  .zaid-app .zaid-dashboard > section:first-child .grid > a { background: var(--z-paper); border: 0; border-radius: 8px; padding: 20px 24px; }
+  .zaid-app .zaid-dashboard > section:first-child .text-2xl { font-size: 30px; font-weight: 500; }
+  .zaid-app .zaid-dashboard .zaid-pipeline > h2 { font-size: 32px; margin-bottom: 22px; }
+  .zaid-app .zaid-bids > .flex:first-child { padding-bottom: 20px; border-bottom: 1px solid var(--z-line); gap: 8px; }
+  .zaid-app .zaid-bids > .flex:first-child .rounded-full { border-radius: 5px; min-height: 36px; padding-inline: 14px; }
+  .zaid-app :is(.zaid-estimate, .zaid-biddetail, .zaid-assemblydetail) > .flex:first-child { margin-bottom: 28px; }
+  .zaid-app .zaid-estimate > section { margin-top: 28px; }
+  .zaid-app .zaid-estimate section > h2 { padding-top: 16px; padding-bottom: 16px; }
+  .zaid-app .zaid-estimate .zaid-estimate-totals { border-top: 1px solid var(--z-control); background: var(--z-paper); }
+  .zaid-app .zaid-estimate-totals > div { max-width: 1520px; border-inline: 0; }
+  .zaid-app .zaid-estimate-totals > div > div { padding: 16px 20px; border-color: var(--z-line); border-width: 0 0 0 1px; }
+  .zaid-app .zaid-estimate-totals > div > div:first-child { border-left: 0; }
+  .zaid-app .zaid-settings > .flex:last-child { gap: 32px; }
+  .zaid-app :is(.zaid-settings, .zaid-team, .zaid-overhead) .p-4 { padding: 22px; }
+  .zaid-app .zaid-planroom { height: calc(100dvh - 194px); min-height: 420px; }
+  .zaid-app .zaid-planroom h1 { font-size: 23px; }
+  .zaid-app.zaid-login { background:var(--z-canvas); }
+  .zaid-login .login-content { max-width:400px; }
+  .zaid-login .login-brand { display:flex; align-items:center; justify-content:center; margin-bottom:28px; }
+  .zaid-login .login-brand img { width:360px; height:200px; max-width:100%; object-fit:contain; }
+  .zaid-login .login-brand span { font-size:24px; font-weight:600; color:var(--z-accent); }
+  .zaid-app.zaid-login .login-card { background:var(--z-paper); border:1px solid var(--z-line); box-shadow:none; }
+  .zaid-login .login-heading { padding:24px 28px 0; }
+  .zaid-login .login-heading h1 { font-size:24px; line-height:1.3; }
+  .zaid-login form { padding:24px 28px 28px; }
+  .zaid-login .login-label { display:block; color:var(--z-muted); font-size:13px; line-height:20px; }
+  .zaid-login form input { min-height:44px; padding:10px 12px; font-size:14px; }
+  .zaid-app.zaid-login input:autofill { box-shadow:0 0 0 1000px var(--z-canvas) inset; -webkit-text-fill-color:var(--z-ink); caret-color:var(--z-ink); }
+  .zaid-login form > button { min-height:44px; }
+  @media(max-width:480px) { .zaid-login form input { font-size:16px; } }
+
+  .zaid-app .zaid-dashboard { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 34px 38px; align-items: start; }
+  .zaid-app .zaid-dashboard > section { min-width: 0; margin: 0; }
+  .zaid-app .zaid-dashboard > section + section { margin-top: 0; }
+  .zaid-app .zaid-pipeline { grid-column: 1 / -1; }
+  .zaid-app .zaid-due-index { grid-column: 1; grid-row: 2; }
+  .zaid-app .zaid-followups { grid-column: 2; grid-row: 2; padding: 24px; border-radius: 12px; background: var(--z-paper); }
+  .zaid-app .zaid-followups .overflow-hidden { background: transparent; }
+  .zaid-app .zaid-followups .overflow-hidden > div { padding: 18px 0; }
+  .zaid-app .zaid-followups .overflow-hidden > div > a:first-child { flex-basis: 100%; flex-wrap: wrap; gap: 6px 12px; }
+  .zaid-app .zaid-followups .overflow-hidden > div > a:first-child > span:last-child { flex-basis: 100%; }
+  .zaid-app .zaid-followups .overflow-hidden > div > span:last-child { margin-left: auto; }
+  .zaid-app .zaid-job-index { grid-column: 1; }
+  .zaid-app .zaid-track-record { grid-column: 2; padding: 24px; background: var(--z-paper); border-radius: 12px; }
+  .zaid-app .zaid-track-record .grid { display: block; }
+  .zaid-app .zaid-track-record .grid > * { display: flex; align-items: center; justify-content: space-between; border: 0; border-bottom: 1px solid var(--z-line); border-radius: 0; padding: 14px 0; background: transparent; }
+  .zaid-app .zaid-track-record .grid > :last-child { border-bottom: 0; }
+  .zaid-app .zaid-track-record .text-2xl { font-size: 22px; }
+  .zaid-app .zaid-job-index .overflow-hidden > div > a:first-child { flex-basis: 70%; }
+  .zaid-app .zaid-job-index .overflow-hidden > div > span:nth-child(2) { order: 3; flex-basis: 100%; margin-top: 6px; }
+  .zaid-app .zaid-job-index .overflow-hidden > div > span:last-child { order: 2; margin-left: auto; }
+  .zaid-app :is(.zaid-materials, .zaid-finishes, .zaid-assemblies) > .flex:first-child { margin: 24px 0 32px; gap: 24px; }
+  .zaid-app :is(.zaid-materials, .zaid-finishes, .zaid-assemblies) section { margin-top: 30px; }
+  .zaid-app :is(.zaid-materials, .zaid-finishes, .zaid-assemblies) section > h2 { margin-bottom: 14px; }
+  .zaid-app :is(.zaid-materials, .zaid-finishes, .zaid-assemblies, .zaid-reports) :is(.overflow-x-auto, .overflow-hidden).rounded-lg { border-inline: 0; border-radius: 0; }
+  .zaid-app .zaid-customers > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; }
+  .zaid-app .zaid-customers > .grid > a { padding: 26px 0; border-width: 0 0 1px; border-radius: 0; }
+  .zaid-app .zaid-customers > .grid > a .font-semibold { font-size: 18px; }
+  .zaid-app :is(.zaid-timeclock, .zaid-receipts, .zaid-actuals, .zaid-jobschedule) > form { background: var(--z-paper); border: 0; padding: 26px; }
+  .zaid-app :is(.zaid-timeclock, .zaid-receipts, .zaid-team) > div:first-child > p { max-width: 75ch; }
+  .zaid-app :is(.zaid-receipts, .zaid-field) > .border-2 { padding: 26px; background: var(--z-paper); }
+  .zaid-app .zaid-reports > .grid { gap: 24px; padding: 12px 0 24px; border-bottom: 1px solid var(--z-line); }
+  .zaid-app .zaid-reports > .grid > div { border: 0; padding: 12px 0; background: transparent; }
+  .zaid-app .zaid-schedule > .overflow-x-auto { margin-top: 28px; }
+  .zaid-app .zaid-schedule .grid-cols-7 > .min-h-24 { min-height: 124px; padding: 8px; }
+  .zaid-app .zaid-schedule .grid-cols-7 > .min-h-24 a { font-size: 11px; padding: 4px 6px; }
+  .zaid-app .zaid-settings nav .bg-slate-900 { background: var(--z-soft); color: var(--z-ink); }
+  .zaid-app .zaid-page h1.truncate { white-space: normal; overflow: visible; }
+
+  /* Dialogs inherit the active theme, including their controls and backdrop. */
+  .zaid-app .fixed.inset-0 { background-color: #171b1e80; padding: 24px; }
+  .zaid-app .fixed.inset-0 > .bg-white { background: var(--z-paper); border: 0; border-radius: 12px; box-shadow: 0 20px 64px #171b1e33; }
+  .zaid-app .fixed.inset-0 > div > .border-b-2 { padding: 20px 24px; }
+  .zaid-app .fixed.inset-0 form { padding: 24px; }
+  .zaid-app .fixed.inset-0 h2 { font-size: 22px; }
+  .zaid-app .fixed.inset-0 label > span { font-size: 12px; }
+  .zaid-app.dark .fixed.inset-0 { background-color: #0e0c0bb3; }
+
+  @media (min-width: 1440px) {
+    .zaid-app .zaid-main { padding-inline: 60px; }
+    .zaid-app .zaid-header-inner { padding-inline: 60px; }
+  }
+  @media (max-width: 1000px) {
+    .zaid-app .zaid-header-inner { padding-inline: 24px; }
+    .zaid-app .zaid-desktop-nav { gap: 20px; }
+    .zaid-app .zaid-main { padding: 28px 24px 48px; }
+    .zaid-app .zaid-header-tools > span { max-width: 170px; }
+    .zaid-app .zaid-bid-layout { gap: 24px; }
+    .zaid-app .zaid-bid-nav { width: 132px; }
+    .zaid-app .zaid-estimate h1 { font-size: 26px; }
+    .zaid-app .zaid-dashboard { grid-template-columns: minmax(0, 1fr) 290px; gap: 28px 24px; }
+    .zaid-app .zaid-followups, .zaid-app .zaid-track-record { padding: 20px; }
+  }
+  @media (max-width: 800px) {
+    .zaid-app .zaid-dashboard { display: block; }
+    .zaid-app .zaid-dashboard > section + section { margin-top: 30px; }
+    .zaid-app .zaid-followups, .zaid-app .zaid-track-record { padding: 24px; }
+    .zaid-app .zaid-track-record .grid { display: grid; }
+    .zaid-app .zaid-track-record .grid > * { display: block; border: 0; padding: 4px 0; }
+  }
+  @media (max-width: 639px) {
+    .zaid-app .zaid-header-inner { padding: 8px 16px; gap: 8px; }
+    .zaid-app .zaid-brand { width: 82px; height: 46px; }
+    .zaid-app .zaid-brand img { width: 82px; max-width: 82px; height: 46px; }
+    .zaid-app .zaid-header-tools { gap: 7px; }
+    .zaid-app .zaid-header-tools select { max-width: 78px; }
+    .zaid-app .zaid-header-tools button { padding-inline: 8px; }
+    .zaid-app .zaid-mobile-nav { padding-inline: 8px; scrollbar-width: thin; }
+    .zaid-app .zaid-mobile-nav a { padding: 12px; }
+    .zaid-app .zaid-mobile-nav a[aria-current='page'] { border-color: var(--z-accent); color: var(--z-accent); }
+    .zaid-app .zaid-main { padding: 26px 16px 44px; }
+    .zaid-app .zaid-main.max-w-none { padding: 16px 12px; }
+    .zaid-app .zaid-bid-nav { width: 100%; min-width: 0; }
+    .zaid-app .zaid-bid-nav > div { padding-bottom: 8px; border-bottom: 1px solid var(--z-line); }
+    .zaid-app .zaid-bid-nav a { padding: 10px 12px; }
+    .zaid-app .zaid-bid-layout { gap: 20px; }
+    .zaid-app :is(input, select, textarea):not(.light-doc *) { font-size: 16px; }
+    .zaid-app .zaid-dashboard > section:first-child > .grid { gap: 8px; }
+    .zaid-app .zaid-dashboard > section:first-child .grid > a { padding: 14px 12px; }
+    .zaid-app .zaid-dashboard > section:first-child .text-2xl { font-size: 26px; }
+    .zaid-app :is(.zaid-dashboard, .zaid-bids, .zaid-jobs, .zaid-customers) .overflow-hidden.rounded-lg > :is(a, div) { padding: 17px 4px; gap: 10px; }
+    .zaid-app :is(.zaid-dashboard, .zaid-bids, .zaid-jobs) .overflow-hidden.rounded-lg .text-sm.font-medium { font-size: 15px; }
+    .zaid-app .zaid-dashboard .overflow-hidden.rounded-lg .truncate.text-sm.font-medium { white-space: normal; overflow: visible; text-overflow: clip; min-width: 0; overflow-wrap: anywhere; }
+    .zaid-app .zaid-estimate-totals > div > div { padding: 12px 14px; }
+    .zaid-app .zaid-estimate > .flex:first-child { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; }
+    .zaid-app .zaid-estimate > .flex:first-child > a:first-child { grid-column: 1; grid-row: 1; }
+    .zaid-app .zaid-estimate > .flex:first-child > a:last-child { grid-column: 2; grid-row: 1; justify-self: end; }
+    .zaid-app .zaid-estimate > .flex:first-child > h1 { grid-column: 1 / -1; grid-row: 2; font-size: 27px; }
+    .zaid-app .zaid-page > .flex:first-child { flex-wrap: wrap; }
+    .zaid-app .zaid-customers > .grid { grid-template-columns: 1fr; }
+    .zaid-app :is(.zaid-materials, .zaid-finishes, .zaid-assemblies) > .flex:first-child { align-items: flex-start; gap: 16px; }
+    .zaid-app :is(.zaid-materials, .zaid-finishes, .zaid-assemblies) > .flex:first-child > button { margin-left: 0; }
+    .zaid-app :is(.zaid-timeclock, .zaid-receipts, .zaid-actuals, .zaid-jobschedule) > form { padding: 20px; }
+    .zaid-app :is(.zaid-receipts, .zaid-field) > .border-2 { padding: 20px; }
+    .zaid-app .zaid-reports > .grid { gap: 16px; }
+    .zaid-app .zaid-planroom { height: calc(100dvh - 154px); }
+    .zaid-app .zaid-planroom h1 { font-size: 20px; }
+    .zaid-app .fixed.inset-0 { padding: 12px; }
+    .zaid-app .fixed.inset-0 form { padding: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .zaid-app *, .zaid-app *::before, .zaid-app *::after { transition: none !important; scroll-behavior: auto !important; }
+  }
+}

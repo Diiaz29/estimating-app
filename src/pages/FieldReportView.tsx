@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -53,10 +54,10 @@ export default function FieldReportView() {
   if (!bid || !report) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
-    <div className="max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
+    <div className="zaid-page zaid-fieldreportview max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
       <div className="flex items-center gap-3 print:hidden">
         <Link to={`/bids/${bid.id}/field`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← Field
+          <UiIcon name="left" /> Field
         </Link>
         <button
           onClick={() => window.print()}

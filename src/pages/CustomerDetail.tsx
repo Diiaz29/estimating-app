@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -70,10 +71,10 @@ export default function CustomerDetail() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="zaid-page zaid-customerdetail space-y-5">
       <div className="flex items-center gap-3">
         <Link to="/contractors" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Contractors
+          <UiIcon name="left" /> Contractors
         </Link>
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}

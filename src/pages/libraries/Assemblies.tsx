@@ -1,3 +1,4 @@
+import UiIcon from '../../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -83,7 +84,7 @@ export default function Assemblies() {
   const unconfirmed = assemblies.filter((a) => a.pricing_unit === 'EA' && !a.width_confirmed).length
 
   return (
-    <div>
+    <div className="zaid-page zaid-assemblies">
       <div className="flex items-center gap-3">
         <p className="text-sm text-slate-500">
           Cabinet types with their labor minutes and bill of materials. Priced per box (EA) or per
@@ -107,8 +108,9 @@ export default function Assemblies() {
         </p>
       )}
 
+      <div className="library-workspace"><nav className="library-category-nav" aria-label="Library categories"><h2>Categories</h2>{grouped.map(([category, items]) => <a key={category} href={`#library-${encodeURIComponent(category)}`}>{category}<span>{items.length}</span></a>)}</nav><div className="library-records">
       {grouped.map(([category, items]) => (
-        <section key={category}>
+        <section key={category} id={`library-${category}`}>
           <GroupTitle>{category}</GroupTitle>
           <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
             {items.map((a, i) => (
@@ -145,7 +147,7 @@ export default function Assemblies() {
                     title="Duplicate this assembly with its bill of materials"
                     className="text-slate-300 hover:text-slate-900"
                   >
-                    ⧉
+                    <UiIcon name="copy" />
                   </button>
                 )}
               </Link>
@@ -153,6 +155,7 @@ export default function Assemblies() {
           </div>
         </section>
       ))}
+      </div></div>
 
       {adding && (
         <AddAssemblyForm

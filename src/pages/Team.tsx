@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import UiIcon from '../components/UiIcon'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -11,6 +12,8 @@ export default function Team() {
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<Profile | null>(null)
+  const [resetting, setResetting] = useState<Profile | null>(null)
+  const [resetMessage, setResetMessage] = useState<string | null>(null)
 
   async function load() {
     const { data, error } = await supabase!.from('profiles').select('*').order('created_at')
@@ -62,7 +65,7 @@ export default function Team() {
   const admins = profiles.filter((p) => p.role === 'admin')
 
   return (
-    <div className="space-y-4">
+    <div className="zaid-page zaid-team space-y-4">
       <div>
         <h1 className="text-lg font-semibold tracking-tight">Team</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -76,6 +79,7 @@ export default function Team() {
       </div>
 
       <AddUserForm onCreated={() => void load()} />
+      {resetMessage && <p role="status" className="text-sm text-emerald-700">{resetMessage}</p>}
 
       {me && <MySignatureCard me={profiles.find((p) => p.id === me.id) ?? me} onSaved={() => void load()} />}
       <CardsSection profiles={profiles} />
@@ -86,16 +90,17 @@ export default function Team() {
           return (
             <div
               key={p.id}
-              className={`flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
+              className={`team-member-row flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
             >
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {p.email}
                 {p.id === me?.id && <span className="ml-2 text-xs text-slate-400">(you)</span>}
               </span>
-              <div className="flex gap-1.5">
+              <div className="team-role-options flex gap-1.5" role="group" aria-label={`Role for ${p.email}`}>
                 {(['viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button
                     key={r}
+                    aria-pressed={p.role === r}
                     disabled={lastAdmin && r !== 'admin'}
                     title={
                       lastAdmin && r !== 'admin'
@@ -103,7 +108,7 @@ export default function Team() {
                         : undefined
                     }
                     onClick={() => p.role !== r && void setRole(p, r)}
-                    className={`rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed ${
+                    className={`rounded-md border px-3 py-1.5 font-mono text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed ${
                       p.role === r
                         ? 'border-slate-900 bg-slate-900 text-white'
                         : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
@@ -113,6 +118,13 @@ export default function Team() {
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() => { setResetMessage(null); setResetting(p) }}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Reset password
+              </button>
               {p.id !== me?.id && (
                 <button
                   onClick={() => setRemoving(p)}
@@ -126,6 +138,16 @@ export default function Team() {
         })}
       </div>
 
+      {resetting && (
+        <ResetPasswordForm
+          profile={resetting}
+          onCancel={() => setResetting(null)}
+          onReset={() => {
+            setResetMessage(`Password reset for ${resetting.email}. Share the new password with them.`)
+            setResetting(null)
+          }}
+        />
+      )}
       {removing && (
         <ConfirmDialog
           title="Remove team member"
@@ -136,6 +158,75 @@ export default function Team() {
         />
       )}
     </div>
+  )
+}
+
+function ResetPasswordForm({ profile, onCancel, onReset }: { profile: Profile; onCancel: () => void; onReset: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    dialog.current?.showModal()
+  }, [])
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (busy) return
+    setError(null)
+    if (password !== confirmation) return setError('The passwords do not match.')
+    if (password.length < 8 || password.length > 128 || !password.trim()) return setError('Use between 8 and 128 characters.')
+    setBusy(true)
+    try {
+      const { data, error: resetError } = await supabase!.functions.invoke('reset-user-password', {
+        body: { user_id: profile.id, password },
+      })
+      if (resetError) {
+        let message = resetError.message
+        try {
+          const response = (resetError as { context?: Response }).context
+          if (response) message = (await response.json()).error ?? message
+        } catch { /* keep the original error */ }
+        setError(message)
+      } else if (!data?.success) {
+        setError('Could not reset the password. Please try again.')
+      } else {
+        setPassword('')
+        setConfirmation('')
+        onReset()
+      }
+    } catch {
+      setError('Could not connect. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <dialog ref={dialog} aria-labelledby="reset-password-title" className="team-password-dialog w-full max-w-sm rounded-xl p-6" onCancel={(e) => { e.preventDefault(); if (!busy) onCancel() }}>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <h2 id="reset-password-title" className="text-lg font-semibold">Reset password</h2>
+          <p className="mt-1 break-all text-sm text-slate-500">{profile.email}</p>
+        </div>
+        <p className="text-sm text-slate-500">Their current password will stop working. Share the new password with them after saving.</p>
+        <label className="block">
+          <span className="mb-1 block text-sm">New password</span>
+          <input autoFocus type="password" autoComplete="new-password" required minLength={8} maxLength={128} disabled={busy} className="input w-full" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm">Confirm new password</span>
+          <input type="password" autoComplete="new-password" required minLength={8} maxLength={128} disabled={busy} className="input w-full" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
+        </label>
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-3">
+          <button type="button" disabled={busy} onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+          <button type="submit" disabled={busy} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Resetting…' : 'Reset password'}</button>
+        </div>
+      </form>
+    </dialog>
   )
 }
 
@@ -197,7 +288,7 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
 
   return (
     <section>
-      <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
+      <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-slate-500">
         Cards & payment methods — who carries what
       </h2>
       <div className="rounded-lg border-2 border-slate-800 bg-white">
@@ -323,7 +414,7 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Email</span>
+          <span className="font-mono text-xs uppercase tracking-widest text-slate-500">Email</span>
           <input
             type="email"
             required
@@ -334,7 +425,7 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
           />
         </label>
         <label className="block">
-          <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
+          <span className="font-mono text-xs uppercase tracking-widest text-slate-500">
             Temporary password (8+ characters)
           </span>
           <input
@@ -418,8 +509,8 @@ function MySignatureCard({ me, onSaved }: { me: Profile; onSaved: () => void }) 
 
   return (
     <section className="rounded-lg border-2 border-slate-800 bg-white p-4">
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="flex h-24 w-56 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
+      <div className="team-signature-layout flex flex-wrap items-start gap-4">
+        <div className="team-signature-preview flex h-24 w-56 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
           {me.signature_data ? (
             <img src={me.signature_data} alt="Your signature" className="max-h-full max-w-full object-contain" />
           ) : (
@@ -434,11 +525,11 @@ function MySignatureCard({ me, onSaved }: { me: Profile; onSaved: () => void }) 
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Printed name</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-slate-500">Printed name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Brandon Diaz" className="input mt-0.5" />
             </label>
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Title</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-slate-500">Title</span>
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Owner" className="input mt-0.5" />
             </label>
           </div>
@@ -455,7 +546,7 @@ function MySignatureCard({ me, onSaved }: { me: Profile; onSaved: () => void }) 
                   disabled={busy || !drawn}
                   className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:bg-slate-400"
                 >
-                  {busy ? 'Saving…' : '✓ Save signature'}
+                  {busy ? 'Saving…' : <><UiIcon name="check" /> Save signature</>}
                 </button>
                 <button onClick={() => { setDrawing(false); setDrawn(null) }} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">
                   Cancel
@@ -464,7 +555,7 @@ function MySignatureCard({ me, onSaved }: { me: Profile; onSaved: () => void }) 
             ) : (
               <>
                 <button onClick={() => setDrawing(true)} className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">
-                  {me.signature_data ? '✎ Draw a new one' : '✎ Draw signature'}
+                  <UiIcon name="pen" /> {me.signature_data ? 'Draw a new one' : 'Draw signature'}
                 </button>
                 <label className="cursor-pointer rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">
                   upload a photo

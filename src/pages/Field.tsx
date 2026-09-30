@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { FormEvent } from 'react'
@@ -130,7 +131,7 @@ export default function Field() {
   const totalHours = times.reduce((s, t) => s + Number(t.hours), 0)
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="zaid-page zaid-field max-w-4xl space-y-6">
       <h1 className="text-lg font-semibold tracking-tight">
         <span className="mr-2 font-mono text-sm text-slate-500">{bid.job_number}</span>
         {bid.name} — field
@@ -270,7 +271,7 @@ export default function Field() {
                   to={`/bids/${bid.id}/field/report/${r.id}`}
                   className="rounded-md border-2 border-slate-900 px-2.5 py-0.5 text-xs font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
                 >
-                  View / print →
+                  View / print <UiIcon name="right" />
                 </Link>
                 {canSchedule && (
                   <>
@@ -352,10 +353,10 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-lg border-2 border-slate-800 bg-white p-3">
+    <form onSubmit={handleSubmit} className="field-time-form flex flex-wrap items-end gap-2 rounded-lg border-2 border-slate-800 bg-white p-3">
       <div className="block">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Logging as</span>
-        <div className="mt-0.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-medium text-slate-600">
+        <div className="field-time-worker mt-0.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-medium text-slate-600">
           {worker}
         </div>
       </div>
@@ -369,12 +370,13 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
       </label>
       <div className="block">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Category</span>
-        <div className="mt-0.5 flex gap-1">
+        <div className="field-time-category mt-0.5 flex gap-1">
           {(['field', 'shop'] as const).map((k) => (
             <button
               type="button"
               key={k}
               onClick={() => setKind(k)}
+              aria-pressed={kind === k}
               className={`rounded-md border px-2.5 py-1.5 text-sm font-medium ${
                 kind === k
                   ? 'border-slate-900 bg-slate-900 text-white'
@@ -386,7 +388,7 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
           ))}
         </div>
       </div>
-      <label className="flex cursor-pointer items-center gap-1.5 pb-2.5">
+      <label className="field-time-night flex cursor-pointer items-center gap-1.5 pb-2.5">
         <input
           type="checkbox"
           checked={night}
@@ -395,7 +397,7 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
         />
         <span className="text-sm font-medium text-slate-700">Night</span>
       </label>
-      <label className="block min-w-0 flex-1 basis-40">
+      <label className="field-time-note block min-w-0 flex-1 basis-40">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">What got done (optional)</span>
         <input value={note} onChange={(e) => setNote(e.target.value)} className="input mt-0.5 py-1.5" />
       </label>

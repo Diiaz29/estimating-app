@@ -63,7 +63,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
   if (!materials) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
-    <div>
+    <div className="zaid-page zaid-materials">
       <div className="flex items-center">
         <p className="text-sm text-slate-500">
           {mode === 'hardware'
@@ -81,8 +81,9 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
         )}
       </div>
 
+      <div className="library-workspace"><nav className="library-category-nav" aria-label="Library categories"><h2>Categories</h2>{grouped.map(([category, items]) => <a key={category} href={`#library-${encodeURIComponent(category)}`}>{category}<span>{items.length}</span></a>)}</nav><div className="library-records">
       {grouped.map(([category, items]) => (
-        <section key={category}>
+        <section key={category} id={`library-${category}`}>
           <GroupTitle>{category}</GroupTitle>
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
             <table className="w-full text-sm">
@@ -138,6 +139,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
           </div>
         </section>
       ))}
+      </div></div>
 
       {dupTarget && (
         <MaterialForm

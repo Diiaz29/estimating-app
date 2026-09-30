@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -91,7 +92,7 @@ export default function Schedule() {
   const colorFor = new Map(jobs.map((j, i) => [j.id, JOB_COLORS[i % JOB_COLORS.length]]))
 
   return (
-    <div className="space-y-4">
+    <div className="zaid-page zaid-schedule space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Production schedule</h1>
@@ -99,10 +100,11 @@ export default function Schedule() {
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <button
+            aria-label="Previous month"
             onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
             className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
           >
-            ←
+            <UiIcon name="left" />
           </button>
           <button
             onClick={() => {
@@ -114,10 +116,11 @@ export default function Schedule() {
             Today
           </button>
           <button
+            aria-label="Next month"
             onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
             className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
           >
-            →
+            <UiIcon name="right" />
           </button>
           <span className="ml-2 w-40 text-right text-base font-semibold tabular-nums">
             {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Modal from './Modal'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Customer } from '../lib/types'
@@ -58,14 +59,7 @@ export default function NewBidForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
-      <div className="w-full max-w-lg rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">New bid</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">
-            ×
-          </button>
-        </div>
+    <Modal title="New bid" onClose={onClose}>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-3 gap-3">
             <Field label="Job #">
@@ -79,6 +73,7 @@ export default function NewBidForm({
             <div className="col-span-2">
               <Field label="Job name">
                 <input
+                  autoFocus data-modal-autofocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -119,6 +114,7 @@ export default function NewBidForm({
                     <button
                       type="button"
                       key={c.id}
+                      aria-pressed={on}
                       onClick={() =>
                         setSelectedGCs((prev) =>
                           on ? prev.filter((id) => id !== c.id) : [...prev, c.id],
@@ -138,7 +134,7 @@ export default function NewBidForm({
             )}
           </Field>
           {error && (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
           )}
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
@@ -149,8 +145,7 @@ export default function NewBidForm({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

@@ -41,7 +41,7 @@ export default function Plans() {
   if (!bid) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="zaid-page zaid-plans max-w-3xl space-y-5">
       <div>
         <h1 className="text-lg font-semibold tracking-tight">
           <span className="mr-2 font-mono text-sm text-slate-500">{bid.job_number}</span>

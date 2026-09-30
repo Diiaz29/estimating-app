@@ -1,0 +1,58 @@
+/* Screen-only workflow refinements. Generated documents keep their own styles. */
+@media screen {
+  .zaid-app .app-modal {
+    width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px);
+    margin:auto; padding:0; overflow:auto; color:var(--z-ink); background:var(--z-paper);
+    border:1px solid var(--z-line); border-radius:12px; box-shadow:0 14px 42px rgb(0 0 0 / .24);
+  }
+  .app-modal::backdrop { background:rgb(23 27 30 / .64); }
+  .zaid-app .confirm-modal { max-width:420px; }
+  .app-modal-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; border-bottom:1px solid var(--z-line); }
+  .app-modal-heading h2 { margin:0; font-size:20px; }
+  .app-modal .modal-close { display:grid; place-items:center; width:44px; height:44px; flex:none; border:1px solid var(--z-control); border-radius:5px; }
+  .app-modal-description { padding:20px 20px 0; line-height:1.6; }
+  .app-modal-actions { display:flex; justify-content:flex-end; gap:12px; padding:20px; }
+  .app-modal .modal-danger { background:#b91c1c; color:white; padding:10px 16px; min-height:44px; border-radius:5px; }
+  .app-modal button:focus-visible, .app-modal input:focus-visible { outline:2px solid var(--z-accent); outline-offset:3px; }
+  .zaid-app .save-feedback { margin:12px 0; font-size:13px; line-height:1.6; color:var(--z-muted); }
+  .save-feedback > span { display:block; }
+  .zaid-app .save-failed { display:flex; align-items:center; flex-wrap:wrap; gap:16px; padding:16px; background:var(--z-paper); border:1px solid #b45309; color:var(--z-ink); border-radius:8px; }
+  .save-failed > div { flex:1; min-width:180px; }
+  .save-failed p { margin-top:4px; }
+  .save-failed details { margin-top:8px; }
+  .save-failed summary { cursor:pointer; }
+  .zaid-app .index-row-action { display:none; }
+  .index-project-entry .index-project-row { width:100%; }
+  .index-preview > .index-primary { margin:16px 0 20px; }
+  .index-estimate-breakdown { border-top:1px solid var(--z-line); padding-top:16px; }
+  .index-estimate-breakdown > summary { min-height:44px; cursor:pointer; font-size:14px; font-weight:600; }
+  .index-estimate-breakdown + .index-preview-total { margin-top:16px; }
+  .index-follow-row .index-follow-date { color:var(--z-ink); margin-top:8px; }
+  .zaid-app .index-preview-total > .index-recorded-empty { font-size:14px; font-weight:400; color:var(--z-muted); }
+  .mobile-app-pages, .bid-mobile-pages, .mobile-estimate-section { display:none; }
+  @media(max-width:800px) {
+    .zaid-app .mobile-app-pages { display:block; border-top:1px solid var(--z-line); padding:0 16px; }
+    .mobile-app-pages > summary, .bid-mobile-pages > summary { min-height:44px; padding:12px 0; cursor:pointer; color:var(--z-ink); font-size:14px; }
+    .zaid-app .mobile-app-pages .zaid-mobile-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; border:0; padding:0 0 12px; }
+    .zaid-app .mobile-app-pages .zaid-mobile-nav a { min-height:44px; padding:12px; }
+  }
+  @media(max-width:639px) {
+    .zaid-app .zaid-bid-layout .zaid-bid-nav { display:none; }
+    .zaid-app .bid-mobile-pages { display:block; border-bottom:1px solid var(--z-line); }
+    .bid-mobile-pages > nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; padding-bottom:12px; }
+    .bid-mobile-pages a { min-height:44px; padding:12px; }
+    .bid-mobile-pages a[aria-current='page'] { background:var(--z-soft); font-weight:600; }
+    .zaid-app .estimate-section-tabs { display:none; }
+    .zaid-app .mobile-estimate-section { display:flex; gap:12px; align-items:center; margin:18px 0; color:var(--z-muted); }
+    .mobile-estimate-section select { flex:1; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--z-control); border-radius:5px; background:var(--z-paper); color:var(--z-ink); font-size:16px; }
+    .zaid-app .index-project-entry { padding-bottom:16px; border-bottom:1px solid var(--z-line); }
+    .zaid-app .index-row-action { display:inline-flex; margin:0 16px; min-height:44px; }
+    .zaid-app .zaid-bid-layout input[type="number"]:not(.light-doc *),
+    .zaid-app .zaid-bid-layout .estimate-workspace :is(input,select,textarea):not(.light-doc *),
+    .zaid-app .app-modal :is(input,select,textarea) { font-size:16px; min-height:44px; }
+    .zaid-app .zaid-bid-layout .takeoff-area button:not(.light-doc *),
+    .zaid-app .app-modal button { min-height:44px; min-width:44px; }
+    .zaid-app .save-feedback { font-size:14px; }
+    .save-failed > button { width:100%; }
+  }
+}

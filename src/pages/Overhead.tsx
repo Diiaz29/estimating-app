@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -88,11 +89,11 @@ export default function Overhead() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="zaid-page zaid-overhead max-w-3xl space-y-6">
       <div>
         <div className="flex items-center gap-3">
           <Link to="/settings" className="text-sm text-slate-500 hover:text-slate-900">
-            ← Settings
+            <UiIcon name="left" /> Settings
           </Link>
         </div>
         <h1 className="mt-2 text-lg font-semibold tracking-tight">Overhead → true cost rate</h1>
