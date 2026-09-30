@@ -25,12 +25,9 @@
   .zaid-app :is(.index-primary,.index-secondary) { border-radius:4px; font-size:13px; min-height:36px; padding:8px 12px; }
   .zaid-app :is(.index-primary,.index-secondary) svg { width:16px; height:16px; }
   .construction-overview { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr); gap:20px; align-items:start; }
-  .zaid-app .construction-overview>section { background:var(--z-paper); padding:20px; border:1px solid var(--z-line); border-radius:6px; margin:0; min-width:0; }
+  .construction-overview-column { display:flex; flex-direction:column; gap:20px; min-width:0; }
+  .zaid-app .construction-overview>section, .zaid-app .construction-overview-column>section { background:var(--z-paper); padding:20px; border:1px solid var(--z-line); border-radius:6px; margin:0; min-width:0; }
   .construction-overview .zaid-pipeline { grid-column:1/-1; }
-  .construction-overview .zaid-due-index { grid-column:1; }
-  .construction-overview .zaid-followups { grid-column:2; grid-row:2; }
-  .construction-overview .zaid-job-index { grid-column:1; }
-  .construction-overview .zaid-track-record { grid-column:2; }
   .zaid-app .construction-overview section h2 { font-size:16px; font-weight:600; color:var(--z-ink); margin-bottom:16px; }
   .zaid-app .zaid-dashboard .construction-overview .zaid-pipeline>h2 { font-size:16px; margin-bottom:16px; }
   .zaid-app .construction-overview .zaid-pipeline .grid { gap:0; }
@@ -126,7 +123,7 @@
     .zaid-app .workspace-project-nav { padding:0 12px 8px; }
     .zaid-app .construction-register .project-index-tools { padding-inline:16px; }
     .construction-register-caption { padding:12px 16px; }
-    .zaid-app .construction-overview>section { padding:16px; }
+    .zaid-app .construction-overview>section, .zaid-app .construction-overview-column>section { padding:16px; }
   }
   @media(max-width:639px) {
     .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
