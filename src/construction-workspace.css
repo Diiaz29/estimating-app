@@ -55,6 +55,7 @@
   .construction-register-caption { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 20px; color:var(--z-muted); font-size:12px; }
   .construction-table-scroll { overflow:auto; }
   .zaid-app .construction-register-table { width:100%; min-width:850px; border-collapse:collapse; font-size:13px; }
+  .zaid-app .construction-register-table.construction-job-register { min-width:1200px; }
   .zaid-app .construction-register-table th { text-align:left; white-space:nowrap; background:var(--z-canvas); color:var(--z-muted); font-size:12px; font-weight:600; padding:12px; border-block:1px solid var(--z-line); }
   .construction-register-table th button { cursor:pointer; padding:0; color:inherit; font-weight:inherit; }
   .zaid-app .construction-register-table td { padding:12px; border-bottom:1px solid var(--z-line); vertical-align:middle; }
@@ -70,6 +71,10 @@
   .construction-money { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .construction-row-link { color:var(--z-accent); text-decoration:underline; text-underline-offset:3px; }
   .construction-row-actions { display:flex; flex-wrap:wrap; gap:12px; }
+  .construction-jobs-total { display:flex; flex-direction:column; text-align:right; flex-shrink:0; }
+  .construction-jobs-total strong { font-size:20px; font-variant-numeric:tabular-nums; }
+  .construction-jobs-total span { color:var(--z-muted); font-size:12px; }
+  .zaid-app .construction-complete-job { min-height:30px; padding:4px 8px; font-size:12px; }
   .construction-overdue { color:#b91c1c; font-weight:600; }
   .dark .construction-overdue { color:#fca5a5; }
   .zaid-app .construction-register .index-list-foot { padding:12px 20px; margin:0; background:var(--z-canvas); }
