@@ -74,8 +74,7 @@
   .construction-page-heading p,.project-heading p { color:var(--z-muted); margin-top:6px; font-size:14px; }
   .construction-heading-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
   .zaid-app :is(.index-primary,.index-secondary) { border-radius:4px; font-size:13px; min-height:36px; padding:8px 12px; }
-  .zaid-app input[type=search]:focus:not(.light-doc *) { outline:none; box-shadow:none; }
-  .zaid-app input[type=search]:focus-visible:not(.light-doc *) { border-color:var(--z-accent); }
+  .zaid-app :is(input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=hidden],[type=button],[type=submit],[type=reset],[type=image]),select,textarea):focus:not(.light-doc *) { outline:none; box-shadow:none; border-color:var(--z-accent); }
   .zaid-app .index-search:has(input:focus-visible) { border-color:var(--z-accent); }
   .zaid-app :is(.index-primary,.index-secondary) svg { width:16px; height:16px; }
   .construction-overview { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr); gap:20px; align-items:start; }
