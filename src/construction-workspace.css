@@ -58,7 +58,8 @@
   .zaid-app .construction-register-table th { text-align:left; white-space:nowrap; background:var(--z-canvas); color:var(--z-muted); font-size:12px; font-weight:600; padding:12px; border-block:1px solid var(--z-line); }
   .construction-register-table th button { cursor:pointer; padding:0; color:inherit; font-weight:inherit; }
   .zaid-app .construction-register-table td { padding:12px; border-bottom:1px solid var(--z-line); vertical-align:middle; }
-  .construction-register-table th:first-child,.construction-register-table td:first-child { padding-left:20px; width:32%; }
+  .construction-register-table th:first-child,.construction-register-table td:first-child { padding-left:20px; width:120px; }
+  .construction-register-table th:nth-child(2),.construction-register-table td:nth-child(2) { width:32%; }
   .construction-register-table tr:hover { background:var(--z-canvas); }
   .construction-register-table .construction-selected-row { background:var(--z-soft); }
   .construction-register-table th[aria-sort=ascending], .construction-register-table th[aria-sort=descending] { color:var(--z-accent); }

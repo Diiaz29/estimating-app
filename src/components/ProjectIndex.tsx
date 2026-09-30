@@ -68,15 +68,15 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
           <div className="construction-register-caption"><span>{visible.length} {visible.length === 1 ? 'project' : 'projects'}</span><button className="index-secondary" aria-pressed={showPreview} onClick={() => setShowPreview(!showPreview)}>{showPreview ? 'Hide project overview' : 'Show project overview'}</button></div>
           <div className="construction-table-scroll">
           <table className="construction-register-table"><thead><tr>
-            <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name={sort?.key === 'name' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             <th scope="col" aria-sort={sort?.key === 'number' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('number')}>Job number <UiIcon name={sort?.key === 'number' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
+            <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name={sort?.key === 'name' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             <th scope="col" aria-sort={sort?.key === 'contractor' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('contractor')}>Contractor <UiIcon name={sort?.key === 'contractor' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             <th scope="col" aria-sort={sort?.key === 'due' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('due')}>Due date <UiIcon name={sort?.key === 'due' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name={sort?.key === 'status' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>{seesMoney && <th scope="col">Recorded value</th>}<th scope="col">Actions</th>
           </tr></thead><tbody>
             {visible.map(b => <tr key={b.id} className={showPreview && selected?.id === b.id ? 'construction-selected-row' : undefined}>
-              <td><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
               <td className="construction-job-number">{b.job_number}</td>
+              <td><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
               <td>{contractor(b.id) ?? '—'}</td><td>{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</td><td><StatusBadge status={b.status} /></td>{seesMoney && <td className="construction-money">{valueFor(b) == null ? '—' : fmtMoney(valueFor(b)!)}</td>}
               <td><Link className="construction-row-link" aria-label={`${isOffice ? 'Open project' : 'Open estimate'} for ${b.name}`} to={`/bids/${b.id}${isOffice ? '' : '/estimate'}`}>{isOffice ? 'Open project' : 'Estimate'}</Link></td>
             </tr>)}
