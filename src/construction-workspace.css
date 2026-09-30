@@ -71,6 +71,8 @@
   .construction-money { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .construction-row-link { color:var(--z-accent); text-decoration:underline; text-underline-offset:3px; }
   .construction-row-actions { display:flex; flex-wrap:wrap; gap:12px; }
+  .zaid-app .construction-job-register th:last-child { text-align:right; }
+  .construction-job-register .construction-row-actions { justify-content:flex-end; }
   .construction-jobs-total { display:flex; flex-direction:column; text-align:right; flex-shrink:0; }
   .construction-jobs-total strong { font-size:20px; font-variant-numeric:tabular-nums; }
   .construction-jobs-total span { color:var(--z-muted); font-size:12px; }
