@@ -54,8 +54,8 @@
   .zaid-app.workspace-shell { --z-canvas:#f3f1ee; --z-paper:#fff; --z-soft:#eee8df; --z-line:#dcd6ce; --z-control:#a69b90; background:var(--z-canvas); }
   .zaid-app.workspace-shell.dark { --z-canvas:#211e1b; --z-paper:#2b2723; --z-soft:#3c342c; --z-line:#51483f; --z-control:#9d8c7b; }
   .zaid-app .workspace-sidebar { background:#534741; border:0; }
-  .workspace-brand { height:78px; padding:12px 24px; }
-  .workspace-brand img { max-height:54px; }
+  .workspace-brand { height:78px; padding:12px 24px; background:#534741; color:#fff; }
+  .workspace-brand img { max-height:54px; filter:grayscale(1) invert(1) brightness(2); mix-blend-mode:screen; }
   .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
   .workspace-company span { color:#e4d7c7; }
   .workspace-sidebar nav { padding:10px 0; }
