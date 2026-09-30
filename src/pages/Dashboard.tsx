@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -6,6 +7,7 @@ import type { Bid, Customer } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 import NewBidForm from '../components/NewBidForm'
+import ProjectIndex from '../components/ProjectIndex'
 
 interface GcLink {
   bid_id: string
@@ -108,9 +110,11 @@ export default function Dashboard() {
   const winRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null
 
   return (
-    <div className="space-y-6">
+    <div className="zaid-page zaid-dashboard space-y-6">
+      <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={jobValue} onNew={canEdit ? () => setShowNew(true) : undefined} />
+      <details className="index-activity"><summary>Pipeline, due dates & job activity</summary><div className="index-activity-content">
       {/* Pipeline counts */}
-      <section>
+      <section className="zaid-pipeline">
         <SectionTitle>Pipeline</SectionTitle>
         <div className="grid grid-cols-3 gap-2">
           {STATUSES.filter((s) => ACTIVE_STATUSES.includes(s.value)).map((s) => {
@@ -138,7 +142,7 @@ export default function Dashboard() {
       </section>
 
       {/* Due soon */}
-      <section>
+      <section className="zaid-due-index">
         <div className="mb-2 flex items-center">
           <SectionTitle>Bids</SectionTitle>
           {canEdit && (
@@ -199,7 +203,7 @@ export default function Dashboard() {
 
       {/* Sent — waiting on an answer */}
       {sentList.length > 0 && (
-        <section>
+        <section className="zaid-followups">
           <SectionTitle>Sent — follow up</SectionTitle>
           <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
             {sentList.map((b, i) => {
@@ -254,11 +258,11 @@ export default function Dashboard() {
 
       {/* Active jobs (won work) */}
       {jobs.length > 0 && (
-        <section>
+        <section className="zaid-job-index">
           <div className="mb-2 flex items-baseline">
             <SectionTitle>Jobs</SectionTitle>
             <Link to="/jobs" className="ml-auto text-xs text-slate-500 underline hover:text-slate-900">
-              All jobs →
+              All jobs <UiIcon name="right" />
             </Link>
           </div>
           <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
@@ -307,6 +311,18 @@ export default function Dashboard() {
         </section>
       )}
 
+      
+
+      {/* Win rate */}
+      <section className="zaid-track-record">
+        <SectionTitle>Track record</SectionTitle>
+        <div className="grid grid-cols-3 gap-2">
+          <Stat label="Won" value={String(won)} to="/jobs" />
+          <Stat label="Lost" value={String(lost)} to="/bids?status=lost" />
+          <Stat label="Win rate" value={winRate === null ? '—' : `${winRate}%`} />
+        </div>
+      </section>
+      </div></details>
       {showNew && (
         <NewBidForm
           customers={customers}
@@ -315,16 +331,6 @@ export default function Dashboard() {
           onCreated={(newId) => navigate(`/bids/${newId}`)}
         />
       )}
-
-      {/* Win rate */}
-      <section>
-        <SectionTitle>Track record</SectionTitle>
-        <div className="grid grid-cols-3 gap-2">
-          <Stat label="Won" value={String(won)} to="/jobs" />
-          <Stat label="Lost" value={String(lost)} to="/bids?status=lost" />
-          <Stat label="Win rate" value={winRate === null ? '—' : `${winRate}%`} />
-        </div>
-      </section>
     </div>
   )
 }

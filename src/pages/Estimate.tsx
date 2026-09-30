@@ -1,3 +1,7 @@
+import UiIcon from '../components/UiIcon'
+import SaveFeedback from '../components/SaveFeedback'
+import { useSaveQueue } from '../lib/useSaveQueue'
+import { checkedWrite } from '../lib/saveQueue'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -53,12 +57,16 @@ export default function Estimate() {
   const [areaFinishOverrides, setAreaFinishOverridesState] = useState<AreaFinishOverride[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
+  const saves = useSaveQueue()
+  const [actionBusy, setActionBusy] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [removingArea, setRemovingArea] = useState<Area | null>(null)
   const [removingRevision, setRemovingRevision] = useState<Revision | null>(null)
   const [removingCo, setRemovingCo] = useState<ChangeOrder | null>(null)
   const [approvingCo, setApprovingCo] = useState<ChangeOrder | null>(null)
   const [snapshotting, setSnapshotting] = useState(false)
+  const [estimateSection, setEstimateSection] = useState('takeoff')
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null)
 
   async function loadAll() {
     const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes, coRes] = await Promise.all([
@@ -74,10 +82,11 @@ export default function Estimate() {
       supabase!.from('revisions').select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at').eq('bid_id', id!).order('rev_number', { ascending: false }),
       supabase!.from('change_orders').select('*').eq('bid_id', id!).order('co_number'),
     ])
-    if (bidRes.error) return setError(bidRes.error.message)
-    setBid(bidRes.data as Bid)
+    for (const response of [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes, coRes]) if (response.error) throw new Error(response.error.message)
+    let loadedLines: LineItem[] = []
+    let loadedOverrides: AreaMaterialOverride[] = []
+    let loadedFinishes: AreaFinishOverride[] = []
     const areaRows = (areaRes.data ?? []) as Area[]
-    setAreas(areaRows)
     if (areaRows.length > 0) {
       const [lineRes, aoRes, afoRes] = await Promise.all([
         supabase!
@@ -95,14 +104,16 @@ export default function Estimate() {
           .select('*, finish:finishes(*)')
           .in('area_id', areaRows.map((a) => a.id)),
       ])
-      setLines((lineRes.data ?? []) as LineItem[])
-      setAreaOverridesState((aoRes.data ?? []) as AreaMaterialOverride[])
-      setAreaFinishOverridesState((afoRes.data ?? []) as AreaFinishOverride[])
-    } else {
-      setLines([])
-      setAreaOverridesState([])
-      setAreaFinishOverridesState([])
+      for (const response of [lineRes, aoRes, afoRes]) if (response.error) throw new Error(response.error.message)
+      loadedLines = (lineRes.data ?? []) as LineItem[]
+      loadedOverrides = (aoRes.data ?? []) as AreaMaterialOverride[]
+      loadedFinishes = (afoRes.data ?? []) as AreaFinishOverride[]
     }
+    setBid(bidRes.data as Bid)
+    setAreas(areaRows)
+    setLines(loadedLines)
+    setAreaOverridesState(loadedOverrides)
+    setAreaFinishOverridesState(loadedFinishes)
     setBidFinishes((bfRes.data ?? []) as BidFinish[])
     setAssemblies((asmRes.data ?? []) as Assembly[])
     setBom((bomRes.data ?? []) as AssemblyMaterial[])
@@ -115,7 +126,8 @@ export default function Estimate() {
   }
 
   useEffect(() => {
-    void loadAll()
+    setError(null)
+    void loadAll().catch(e => setError(e instanceof Error ? e.message : 'Could not load this estimate.'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -171,68 +183,85 @@ export default function Estimate() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [lines, ctx, materials])
 
-  if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+  if (error && !bid) return <div role="alert"><p>Could not load this estimate: {error}</p><button className="index-secondary" onClick={() => { setError(null); void loadAll().catch(e => setError(String(e))) }}>Retry loading</button></div>
   if (!bid || !pricing) return <p className="text-sm text-slate-500">Loading…</p>
 
   // ---------- mutations (optimistic where cheap) ----------
   async function addArea() {
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
     const { data, error } = await supabase!
       .from('areas')
       .insert({ bid_id: bid!.id, name: `Area ${areas.length + 1}`, sort_order: areas.length })
       .select('*')
       .single()
-    if (error) setError(error.message)
+    if (error) throw new Error(error.message)
     else setAreas((prev) => [...prev, data as Area])
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function patchArea(area: Area, fields: Partial<Area>) {
-    setAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, ...fields } : a)))
-    const { error } = await supabase!.from('areas').update(fields).eq('id', area.id)
-    if (error) setError(error.message)
+    setAreas(prev => prev.map(a => a.id === area.id ? { ...a, ...fields } : a))
+    saves.queue.enqueue('Room changes', async () => { await checkedWrite(supabase!.from('areas').update(fields).eq('id', area.id).select('id').single()) })
   }
-
   async function removeArea(area: Area) {
     setRemovingArea(null)
-    setAreas((prev) => prev.filter((a) => a.id !== area.id))
-    setLines((prev) => prev.filter((l) => l.area_id !== area.id))
-    const { error } = await supabase!.from('areas').delete().eq('id', area.id)
-    if (error) setError(error.message)
+    saves.queue.enqueue('Delete room', async () => {
+      await checkedWrite(supabase!.from('areas').delete().eq('id', area.id))
+      setAreas(prev => prev.filter(a => a.id !== area.id))
+      setLines(prev => prev.filter(l => l.area_id !== area.id))
+    })
   }
-
   async function addLine(area: Area, partial: Partial<LineItem>) {
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
     const { data, error } = await supabase!
       .from('line_items')
       .insert({ area_id: area.id, sort_order: (linesByArea.get(area.id)?.length ?? 0), ...partial })
       .select('*')
       .single()
-    if (error) setError(error.message)
+    if (error) throw new Error(error.message)
     else setLines((prev) => [...prev, data as LineItem])
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function patchLine(line: LineItem, fields: Partial<LineItem>) {
-    setLines((prev) => prev.map((l) => (l.id === line.id ? { ...l, ...fields } : l)))
-    const { error } = await supabase!.from('line_items').update(fields).eq('id', line.id)
-    if (error) setError(error.message)
+    setLines(prev => prev.map(l => l.id === line.id ? { ...l, ...fields } : l))
+    saves.queue.enqueue('Line item changes', async () => { await checkedWrite(supabase!.from('line_items').update(fields).eq('id', line.id).select('id').single()) })
   }
-
   async function removeLine(line: LineItem) {
-    setLines((prev) => prev.filter((l) => l.id !== line.id))
-    const { error } = await supabase!.from('line_items').delete().eq('id', line.id)
-    if (error) setError(error.message)
+    saves.queue.enqueue('Remove line item', async () => {
+      await checkedWrite(supabase!.from('line_items').delete().eq('id', line.id))
+      setLines(prev => prev.filter(l => l.id !== line.id))
+    })
   }
-
   async function assignSlot(slot: string, finishId: string | null) {
+    saves.queue.enqueue('Job finish selection', async () => {
     if (finishId) {
-      await supabase!.from('bid_finishes').upsert({ bid_id: bid!.id, slot, finish_id: finishId })
+      await checkedWrite(supabase!.from('bid_finishes').upsert({ bid_id: bid!.id, slot, finish_id: finishId }))
     } else {
-      await supabase!.from('bid_finishes').delete().eq('bid_id', bid!.id).eq('slot', slot)
+      await checkedWrite(supabase!.from('bid_finishes').delete().eq('bid_id', bid!.id).eq('slot', slot))
     }
-    const { data } = await supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', bid!.id)
+    const { data, error: refreshError } = await supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', bid!.id)
+    if (refreshError) throw new Error(refreshError.message)
     setBidFinishes((data ?? []) as BidFinish[])
+  
+    })
   }
 
   async function duplicateArea(area: Area) {
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
     const { data: newArea, error } = await supabase!
       .from('areas')
       .insert({
@@ -247,79 +276,98 @@ export default function Estimate() {
       })
       .select('*')
       .single()
-    if (error) return setError(error.message)
+    if (error) throw new Error(error.message)
     const source = linesByArea.get(area.id) ?? []
     if (source.length > 0) {
-      await supabase!.from('line_items').insert(
+      await checkedWrite(supabase!.from('line_items').insert(
         source.map(({ id: _id, area_id: _a, ...rest }) => ({ ...rest, area_id: newArea.id })),
-      )
+      ))
     }
     // room-specific hardware + finish picks come along too
     const roomOvr = areaOverrides.filter((o) => o.area_id === area.id)
     if (roomOvr.length > 0) {
-      await supabase!.from('area_material_overrides').insert(
+      await checkedWrite(supabase!.from('area_material_overrides').insert(
         roomOvr.map((o) => ({ area_id: newArea.id, from_material_id: o.from_material_id, to_material_id: o.to_material_id })),
-      )
+      ))
     }
     const roomFin = areaFinishOverrides.filter((o) => o.area_id === area.id)
     if (roomFin.length > 0) {
-      await supabase!.from('area_finish_overrides').insert(
+      await checkedWrite(supabase!.from('area_finish_overrides').insert(
         roomFin.map((o) => ({ area_id: newArea.id, slot: o.slot, finish_id: o.finish_id })),
-      )
+      ))
     }
-    void loadAll()
+    await loadAll()
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function setAreaOverride(areaId: string, fromId: string, toId: string | null) {
+    saves.queue.enqueue('Room hardware selection', async () => {
     if (toId) {
-      await supabase!
+      await checkedWrite(supabase!
         .from('area_material_overrides')
-        .upsert({ area_id: areaId, from_material_id: fromId, to_material_id: toId })
+        .upsert({ area_id: areaId, from_material_id: fromId, to_material_id: toId }))
     } else {
-      await supabase!
+      await checkedWrite(supabase!
         .from('area_material_overrides')
         .delete()
         .eq('area_id', areaId)
-        .eq('from_material_id', fromId)
+        .eq('from_material_id', fromId))
     }
-    const { data } = await supabase!
+    const { data, error: refreshError } = await supabase!
       .from('area_material_overrides')
       .select('*')
       .in('area_id', areas.map((a) => a.id))
+    if (refreshError) throw new Error(refreshError.message)
     setAreaOverridesState((data ?? []) as AreaMaterialOverride[])
+  
+    })
   }
 
   async function setAreaFinishOverride(areaId: string, slot: string, finishId: string | null) {
+    saves.queue.enqueue('Room finish selection', async () => {
     if (finishId) {
-      await supabase!.from('area_finish_overrides').upsert({ area_id: areaId, slot, finish_id: finishId })
+      await checkedWrite(supabase!.from('area_finish_overrides').upsert({ area_id: areaId, slot, finish_id: finishId }))
     } else {
-      await supabase!.from('area_finish_overrides').delete().eq('area_id', areaId).eq('slot', slot)
+      await checkedWrite(supabase!.from('area_finish_overrides').delete().eq('area_id', areaId).eq('slot', slot))
     }
-    const { data } = await supabase!
+    const { data, error: refreshError } = await supabase!
       .from('area_finish_overrides')
       .select('*, finish:finishes(*)')
       .in('area_id', areas.map((a) => a.id))
+    if (refreshError) throw new Error(refreshError.message)
     setAreaFinishOverridesState((data ?? []) as AreaFinishOverride[])
+  
+    })
   }
 
   async function setOverride(fromId: string, toId: string | null) {
+    saves.queue.enqueue('Job hardware selection', async () => {
     if (toId) {
-      await supabase!
+      await checkedWrite(supabase!
         .from('bid_material_overrides')
-        .upsert({ bid_id: bid!.id, from_material_id: fromId, to_material_id: toId })
+        .upsert({ bid_id: bid!.id, from_material_id: fromId, to_material_id: toId }))
     } else {
-      await supabase!
+      await checkedWrite(supabase!
         .from('bid_material_overrides')
         .delete()
         .eq('bid_id', bid!.id)
-        .eq('from_material_id', fromId)
+        .eq('from_material_id', fromId))
     }
-    const { data } = await supabase!.from('bid_material_overrides').select('*').eq('bid_id', bid!.id)
+    const { data, error: refreshError } = await supabase!.from('bid_material_overrides').select('*').eq('bid_id', bid!.id)
+    if (refreshError) throw new Error(refreshError.message)
     setOverrides((data ?? []) as BidMaterialOverride[])
+  
+    })
   }
 
   async function snapshotRevision() {
-    if (!pricing) return
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
+    if (!pricing || saves.queue.getSnapshot().pending > 0 || actionBusy > 0) return
     setSnapshotting(true)
     const revNumber = (revisions[0]?.rev_number ?? 0) + 1
     // Display-ready copy of every line as priced right now — the viewer renders
@@ -432,43 +480,57 @@ export default function Estimate() {
       },
     })
     setSnapshotting(false)
-    if (error) setError(error.message)
+    if (error) throw new Error(error.message)
     else {
-      const { data } = await supabase!
+      const { data, error: refreshError } = await supabase!
         .from('revisions')
         .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
         .eq('bid_id', bid!.id)
         .order('rev_number', { ascending: false })
+      if (refreshError) throw new Error(refreshError.message)
       setRevisions((data ?? []) as Revision[])
     }
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function removeRevision(rev: Revision) {
+    saves.queue.enqueue('Delete revision', async () => {
     setRemovingRevision(null)
     const { error } = await supabase!.from('revisions').delete().eq('id', rev.id)
-    if (error) setError(error.message)
+    if (error) throw new Error(error.message)
     else setRevisions((prev) => prev.filter((r) => r.id !== rev.id))
+  
+    })
   }
 
   // ---------------- change orders ----------------
 
   async function addChangeOrder(title: string) {
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
     const num = (changeOrders[changeOrders.length - 1]?.co_number ?? 0) + 1
     const { data: co, error } = await supabase!
       .from('change_orders')
       .insert({ bid_id: bid!.id, co_number: num, title, created_by: session?.user.email ?? null })
       .select('*')
       .single()
-    if (error) return setError(error.message)
+    if (error) throw new Error(error.message)
     // the CO's scope lives in its own area; draft COs price like options (excluded, all-in delta)
-    await supabase!.from('areas').insert({
+    await checkedWrite(supabase!.from('areas').insert({
       bid_id: bid!.id,
       name: `CO #${num} — ${title}`,
       is_alternate: true,
       change_order_id: co.id,
       sort_order: areas.length,
-    })
-    void loadAll()
+    }))
+    await loadAll()
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   function coDelta(co: ChangeOrder): number {
@@ -481,63 +543,81 @@ export default function Estimate() {
   }
 
   async function setCoAdjustment(co: ChangeOrder, price_adjustment: number) {
-    setChangeOrders((prev) => prev.map((c) => (c.id === co.id ? { ...c, price_adjustment } : c)))
-    await supabase!.from('change_orders').update({ price_adjustment }).eq('id', co.id)
+    setChangeOrders(prev => prev.map(c => c.id === co.id ? { ...c, price_adjustment } : c))
+    saves.queue.enqueue('Change order adjustment', async () => { await checkedWrite(supabase!.from('change_orders').update({ price_adjustment }).eq('id', co.id).select('id').single()) })
   }
-
   async function approveCo(co: ChangeOrder) {
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
     setApprovingCo(null)
     if (!pricing) return
     const amount = coDelta(co)
-    await supabase!
+    await checkedWrite(supabase!
       .from('change_orders')
       .update({ status: 'approved', amount, prior_contract: pricing.contractAmount, approved_at: new Date().toISOString() })
-      .eq('id', co.id)
+      .eq('id', co.id))
     for (const a of areas.filter((x) => x.change_order_id === co.id)) {
-      await supabase!.from('areas').update({ is_alternate: false }).eq('id', a.id)
+      await checkedWrite(supabase!.from('areas').update({ is_alternate: false }).eq('id', a.id))
     }
     // the CO's own price adjustment enters the contract through the bid-level adjustment
     const coAdj = Number(co.price_adjustment ?? 0)
     if (coAdj !== 0) {
       const price_adjustment = Number(bid!.price_adjustment ?? 0) + coAdj
-      await supabase!.from('bids').update({ price_adjustment }).eq('id', bid!.id)
+      await checkedWrite(supabase!.from('bids').update({ price_adjustment }).eq('id', bid!.id))
     }
-    void loadAll()
+    await loadAll()
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function reopenCo(co: ChangeOrder) {
-    await supabase!
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
+    await checkedWrite(supabase!
       .from('change_orders')
       .update({ status: 'draft', amount: null, prior_contract: null, approved_at: null })
-      .eq('id', co.id)
+      .eq('id', co.id))
     for (const a of areas.filter((x) => x.change_order_id === co.id)) {
-      await supabase!.from('areas').update({ is_alternate: true }).eq('id', a.id)
+      await checkedWrite(supabase!.from('areas').update({ is_alternate: true }).eq('id', a.id))
     }
     // pull its price adjustment back out of the contract
     const coAdj = Number(co.price_adjustment ?? 0)
     if (coAdj !== 0) {
       const price_adjustment = Number(bid!.price_adjustment ?? 0) - coAdj
-      await supabase!.from('bids').update({ price_adjustment }).eq('id', bid!.id)
+      await checkedWrite(supabase!.from('bids').update({ price_adjustment }).eq('id', bid!.id))
     }
-    void loadAll()
+    await loadAll()
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function removeCo(co: ChangeOrder) {
+    if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
+    setActionBusy(n => n + 1)
+    setError(null)
+    try {
     setRemovingCo(null)
     for (const a of areas.filter((x) => x.change_order_id === co.id)) {
-      await supabase!.from('areas').delete().eq('id', a.id)
+      await checkedWrite(supabase!.from('areas').delete().eq('id', a.id))
     }
-    await supabase!.from('change_orders').delete().eq('id', co.id)
-    void loadAll()
+    await checkedWrite(supabase!.from('change_orders').delete().eq('id', co.id))
+    await loadAll()
+  
+    } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
+    finally { setActionBusy(n => n - 1); setSnapshotting(false) }
   }
 
   async function toggleAdder(key: keyof BidAdders) {
     const adders = { ...bid!.adders, [key]: !bid!.adders[key] }
-    setBid((b) => (b ? { ...b, adders } : b))
-    const { error } = await supabase!.from('bids').update({ adders }).eq('id', bid!.id)
-    if (error) setError(error.message)
+    setBid(b => b ? { ...b, adders } : b)
+    saves.queue.enqueue('Added costs', async () => { await checkedWrite(supabase!.from('bids').update({ adders }).eq('id', bid!.id).select('id').single()) })
   }
-
   // one line per distinct message; stale ones remember which library row to re-stamp
   const uniqueWarnings = [...new Map(pricing.warnings.map((w) => [w.message, w])).values()]
 
@@ -555,10 +635,10 @@ export default function Estimate() {
   )
 
   return (
-    <div className="space-y-5 pb-40">
+    <div className="zaid-page zaid-estimate space-y-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Link to={`/bids/${bid.id}`} className="-my-2 shrink-0 py-2 text-sm text-slate-500 hover:text-slate-900">
-          ← {bid.job_number}
+          <UiIcon name="left" /> {bid.job_number}
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — estimate
@@ -566,17 +646,21 @@ export default function Estimate() {
         {!canEdit && <ViewOnlyBanner />}
         <Link
           to={`/bids/${bid.id}/math`}
-          className="-my-1 shrink-0 whitespace-nowrap rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800 hover:bg-blue-100 sm:py-1 sm:-my-0"
+          className="index-secondary estimate-math-link shrink-0 whitespace-nowrap"
           title="See every calculation behind these numbers"
         >
           Show the math
         </Link>
+        {canEdit && <button onClick={() => void snapshotRevision()} disabled={snapshotting || saves.pending > 0 || actionBusy > 0} className="index-primary">{snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}</button>}
       </div>
 
+      <SaveFeedback state={saves} retry={saves.queue.retry} />
+      {actionBusy > 0 && <p role="status">Saving your action…</p>}
+      {error && <div className="save-feedback save-failed" role="alert"><div><strong>This action could not be completed.</strong><p>The workspace is still available. Check the action before trying it again.</p><details><summary>Error details</summary>{error}</details></div><button className="index-secondary" onClick={() => setError(null)}>Dismiss message</button></div>}
       {uniqueWarnings.length > 0 && (
         <details className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           <summary className="cursor-pointer font-semibold">
-            ⚠︎ {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
+            <UiIcon name="warning" /> {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
           </summary>
           {isAdmin && uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).length > 1 && (
             <button
@@ -586,12 +670,12 @@ export default function Estimate() {
                 void Promise.all(refs.map((r) => confirmPrice(r.table, r.id))).then((errs) => {
                   const e = errs.find(Boolean)
                   if (e) setError(e)
-                  else void loadAll()
+                  else void loadAll().catch(e => setError(e instanceof Error ? e.message : 'Could not refresh the estimate.'))
                 })
               }}
               className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-800 hover:bg-emerald-100"
             >
-              ✓ all of these prices are still good
+              <UiIcon name="check" /> all of these prices are still good
             </button>
           )}
           <ul className="mt-2 list-disc pl-5 space-y-0.5">
@@ -600,7 +684,7 @@ export default function Estimate() {
                 <span>{w.message}</span>
                 {isAdmin && w.kind === 'stale' && w.ref && (
                   <StillGoodButton
-                    onClick={() => void confirmPrice(w.ref!.table, w.ref!.id).then((e) => { if (e) setError(e); else void loadAll() })}
+                    onClick={() => void confirmPrice(w.ref!.table, w.ref!.id).then((e) => { if (e) setError(e); else void loadAll().catch(e => setError(e instanceof Error ? e.message : 'Could not refresh the estimate.')) })}
                   />
                 )}
               </li>
@@ -609,7 +693,52 @@ export default function Estimate() {
         </details>
       )}
 
-      {/* Finish slots + job hardware */}
+      <nav className="estimate-section-tabs index-tabs" aria-label="Estimate sections">
+{([['takeoff', 'Estimate'], ['finishes', 'Finishes & hardware'], ['costs', 'Added costs'], ['changes', 'Change orders'], ['revisions', 'Revisions']] as const).map(([key, label]) => <button key={key} aria-pressed={estimateSection === key} onClick={() => setEstimateSection(key)}>{label}{key === 'revisions' && <span>{revisions.length}</span>}</button>)}
+</nav>
+<label className="mobile-estimate-section">Section<select value={estimateSection} onChange={event => setEstimateSection(event.target.value)}><option value="takeoff">Estimate</option><option value="finishes">Finishes &amp; hardware</option><option value="costs">Added costs</option><option value="changes">Change orders</option><option value="revisions">Revisions ({revisions.length})</option></select></label>
+<div aria-busy={actionBusy > 0} inert={actionBusy > 0} className={`estimate-workspace ${estimateSection !== 'takeoff' ? 'estimate-workspace-wide' : ''}`}>
+<nav className="estimate-area-nav" aria-label="Estimate areas" hidden={estimateSection !== 'takeoff'}><h2>Areas</h2>
+{areas.map(area => <button key={area.id} aria-pressed={area.id === (areas.some(a => a.id === selectedAreaId) ? selectedAreaId : areas[0]?.id)} onClick={() => setSelectedAreaId(area.id)}><span>{area.name}<small>{area.sheet_ref && `${area.sheet_ref} · `}{area.change_order_id ? `CO #${coNumberByAreaId.get(area.id) ?? '—'} · ${area.is_alternate ? 'Draft' : 'Approved'}` : area.is_alternate ? 'Option · priced separately' : 'Base scope'}</small></span><span>{linesByArea.get(area.id)?.length ?? 0}</span></button>)}
+</nav>
+<div className="estimate-workspace-body">
+<div hidden={estimateSection !== 'takeoff'} className="estimate-section-content">      {/* Areas */}
+      {areas.map((area) => (
+        <div key={area.id} hidden={area.id !== (areas.some(a => a.id === selectedAreaId) ? selectedAreaId : areas[0]?.id)} className="takeoff-area">
+        <AreaCard
+          key={area.id}
+          area={area}
+          lines={linesByArea.get(area.id) ?? []}
+          assemblies={assemblies}
+          ctx={ctx}
+          areaTotal={pricing.areaTotals.get(area.id)?.price ?? 0}
+          optionAllIn={area.is_alternate ? pricing.alternateAllIn.get(area.id) ?? null : null}
+          coNumber={coNumberByAreaId.get(area.id) ?? null}
+          onPatch={(f) => void patchArea(area, f)}
+          onRemove={() => setRemovingArea(area)}
+          onDuplicate={() => void duplicateArea(area)}
+          onAddLine={(partial) => void addLine(area, partial)}
+          onPatchLine={(l, f) => void patchLine(l, f)}
+          onRemoveLine={(l) => void removeLine(l)}
+          onSetAreaOverride={(from, to) => void setAreaOverride(area.id, from, to)}
+          onSetAreaFinish={(slot, fin) => void setAreaFinishOverride(area.id, slot, fin)}
+          allMaterials={materials}
+          allFinishes={finishes}
+        />
+        </div>
+      ))}
+
+      {canEdit && (
+        <button
+          onClick={() => void addArea()}
+          className="w-full rounded-lg border-2 border-dashed border-slate-400 bg-white px-4 py-3 text-sm font-medium text-slate-500 hover:border-slate-800 hover:text-slate-900"
+        >
+          + Add area (room)
+        </button>
+      )}
+
+</div>
+<div hidden={estimateSection !== 'finishes'} className="estimate-section-content">      {/* Finish slots + job hardware */}
       {(usedSlots.size > 0 || usedHardware.length > 0) && (
         <section className="rounded-lg border-2 border-slate-800 bg-white p-4">
           <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
@@ -678,40 +807,59 @@ export default function Estimate() {
       {/* Job material swaps */}
       <MaterialSwaps materials={materials} overrides={overrides} onSet={(f, t) => void setOverride(f, t)} />
 
-      {/* Areas */}
-      {areas.map((area) => (
-        <AreaCard
-          key={area.id}
-          area={area}
-          lines={linesByArea.get(area.id) ?? []}
-          assemblies={assemblies}
-          ctx={ctx}
-          areaTotal={pricing.areaTotals.get(area.id)?.price ?? 0}
-          optionAllIn={area.is_alternate ? pricing.alternateAllIn.get(area.id) ?? null : null}
-          coNumber={coNumberByAreaId.get(area.id) ?? null}
-          onPatch={(f) => void patchArea(area, f)}
-          onRemove={() => setRemovingArea(area)}
-          onDuplicate={() => void duplicateArea(area)}
-          onAddLine={(partial) => void addLine(area, partial)}
-          onPatchLine={(l, f) => void patchLine(l, f)}
-          onRemoveLine={(l) => void removeLine(l)}
-          onSetAreaOverride={(from, to) => void setAreaOverride(area.id, from, to)}
-          onSetAreaFinish={(slot, fin) => void setAreaFinishOverride(area.id, slot, fin)}
-          allMaterials={materials}
-          allFinishes={finishes}
-        />
-      ))}
+</div>
+<div hidden={estimateSection !== 'costs'} className="estimate-section-content">      {/* Adders */}
+      <section className="rounded-lg border-2 border-slate-800 bg-white">
+        <h2 className="border-b-2 border-slate-800 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-slate-500">
+          Added costs — {pricing.costBreakdown.shopHours.toFixed(1)} shop hrs
+          {Number(bid.labor_heads ?? 0) > 0 && (
+            <> ({(pricing.costBreakdown.shopHours / Number(bid.labor_heads)).toFixed(1)}/person)</>
+          )}{' '}
+          · {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
+          {Number(bid.distance_miles ?? 0)} mi
+        </h2>
+        {pricing.adders.map((a) => (
+          <div key={a.key} className="flex items-center gap-3 border-t border-slate-100 px-4 py-2 first:border-t-0">
+            <button
+              onClick={() => void toggleAdder(a.key)}
+              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${a.enabled ? 'bg-slate-900' : 'bg-slate-300'}`}
+              title={a.enabled ? 'Included — tap to exclude' : 'Excluded — tap to include'}
+            >
+              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${a.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            <span className={`flex-1 text-sm ${a.enabled ? '' : 'text-slate-400 line-through'}`}>{a.label}</span>
+            <span className={`tabular-nums text-sm ${a.enabled ? '' : 'text-slate-400'}`}>{fmtMoney(a.price)}</span>
+          </div>
+        ))}
+        {canEdit && (
+          <HiddenAdjRow
+            amount={Number(bid.hidden_adjustment ?? 0)}
+            onSave={(hidden_adjustment) => {
+              setBid((b) => (b ? { ...b, hidden_adjustment } : b))
+              saves.queue.enqueue('Baked-in adjustment', async () => { await checkedWrite(supabase!.from('bids').update({ hidden_adjustment }).eq('id', bid.id).select('id').single()) })
+            }}
+          />
+        )}
+        {canEdit && (
+          <AdjustmentRow
+            amount={Number(bid.price_adjustment ?? 0)}
+            note={bid.adjustment_note}
+            visible={bid.adjustment_visible}
+            onSave={(price_adjustment, adjustment_note) => {
+              setBid((b) => (b ? { ...b, price_adjustment, adjustment_note } : b))
+              saves.queue.enqueue('Bid adjustment', async () => { await checkedWrite(supabase!.from('bids').update({ price_adjustment, adjustment_note }).eq('id', bid.id).select('id').single()) })
+            }}
+            onToggleVisible={() => {
+              const adjustment_visible = !bid.adjustment_visible
+              setBid((b) => (b ? { ...b, adjustment_visible } : b))
+              saves.queue.enqueue('Adjustment visibility', async () => { await checkedWrite(supabase!.from('bids').update({ adjustment_visible }).eq('id', bid.id).select('id').single()) })
+            }}
+          />
+        )}
+      </section>
 
-      {canEdit && (
-        <button
-          onClick={() => void addArea()}
-          className="w-full rounded-lg border-2 border-dashed border-slate-400 bg-white px-4 py-3 text-sm font-medium text-slate-500 hover:border-slate-800 hover:text-slate-900"
-        >
-          + Add area (room)
-        </button>
-      )}
-
-      {/* Change orders */}
+</div>
+<div hidden={estimateSection !== 'changes'} className="estimate-section-content">      {/* Change orders */}
       {(changeOrders.length > 0 || canEdit) && (
         <section className="rounded-lg border-2 border-amber-600 bg-white">
           <h2 className="border-b-2 border-amber-600 bg-amber-50 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-amber-800">
@@ -733,7 +881,7 @@ export default function Estimate() {
                       : 'border-amber-400 bg-amber-50 text-amber-800'
                   }`}
                 >
-                  {co.status === 'approved' ? 'approved ✓' : 'draft'}
+                  {co.status === 'approved' ? <>approved <UiIcon name="check" /></> : 'draft'}
                 </span>
                 {canEdit && co.status === 'draft' && (
                   <CoAdjInput value={Number(co.price_adjustment ?? 0)} onSave={(v) => void setCoAdjustment(co, v)} />
@@ -746,7 +894,7 @@ export default function Estimate() {
                   to={`/bids/${bid.id}/co/${co.id}`}
                   className="rounded-md border-2 border-slate-900 px-2.5 py-0.5 text-xs font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
                 >
-                  CO doc →
+                  CO doc <UiIcon name="right" />
                 </Link>
                 {canEdit && co.status === 'draft' && (
                   <>
@@ -785,69 +933,8 @@ export default function Estimate() {
         </section>
       )}
 
-      {/* Adders */}
-      <section className="rounded-lg border-2 border-slate-800 bg-white">
-        <h2 className="border-b-2 border-slate-800 px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-          Added costs — {pricing.costBreakdown.shopHours.toFixed(1)} shop hrs
-          {Number(bid.labor_heads ?? 0) > 0 && (
-            <> ({(pricing.costBreakdown.shopHours / Number(bid.labor_heads)).toFixed(1)}/person)</>
-          )}{' '}
-          · {pricing.installHours.toFixed(1)} install hrs · {Math.round(pricing.lfTotal)} LF ·{' '}
-          {Number(bid.distance_miles ?? 0)} mi
-        </h2>
-        {pricing.adders.map((a) => (
-          <div key={a.key} className="flex items-center gap-3 border-t border-slate-100 px-4 py-2 first:border-t-0">
-            <button
-              onClick={() => void toggleAdder(a.key)}
-              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${a.enabled ? 'bg-slate-900' : 'bg-slate-300'}`}
-              title={a.enabled ? 'Included — tap to exclude' : 'Excluded — tap to include'}
-            >
-              <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${a.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </button>
-            <span className={`flex-1 text-sm ${a.enabled ? '' : 'text-slate-400 line-through'}`}>{a.label}</span>
-            <span className={`tabular-nums text-sm ${a.enabled ? '' : 'text-slate-400'}`}>{fmtMoney(a.price)}</span>
-          </div>
-        ))}
-        {canEdit && (
-          <HiddenAdjRow
-            amount={Number(bid.hidden_adjustment ?? 0)}
-            onSave={(hidden_adjustment) => {
-              setBid((b) => (b ? { ...b, hidden_adjustment } : b))
-              void supabase!
-                .from('bids')
-                .update({ hidden_adjustment })
-                .eq('id', bid.id)
-                .then(({ error }) => {
-                  if (error) setError(`Baked-in adjustment did not save: ${error.message}`)
-                })
-            }}
-          />
-        )}
-        {canEdit && (
-          <AdjustmentRow
-            amount={Number(bid.price_adjustment ?? 0)}
-            note={bid.adjustment_note}
-            visible={bid.adjustment_visible}
-            onSave={(price_adjustment, adjustment_note) => {
-              setBid((b) => (b ? { ...b, price_adjustment, adjustment_note } : b))
-              void supabase!
-                .from('bids')
-                .update({ price_adjustment, adjustment_note })
-                .eq('id', bid.id)
-                .then(({ error }) => {
-                  if (error) setError(`Adjustment did not save: ${error.message}`)
-                })
-            }}
-            onToggleVisible={() => {
-              const adjustment_visible = !bid.adjustment_visible
-              setBid((b) => (b ? { ...b, adjustment_visible } : b))
-              void supabase!.from('bids').update({ adjustment_visible }).eq('id', bid.id)
-            }}
-          />
-        )}
-      </section>
-
-      {/* Revisions */}
+</div>
+<div hidden={estimateSection !== 'revisions'} className="estimate-section-content">      {/* Revisions */}
       <section className="rounded-lg border-2 border-slate-800 bg-white">
         <div className="flex items-center border-b-2 border-slate-800 px-4 py-2.5">
           <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
@@ -856,7 +943,7 @@ export default function Estimate() {
           {canEdit && (
             <button
               onClick={() => void snapshotRevision()}
-              disabled={snapshotting}
+              disabled={snapshotting || saves.pending > 0 || actionBusy > 0}
               className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
             >
               {snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}
@@ -894,7 +981,7 @@ export default function Estimate() {
                   className="-my-2 -mr-2 inline-flex h-10 w-10 items-center justify-center text-lg leading-none text-slate-300 hover:text-red-600 sm:my-0 sm:mr-0 sm:h-auto sm:w-auto sm:text-base"
                   title="Delete this snapshot"
                 >
-                  ×
+                  <UiIcon name="close" />
                 </button>
               )}
             </Link>
@@ -902,9 +989,11 @@ export default function Estimate() {
         )}
       </section>
 
-      {/* Pinned title-block totals bar (sits above the phone tab bar) */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-slate-800 bg-white">
-        <div className="mx-auto flex max-w-6xl items-stretch divide-x-2 divide-slate-800 overflow-x-auto border-x-2 border-slate-800 font-mono">
+</div>
+</div>      {/* Pinned title-block totals bar (sits above the phone tab bar) */}
+      <div className="estimate-summary-panel">
+        <h2>Bid summary</h2>
+        <div className="estimate-summary-lines">
           <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
           <TotalCell label="Added costs" value={fmtMoney(pricing.addersTotal)} />
           {pricing.adjustment !== 0 && (
@@ -946,6 +1035,8 @@ export default function Estimate() {
           )}
         </div>
       </div>
+
+</div>
 
       {removingArea && (
         <ConfirmDialog
@@ -1250,7 +1341,7 @@ function MaterialSwaps({
             <span className="rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs">
               {byId.get(o.from_material_id)?.name ?? '?'}
             </span>
-            <span className="text-slate-400">→</span>
+            <span className="text-slate-400"><UiIcon name="right" /></span>
             <select
               value={o.to_material_id}
               onChange={(e) => onSet(o.from_material_id, e.target.value)}
@@ -1279,7 +1370,7 @@ function MaterialSwaps({
             </select>
             {fromId && (
               <>
-                <span className="text-slate-400">→</span>
+                <span className="text-slate-400"><UiIcon name="right" /></span>
                 <select
                   defaultValue=""
                   onChange={(e) => {
@@ -1440,7 +1531,7 @@ function AreaCard({
               ? 'Draft change order — joins the contract when the CO is approved'
               : 'Approved change order — counted in the contract'}
           >
-            CO #{coNumber}{area.is_alternate ? '' : ' ✓'}
+            CO #{coNumber}{!area.is_alternate && <UiIcon name="check" />}
           </span>
         ) : (
           <button
@@ -1454,7 +1545,7 @@ function AreaCard({
           >
             {area.is_alternate ? (
               <>
-                <span className="sm:hidden">Option ✓</span>
+                <span className="sm:hidden">Option <UiIcon name="check" /></span>
                 <span className="hidden sm:inline">Option — not in base bid</span>
               </>
             ) : (
@@ -1479,20 +1570,21 @@ function AreaCard({
           className="-my-1 inline-flex h-10 w-10 items-center justify-center text-lg leading-none text-slate-400 hover:text-slate-900 sm:my-0 sm:h-auto sm:w-auto sm:text-base"
           title="Duplicate this area with all its lines"
         >
-          ⧉
+          <UiIcon name="copy" />
         </button>
         <button
           onClick={onRemove}
           className="-my-1 inline-flex h-10 w-10 items-center justify-center text-lg leading-none text-slate-300 hover:text-red-600 sm:my-0 sm:h-auto sm:w-auto sm:text-base"
           title="Delete area"
         >
-          ×
+          <UiIcon name="close" />
         </button>
       </div>
 
       {lines.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="estimate-items-table w-full text-sm">
+            <thead><tr><th scope="col" className="px-3 text-left sm:px-4">Assembly / item</th><th scope="col" className="px-1 text-right">Qty</th><th scope="col" className="px-1 text-center">Unit</th><th scope="col" className="hidden px-2 text-right sm:table-cell">Unit price</th><th scope="col" className="px-1 text-right sm:px-2">Total</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {lines.map((line) => (
                 <LineRow
@@ -1629,7 +1721,7 @@ function AreaCard({
                 }`}
                 title="Laminate / solid surface for just this room — the rest of the job keeps the pick from the panel above"
               >
-                Finishes{roomFinishCount > 0 ? ` (${roomFinishCount} custom)` : ''} {finishesOpen ? '▴' : '▾'}
+                Finishes{roomFinishCount > 0 ? ` (${roomFinishCount} custom)` : ''} <UiIcon name={finishesOpen ? 'up' : 'down'} />
               </button>
             )}
             {roomHardware.length > 0 && (
@@ -1641,7 +1733,7 @@ function AreaCard({
                     : 'border-slate-300 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                Hardware{roomSwapCount > 0 ? ` (${roomSwapCount} custom)` : ''} {hardwareOpen ? '▴' : '▾'}
+                Hardware{roomSwapCount > 0 ? ` (${roomSwapCount} custom)` : ''} <UiIcon name={hardwareOpen ? 'up' : 'down'} />
               </button>
             )}
             <button
@@ -1653,7 +1745,7 @@ function AreaCard({
               }`}
               title="Inclusions and exclusions for just this room — printed on its proposal block"
             >
-              In/Exclusions{area.inclusions || area.exclusions ? ' ✓' : ''} {notesOpen ? '▴' : '▾'}
+              In/Exclusions{(area.inclusions || area.exclusions) && <UiIcon name="check" />} <UiIcon name={notesOpen ? 'up' : 'down'} />
             </button>
             <button
               onClick={() => onAddLine({ kind: 'manual', name: 'One-off item', quantity: 1 })}
@@ -1790,6 +1882,7 @@ function LineRow({
           </span>
         ) : (
           <input
+            aria-label={`Item name in ${area.name}`}
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={() => nameDraft !== line.name && onPatch({ name: nameDraft })}
@@ -1803,7 +1896,7 @@ function LineRow({
             className="-my-2 ml-0.5 px-2 py-2 align-middle text-amber-500"
             title={p.warnings.map((w) => w.message).join('\n')}
           >
-            ⚠︎
+            <UiIcon name="warning" />
           </button>
         )}
         {showWarn && p.warnings.length > 0 && (
@@ -1816,6 +1909,7 @@ function LineRow({
           <div className="mt-1 sm:hidden">
             <input
               type="number" step="any" min="0"
+              aria-label={`Unit price for ${assembly?.name ?? line.name ?? 'line item'} in ${area.name}`}
               value={priceDraft}
               onChange={(e) => setPriceDraft(e.target.value)}
               onBlur={() => onPatch({ unit_price: priceDraft === '' ? null : Number(priceDraft) })}
@@ -1825,15 +1919,18 @@ function LineRow({
           </div>
         )}
       </td>
-      <td className="w-[7.25rem] px-1 py-1.5 text-right whitespace-nowrap sm:w-36 sm:px-2">
+      <td className="w-20 px-1 py-1.5 text-right whitespace-nowrap sm:w-24 sm:px-2">
         <input
           type="number" step="any" min="0"
+          aria-label={`Quantity for ${assembly?.name ?? line.name ?? 'line item'} in ${area.name}`}
           value={qtyDraft}
           onChange={(e) => setQtyDraft(e.target.value)}
           onBlur={commitQty}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="w-16 rounded border border-slate-200 px-1.5 py-1 text-right text-base tabular-nums focus:border-slate-800 focus:outline-none sm:w-20 sm:text-sm"
         />
+      </td>
+      <td className="w-12 px-1 py-1.5 text-center">
         {canUseFeet ? (
           <button
             onClick={() => {
@@ -1871,6 +1968,7 @@ function LineRow({
         ) : (
           <input
             type="number" step="any" min="0"
+            aria-label={`Unit price for ${assembly?.name ?? line.name ?? 'line item'} in ${area.name}`}
             value={priceDraft}
             onChange={(e) => setPriceDraft(e.target.value)}
             onBlur={() => onPatch({ unit_price: priceDraft === '' ? null : Number(priceDraft) })}
@@ -1892,9 +1990,10 @@ function LineRow({
       <td className="w-10 px-0 py-0 text-right sm:w-8 sm:px-3 sm:py-1.5">
         <button
           onClick={onRemove}
+          aria-label="Remove line item"
           className="inline-flex h-10 w-9 items-center justify-center text-lg leading-none text-slate-300 hover:text-red-600 sm:h-auto sm:w-auto sm:text-sm"
         >
-          ×
+          <UiIcon name="close" />
         </button>
       </td>
     </tr>

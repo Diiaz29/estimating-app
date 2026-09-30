@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { LOGO_URL } from '../lib/branding'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [logoOk, setLogoOk] = useState(true)
+  const [dark] = useState(() => localStorage.getItem('theme') === 'dark')
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -19,18 +22,20 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="rounded-xl border-2 border-slate-800 bg-white shadow-[4px_4px_0_0_rgba(15,23,42,0.15)]">
-          <div className="border-b-2 border-slate-800 px-6 py-4">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
-              SpotOnBid
-            </div>
+    <div className={`zaid-login zaid-app min-h-screen flex items-center justify-center p-6 ${dark ? 'dark' : ''}`}>
+      <div className="login-content w-full">
+        <div className="login-brand">
+          {logoOk && LOGO_URL ? (
+            <img src={LOGO_URL} alt="ZAID Millwork" onError={() => setLogoOk(false)} />
+          ) : <span>ZAID Millwork</span>}
+        </div>
+        <div className="login-card rounded-xl border bg-white">
+          <div className="login-heading">
             <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <label className="block">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Email</span>
+              <span className="login-label">Email</span>
               <input
                 type="email"
                 required
@@ -41,7 +46,7 @@ export default function Login() {
               />
             </label>
             <label className="block">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Password</span>
+              <span className="login-label">Password</span>
               <input
                 type="password"
                 required

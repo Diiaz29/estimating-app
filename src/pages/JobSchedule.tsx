@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -161,10 +162,10 @@ export default function JobSchedule() {
   const doneCount = tasks.filter((t) => t.done).length
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="zaid-page zaid-jobschedule max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← {bid.job_number}
+          <UiIcon name="left" /> {bid.job_number}
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — schedule

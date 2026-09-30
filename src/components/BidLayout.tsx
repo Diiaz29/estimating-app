@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useParams } from 'react-router-dom'
+import { NavLink, Outlet, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
 /** Left sidebar shared by every screen of one bid/job, so you can hop between them. */
@@ -6,6 +6,7 @@ export default function BidLayout() {
   const { id } = useParams<{ id: string }>()
   const { isAdmin, isOffice } = useAuth()
   const base = `/bids/${id}`
+  const { pathname } = useLocation()
 
   // office sets up bids and handles paperwork — no estimating, ordering, or scheduling tabs
   const tabs = [
@@ -20,8 +21,8 @@ export default function BidLayout() {
   ]
 
   return (
-    <div className="flex flex-col gap-5 sm:flex-row print:block">
-      <nav className="shrink-0 sm:w-36 print:hidden">
+    <div className="zaid-bid-layout flex flex-col gap-5 sm:flex-row print:block">
+      <nav aria-label="Project pages" className="zaid-bid-nav shrink-0 sm:w-36 print:hidden">
         <div className="flex gap-1 overflow-x-auto sm:sticky sm:top-16 sm:flex-col">
           {tabs.map((t) => (
             <NavLink
@@ -39,8 +40,9 @@ export default function BidLayout() {
           ))}
         </div>
       </nav>
+      <details className="bid-mobile-pages"><summary>Project pages · {tabs.find(t => t.end ? pathname === t.to : pathname.startsWith(t.to))?.label ?? 'Project'}</summary><nav aria-label="Mobile project pages">{tabs.map(t => <NavLink key={t.to} to={t.to} end={t.end} onClick={event => event.currentTarget.closest('details')?.removeAttribute('open')}>{t.label}</NavLink>)}</nav></details>
       <div className="min-w-0 flex-1">
-        <Outlet />
+        <Outlet key={id} />
       </div>
     </div>
   )

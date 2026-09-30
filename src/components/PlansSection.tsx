@@ -1,3 +1,4 @@
+import UiIcon from './UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -85,7 +86,7 @@ export default function PlansSection({ bidId, kind = 'plan' }: { bidId: string; 
             to={`/bids/${bidId}/plans/room`}
             className="ml-auto rounded-md border-2 border-slate-900 px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-900 hover:text-white"
           >
-            Open plan room →
+            Open plan room <UiIcon name="right" />
           </Link>
         )}
       </div>

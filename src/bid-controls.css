@@ -1,0 +1,124 @@
+/* Consistent screen controls across bid tabs; document and print styles stay independent. */
+@media screen {
+  .zaid-app .zaid-bid-layout {
+    --bid-control-height:42px;
+    --bid-control-gap:16px;
+  }
+
+  /* Small metadata stays subordinate, but never shrinks below readable caption size. */
+  .zaid-app .zaid-bid-layout :is(.text-xs,[class*='text-[']):not(h1,h2,h3,.light-doc,.light-doc *) {
+    font-size:12px;
+    line-height:1.5;
+    letter-spacing:0;
+  }
+  .zaid-app .zaid-bid-layout label.block > span.font-mono:not(.light-doc *) {
+    display:block;
+    margin-bottom:6px;
+    font-size:13px;
+    line-height:20px;
+    letter-spacing:0;
+  }
+  .zaid-app .zaid-bid-layout .input:not(textarea,.light-doc *) {
+    min-height:var(--bid-control-height);
+    padding:9px 12px;
+    font-size:14px;
+    line-height:22px;
+  }
+  .zaid-app .zaid-bid-layout textarea.input:not(.light-doc *) {
+    padding:10px 12px;
+    font-size:14px;
+    line-height:1.5;
+  }
+  .zaid-app .zaid-bid-layout label.block > .input:not(.light-doc *) { margin-top:0; }
+  .zaid-app .zaid-bid-layout :is(button,a,label).rounded-md:not(.zaid-bid-nav *, .light-doc *) {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:var(--bid-control-height);
+    padding:9px 14px;
+    font-size:14px;
+    line-height:22px;
+  }
+  .zaid-app .zaid-bid-layout :is(button,a).rounded:not(.light-doc *) {
+    min-height:36px;
+    padding:6px 10px;
+    font-size:13px;
+    line-height:20px;
+  }
+  .zaid-app .zaid-bid-layout table:not(.light-doc *) { font-size:14px; }
+  .zaid-app .zaid-bid-layout table th:not(.light-doc *) { font-size:13px; line-height:20px; }
+  .zaid-app .zaid-bid-layout table :is(input,select):not([type='checkbox'],[type='radio'],.light-doc *) {
+    min-height:36px;
+    padding:6px 8px;
+    font-size:14px;
+    line-height:22px;
+  }
+  .zaid-app .zaid-bid-layout input:is([type='checkbox'],[type='radio']):not(.light-doc *) {
+    width:20px;
+    height:20px;
+    flex:none;
+    vertical-align:middle;
+  }
+  .zaid-app .zaid-bid-layout .grid:is(.gap-2,.gap-3,.gap-4):not(.light-doc *) { gap:16px; }
+  .zaid-app .zaid-bid-layout .zaid-page > section + section { margin-top:28px; }
+  .zaid-app .zaid-biddetail > .grid { gap:20px 24px; }
+  .zaid-app .zaid-biddetail label.block > button { width:100%; }
+  .zaid-app .zaid-biddetail > div:has(> .flex > .inline-flex) > div:first-child {
+    font-size:13px;
+    margin-bottom:8px;
+  }
+  .zaid-app .zaid-bid-layout .takeoff-area > section > div:first-child { gap:12px; }
+  .zaid-app .zaid-bid-layout .takeoff-area > section > div:first-child label { gap:8px; font-size:13px; }
+  .zaid-app .zaid-bid-layout .takeoff-area > section > div:first-child label input {
+    min-height:36px;
+    padding:6px 8px;
+    font-size:14px;
+  }
+  .zaid-app .zaid-bid-layout .takeoff-area > section > div:first-child button.rounded-full {
+    min-height:36px;
+    font-size:13px;
+    padding:6px 10px;
+  }
+  .zaid-app .zaid-bid-layout .takeoff-area > section > div:last-child.flex { gap:12px; }
+  .zaid-app .zaid-bid-layout .estimate-section-content > section > h2:first-child { padding:16px 20px; }
+  .zaid-app .zaid-bid-layout .estimate-section-content > section > .flex { gap:16px; padding:12px 20px; }
+  .zaid-app .zaid-bid-layout .estimate-section-content > section > .flex input:not([type='checkbox'],[type='radio']) {
+    min-height:42px;
+    padding:9px 12px;
+    font-size:14px;
+    line-height:22px;
+  }
+  .zaid-app .zaid-bid-layout .estimate-summary-lines > div > span:first-child { font-size:13px; }
+  .zaid-app .zaid-bid-layout .zaid-proposal > .flex:first-child { gap:16px; }
+  .zaid-app .zaid-bid-layout .zaid-plans > label { max-width:400px; }
+  .zaid-app .zaid-bid-layout :is(.zaid-jobschedule,.zaid-plans,.zaid-actuals) { max-width:none; }
+  .zaid-app .zaid-bid-layout :is(.zaid-jobschedule,.zaid-plans,.zaid-actuals) h1 {
+    white-space:nowrap;
+    text-wrap:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* Receipt entry follows the same label/control alignment as time entry. */
+  .zaid-app .zaid-bid-layout .bid-receipt-form {
+    display:grid;
+    grid-template-columns:140px 130px minmax(180px,1fr);
+    align-items:end;
+    gap:16px;
+  }
+  .zaid-app .zaid-bid-layout .bid-receipt-form .input { width:100%; min-width:0; }
+  .zaid-app .zaid-bid-layout .bid-receipt-form > label:last-child { grid-column:1 / -1; justify-self:end; }
+  .zaid-app .zaid-bid-layout .field-time-form > :is(div,label) > span { font-size:13px; line-height:20px; }
+  .zaid-app .zaid-bid-layout .field-time-form > :is(div,label):not(.field-time-night) { grid-template-rows:20px 42px; }
+  .zaid-app .zaid-bid-layout .field-time-form label.block > span.font-mono { margin-bottom:0; }
+  .zaid-app .zaid-bid-layout .field-time-form .field-time-night > span { font-size:14px; }
+  .zaid-app .zaid-bid-layout .field-time-category button { padding:9px 12px; }
+
+  @media(max-width:639px) {
+    .zaid-app .zaid-bid-layout .input:not(textarea,.light-doc *) { font-size:16px; }
+    .zaid-app .zaid-bid-layout .bid-receipt-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .zaid-app .zaid-bid-layout .bid-receipt-form > label:nth-child(3) { grid-column:1 / -1; }
+    .zaid-app .zaid-bid-layout .bid-receipt-form > label:last-child { justify-self:stretch; }
+    .zaid-app .zaid-biddetail > .grid { gap:16px; }
+  }
+}

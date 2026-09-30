@@ -1,3 +1,4 @@
+import UiIcon from '../../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
@@ -97,10 +98,10 @@ export default function AssemblyDetail() {
   const hasSlots = bom.some((r) => r.slot)
 
   return (
-    <div className="space-y-5">
+    <div className="zaid-page zaid-assemblydetail space-y-5">
       <div className="flex items-center gap-3">
         <Link to="/libraries/assemblies" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Assemblies
+          <UiIcon name="left" /> Assemblies
         </Link>
         <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
           {assembly.category}

@@ -105,7 +105,7 @@ export default function Budget() {
   const totalWithTax = pricing.contractAmount + pricing.tax
 
   return (
-    <div className="max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
+    <div className="zaid-page zaid-budget max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
       <div className="flex items-center gap-3 print:hidden">
         <h1 className="text-lg font-semibold tracking-tight">Budget sheet</h1>
         <span className="text-sm text-slate-500">internal — never leaves the shop</span>

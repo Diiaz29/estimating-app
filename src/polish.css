@@ -1,0 +1,63 @@
+/* Final screen refinements within the established ZAID visual system. */
+@media screen {
+  /* Legacy ten- and eleven-pixel utility labels remain legible throughout the app. */
+  .zaid-app :is([class*='text-[10px]'],[class*='text-[11px]']):not(.light-doc,.light-doc *,h1,h2,h3) {
+    font-size:12px;
+    line-height:1.5;
+    letter-spacing:0;
+  }
+  .zaid-app .index-detail-grid dt,
+  .zaid-app .index-area-row small,
+  .zaid-app .index-preview-note,
+  .zaid-app .estimate-area-nav small,
+  .zaid-app .library-category-nav a > span { font-size:12px; }
+
+  .zaid-app .zaid-team { --team-control-height:42px; }
+  .zaid-app .zaid-team label.block > span {
+    display:block;
+    margin-bottom:6px;
+    font-size:13px;
+    line-height:20px;
+    letter-spacing:0;
+  }
+  .zaid-app .zaid-team .input { min-height:var(--team-control-height); margin-top:0; padding:9px 12px; font-size:14px; line-height:22px; }
+  .zaid-app .zaid-team select.input { padding-right:30px; }
+  .zaid-app .zaid-team :is(button,label).rounded-md {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-height:var(--team-control-height);
+    padding:9px 12px;
+    font-size:14px;
+    line-height:22px;
+    letter-spacing:0;
+  }
+  .zaid-app .team-signature-layout { display:grid; grid-template-columns:224px minmax(0,1fr); gap:20px; }
+  .zaid-app .team-signature-layout .grid { gap:16px; }
+  .zaid-app .team-signature-layout > .team-signature-preview { width:100%; }
+  .zaid-app .team-member-row { display:grid; grid-template-columns:minmax(220px,1fr) auto 148px 60px; gap:12px; }
+  .zaid-app .team-member-row > span { font-size:14px; }
+  .zaid-app .team-role-options { gap:6px; }
+  .zaid-app .team-role-options > button { padding-inline:10px; font-size:13px; }
+  .zaid-app .team-member-row > button:last-child:not(.rounded-md) { min-height:42px; font-size:13px; }
+  .zaid-app .zaid-team > section { margin-top:28px; }
+  .zaid-app .zaid-team > section > .rounded-lg > :is(div,form) { gap:12px; padding:12px 16px; }
+  .zaid-app .zaid-team > section > .rounded-lg input { min-height:42px; padding:9px 12px; font-size:14px; line-height:22px; }
+
+  @media(max-width:1000px) {
+    .zaid-app .team-member-row { grid-template-columns:minmax(0,1fr) auto; }
+    .zaid-app .team-member-row > span { grid-column:1 / -1; }
+    .zaid-app .team-member-row > .team-role-options { grid-column:1 / -1; }
+  }
+  @media(max-width:639px) {
+    .zaid-app .team-signature-layout { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .team-signature-layout > .team-signature-preview { max-width:224px; }
+    .zaid-app .zaid-team .input,
+    .zaid-app .zaid-team > section > .rounded-lg input { font-size:16px; }
+    .zaid-app .team-role-options { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; gap:4px; }
+    .zaid-app .team-role-options > button { min-width:0; padding:9px 3px; font-size:12px; }
+    .zaid-app .team-member-row > span { white-space:normal; overflow-wrap:anywhere; }
+    .zaid-app .zaid-team > section > .rounded-lg label:has(select) { flex-wrap:wrap; }
+  }
+}

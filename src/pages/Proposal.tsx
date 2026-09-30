@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -441,11 +442,11 @@ export default function Proposal() {
   const namePlaceholder = `[${party.short.toUpperCase()} NAME]`
 
   return (
-    <div className="proposal-page">
+    <div className="zaid-page zaid-proposal proposal-page">
       {/* Screen-only toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← {bid.job_number}
+          <UiIcon name="left" /> {bid.job_number}
         </Link>
         <label className="flex items-center gap-2 text-sm text-slate-600">
           Pricing from:

@@ -10,7 +10,8 @@ const subTabs = [
 export default function LibrariesLayout() {
   return (
     <div className="space-y-4">
-      <nav className="flex gap-1.5">
+      <div className="project-heading"><div><h1>Libraries</h1><p>Materials, hardware, finishes, and assemblies.</p></div></div>
+      <nav className="zaid-library-nav flex gap-1.5">
         {subTabs.map((t) => (
           <NavLink
             key={t.to}

@@ -54,7 +54,7 @@ export default function Finishes() {
   if (!finishes) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
-    <div>
+    <div className="zaid-page zaid-finishes">
       <div className="flex items-center">
         <p className="text-sm text-slate-500">
           Laminates and solid surfaces. Each job assigns these to its finish slots (PLAM 1–4, SS 1–4) —
@@ -71,8 +71,9 @@ export default function Finishes() {
         )}
       </div>
 
+      <div className="library-workspace"><nav className="library-category-nav" aria-label="Library categories"><h2>Categories</h2>{grouped.map(([category, items]) => <a key={category} href={`#library-${encodeURIComponent(category)}`}>{category}<span>{items.length}</span></a>)}</nav><div className="library-records">
       {grouped.map(([type, items]) => (
-        <section key={type}>
+        <section key={type} id={`library-${type}`}>
           <GroupTitle>{type}</GroupTitle>
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
             <table className="w-full text-sm">
@@ -135,6 +136,7 @@ export default function Finishes() {
           </div>
         </section>
       ))}
+      </div></div>
 
       {dupTarget && (
         <FinishForm

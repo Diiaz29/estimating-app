@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -195,10 +196,10 @@ export default function Actuals() {
   const actProfit = contractAmount - actTotal
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="zaid-page zaid-actuals max-w-3xl space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← {bid.job_number}
+          <UiIcon name="left" /> {bid.job_number}
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — estimated vs actual
@@ -401,7 +402,7 @@ function ReceiptsSection({
         <p className={`mb-3 rounded-md border border-dashed px-3 py-2 text-center text-xs ${dragging ? 'border-emerald-500 text-emerald-700 font-semibold' : 'border-slate-300 text-slate-400'}`}>
           {dragging ? 'Drop to upload' : 'Drag photos or PDFs anywhere in this box — or use the button'}
         </p>
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="bid-receipt-form flex flex-wrap items-end gap-2">
           <label className="block">
             <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">For</span>
             <select value={category} onChange={(e) => setCategory(e.target.value as Receipt['category'])} className="input mt-0.5 w-auto py-1.5">

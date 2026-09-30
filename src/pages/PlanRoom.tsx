@@ -1,3 +1,4 @@
+import UiIcon from '../components/UiIcon'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
@@ -384,10 +385,10 @@ export default function PlanRoom() {
   if (!bid || !plans) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-3">
+    <div className="zaid-page zaid-planroom flex h-[calc(100vh-8rem)] flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}/plans`} className="text-sm text-slate-500 hover:text-slate-900">
-          ← Plans
+          <UiIcon name="left" /> Plans
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — plan room
@@ -753,11 +754,12 @@ function MeasureLines({
 function PagerButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
+      aria-label={label === '◀' ? 'Previous page' : label === '▶' ? 'Next page' : label}
       onClick={onClick}
       disabled={disabled}
       className="rounded-md border border-slate-300 px-2.5 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-30"
     >
-      {label}
+      {label === '◀' || label === '▶' ? <UiIcon name={label === '◀' ? 'left' : 'right'} /> : label}
     </button>
   )
 }
