@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
@@ -27,6 +27,36 @@ export default function Layout() {
   // office never touches the pricing libraries
   const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
   const { pathname } = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const drawer = useRef<HTMLElement>(null)
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const wasDrawerOpen = useRef(false)
+  useEffect(() => {
+    if (menuOpen) {
+      drawer.current?.querySelector<HTMLElement>('a[aria-current="page"], button')?.focus()
+    } else if (wasDrawerOpen.current) {
+      menuButton.current?.focus()
+    }
+    wasDrawerOpen.current = menuOpen
+  }, [menuOpen])
+  function handleDrawerKey(event: KeyboardEvent<HTMLElement>) {
+    if (!menuOpen) return
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setMenuOpen(false)
+    } else if (event.key === 'Tab') {
+      const controls = drawer.current?.querySelectorAll<HTMLElement>('a[href], button')
+      if (!controls?.length) return
+      const first = controls[0], last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+  }
   // the plan room wants every pixel of a big monitor
   const fullWidth = pathname.endsWith('/plans/room')
 
@@ -65,30 +95,36 @@ export default function Layout() {
       isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-200'
     }`
 
+  const groups = [
+    { label: 'Estimating', routes: ['/', '/bids'] },
+    { label: 'Project delivery', routes: ['/jobs', '/schedule', '/time', '/receipts'] },
+    { label: 'Company', routes: ['/contractors', '/libraries', '/reports', '/team', '/settings'] },
+  ]
+  const currentPage = tabs.find(t => t.to === '/' ? pathname === '/' : pathname.startsWith(t.to))?.label ?? 'Project workspace'
+
   return (
-    <div className={`zaid-app min-h-screen bg-slate-100 print:bg-white ${dark ? 'dark' : ''}`}>
-      <header className="zaid-header sticky top-0 z-20 border-b-2 border-slate-800 bg-white print:hidden">
-        <div className="zaid-header-inner mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5">
-          <NavLink to="/" title="Dashboard" className="zaid-brand">
-            {logoOk && LOGO_URL ? (
-              <img
-                src={LOGO_URL}
-                alt={companyName}
-                className="h-12 w-auto max-w-[10rem] object-contain sm:h-20 sm:max-w-[24rem]"
-                onError={() => setLogoOk(false)}
-              />
-            ) : (
-              <span className="text-lg font-semibold tracking-tight">{companyName}</span>
-            )}
-          </NavLink>
-          <nav className="zaid-desktop-nav hidden sm:flex items-center gap-1 ml-6">
-            {tabs.slice(0, 4).map((t) => (
-              <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass}>
-                {t.label}
-              </NavLink>
-            ))}
-            <details className="zaid-more-nav"><summary>More</summary><div>{tabs.slice(4).map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>{t.label}</NavLink>)}</div></details>
-          </nav>
+    <div className={`zaid-app workspace-shell min-h-screen bg-slate-100 print:bg-white ${dark ? 'dark' : ''} ${menuOpen ? 'workspace-menu-open' : ''} ${fullWidth ? 'workspace-plan-room' : ''}`}>
+      {menuOpen && <button className="workspace-backdrop print:hidden" tabIndex={-1} aria-label="Close workspace navigation" onClick={() => setMenuOpen(false)} />}
+      <aside id="workspace-navigation" ref={drawer} role={menuOpen ? 'dialog' : undefined} aria-modal={menuOpen || undefined} onKeyDown={handleDrawerKey} className="workspace-sidebar print:hidden" aria-label="Workspace navigation">
+        <button className="workspace-drawer-close" aria-label="Close workspace navigation" onClick={() => setMenuOpen(false)}>Close</button>
+        <NavLink to="/" title="Dashboard" className="workspace-brand" onClick={() => setMenuOpen(false)}>
+          {logoOk && LOGO_URL ? <img src={LOGO_URL} alt={companyName || 'Company logo'} onError={() => setLogoOk(false)} /> : <span>{companyName}</span>}
+        </NavLink>
+        <div className="workspace-company">{companyName}<span>Estimating workspace</span></div>
+        <nav ref={tabStrip} aria-label="Workspace pages">
+          {groups.map(group => {
+            const visible = tabs.filter(t => group.routes.includes(t.to))
+            return visible.length > 0 && <section key={group.label} aria-label={group.label}>
+              <h2>{group.label}</h2>
+              {visible.map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={() => setMenuOpen(false)}>{t.label}</NavLink>)}
+            </section>
+          })}
+        </nav>
+      </aside>
+      <header inert={menuOpen} className="zaid-header workspace-context sticky top-0 z-20 bg-white print:hidden">
+        <div className="workspace-context-inner">
+          <button ref={menuButton} className={`workspace-menu-button ${fullWidth ? 'workspace-menu-always' : ''}`} aria-label={menuOpen ? 'Close workspace navigation' : 'Open workspace navigation'} aria-expanded={menuOpen} aria-controls="workspace-navigation" onClick={() => setMenuOpen(!menuOpen)}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+          <div className="workspace-context-label"><strong>{companyName}</strong><span>{currentPage}</span></div>
           <div className="zaid-header-tools ml-auto flex items-center gap-3">
             <button
               onClick={toggleTheme}
@@ -124,30 +160,8 @@ export default function Layout() {
             </button>
           </div>
         </div>
-        {/* Phone tabs live up here, under the logo — the bottom of the screen
-            is too close to the browser's own bar and the home swipe */}
-        <details className="mobile-app-pages"><summary>Workspace · {tabs.find(t => t.to === '/' ? pathname === '/' : pathname.startsWith(t.to))?.label ?? 'Projects'}</summary>
-        <nav aria-label="Mobile workspace pages" ref={tabStrip} className="zaid-mobile-nav flex overflow-x-auto border-t border-slate-200 px-2 sm:hidden">
-          {tabs.map((t) => (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.to === '/'}
-              onClick={event => event.currentTarget.closest('details')?.removeAttribute('open')}
-              className={({ isActive }) =>
-                `shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${
-                  isActive ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500'
-                }`
-              }
-            >
-              {t.label}
-            </NavLink>
-          ))}
-        </nav>
-        </details>
       </header>
-
-      <main className={`zaid-main mx-auto px-4 py-6 ${fullWidth ? 'max-w-none' : 'max-w-6xl'}`}>
+      <main inert={menuOpen} className={`zaid-main workspace-main mx-auto px-4 py-6 ${fullWidth ? 'max-w-none' : 'max-w-6xl'}`}>
         <Outlet />
       </main>
     </div>
