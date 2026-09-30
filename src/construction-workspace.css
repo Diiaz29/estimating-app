@@ -23,6 +23,9 @@
   .construction-page-heading p,.project-heading p { color:var(--z-muted); margin-top:6px; font-size:14px; }
   .construction-heading-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
   .zaid-app :is(.index-primary,.index-secondary) { border-radius:4px; font-size:13px; min-height:36px; padding:8px 12px; }
+  .zaid-app input[type=search]:focus:not(.light-doc *) { outline:none; box-shadow:none; }
+  .zaid-app input[type=search]:focus-visible:not(.light-doc *) { border-color:var(--z-accent); }
+  .zaid-app .index-search:has(input:focus-visible) { border-color:var(--z-accent); }
   .zaid-app :is(.index-primary,.index-secondary) svg { width:16px; height:16px; }
   .construction-overview { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr); gap:20px; align-items:start; }
   .construction-overview-column { display:flex; flex-direction:column; gap:20px; min-width:0; }
@@ -51,13 +54,15 @@
   .zaid-app .construction-clear-filters { min-height:42px; }
   .construction-register-caption { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 20px; color:var(--z-muted); font-size:12px; }
   .construction-table-scroll { overflow:auto; }
-  .zaid-app .construction-register-table { width:100%; min-width:740px; border-collapse:collapse; font-size:13px; }
+  .zaid-app .construction-register-table { width:100%; min-width:850px; border-collapse:collapse; font-size:13px; }
   .zaid-app .construction-register-table th { text-align:left; white-space:nowrap; background:var(--z-canvas); color:var(--z-muted); font-size:12px; font-weight:600; padding:12px; border-block:1px solid var(--z-line); }
   .construction-register-table th button { cursor:pointer; padding:0; color:inherit; font-weight:inherit; }
   .zaid-app .construction-register-table td { padding:12px; border-bottom:1px solid var(--z-line); vertical-align:middle; }
   .construction-register-table th:first-child,.construction-register-table td:first-child { padding-left:20px; width:32%; }
   .construction-register-table tr:hover { background:var(--z-canvas); }
   .construction-register-table .construction-selected-row { background:var(--z-soft); }
+  .construction-register-table th[aria-sort=ascending], .construction-register-table th[aria-sort=descending] { color:var(--z-accent); }
+  .construction-job-number { white-space:nowrap; font-variant-numeric:tabular-nums; }
   .construction-project-select { display:block; text-align:left; width:100%; min-width:180px; }
   .construction-project-select strong { display:block; color:var(--z-accent); font-size:14px; font-weight:600; }
   .construction-project-select small { display:block; margin-top:4px; color:var(--z-muted); font-size:12px; }
@@ -136,7 +141,7 @@
     .zaid-app .construction-register-filter>input, .zaid-app .construction-register-filter>select { font-size:16px; }
     .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
     .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:auto; }
-    .zaid-app .construction-register-table { min-width:650px; }
+    .zaid-app .construction-register-table { min-width:850px; }
     .zaid-app .construction-overview .zaid-pipeline .grid>a { padding:4px 10px; }
     .zaid-app .construction-overview .zaid-pipeline .grid>a .flex { flex-wrap:wrap; }
   }

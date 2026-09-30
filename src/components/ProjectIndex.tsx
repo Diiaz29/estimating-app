@@ -24,7 +24,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
   const [contractorFilter, setContractorFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
-  const [sort, setSort] = useState<{ key: 'name' | 'due' | 'status'; descending: boolean } | null>(null)
+  const [sort, setSort] = useState<{ key: 'name' | 'number' | 'contractor' | 'due' | 'status'; descending: boolean } | null>(null)
   const matches = (b: Bid, key: string) => key === 'all' || (key === 'bids' ? b.status === 'received' || b.status === 'working' : key === 'jobs' ? b.status === 'won' : b.status === 'sent')
   const contractors = [...new Set(bids.map(b => contractor(b.id)).filter((name): name is string => !!name))].sort((a, b) => a.localeCompare(b))
   const matchesDetails = (b: Bid) =>
@@ -39,11 +39,11 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
   }
   const selected = visible.find(b => b.id === selectedId) ?? visible[0]
   if (sort) visible.sort((a, b) => {
-    const first = sort.key === 'name' ? a.name : sort.key === 'due' ? a.due_at ?? '9999' : a.status
-    const second = sort.key === 'name' ? b.name : sort.key === 'due' ? b.due_at ?? '9999' : b.status
-    return first.localeCompare(second) * (sort.descending ? -1 : 1)
+    const first = sort.key === 'name' ? a.name : sort.key === 'number' ? a.job_number : sort.key === 'contractor' ? contractor(a.id) ?? '' : sort.key === 'due' ? a.due_at ?? '9999' : a.status
+    const second = sort.key === 'name' ? b.name : sort.key === 'number' ? b.job_number : sort.key === 'contractor' ? contractor(b.id) ?? '' : sort.key === 'due' ? b.due_at ?? '9999' : b.status
+    return first.localeCompare(second, undefined, { numeric: sort.key === 'number' }) * (sort.descending ? -1 : 1)
   })
-  function sortBy(key: 'name' | 'due' | 'status') { setSort(current => ({ key, descending: current?.key === key ? !current.descending : false })) }
+  function sortBy(key: 'name' | 'number' | 'contractor' | 'due' | 'status') { setSort(current => ({ key, descending: current?.key === key ? !current.descending : false })) }
   const sent = bids.filter(b => b.status === 'sent')
   const filteredSent = sent.filter(matchesDetails)
   return (
@@ -68,12 +68,15 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
           <div className="construction-register-caption"><span>{visible.length} {visible.length === 1 ? 'project' : 'projects'}</span><button className="index-secondary" aria-pressed={showPreview} onClick={() => setShowPreview(!showPreview)}>{showPreview ? 'Hide project overview' : 'Show project overview'}</button></div>
           <div className="construction-table-scroll">
           <table className="construction-register-table"><thead><tr>
-            <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name="sort" /></button></th><th scope="col">Contractor</th>
-            <th scope="col" aria-sort={sort?.key === 'due' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('due')}>Due date <UiIcon name="sort" /></button></th>
-            <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name="sort" /></button></th>{seesMoney && <th scope="col">Recorded value</th>}<th scope="col">Actions</th>
+            <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name={sort?.key === 'name' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
+            <th scope="col" aria-sort={sort?.key === 'number' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('number')}>Job number <UiIcon name={sort?.key === 'number' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
+            <th scope="col" aria-sort={sort?.key === 'contractor' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('contractor')}>Contractor <UiIcon name={sort?.key === 'contractor' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
+            <th scope="col" aria-sort={sort?.key === 'due' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('due')}>Due date <UiIcon name={sort?.key === 'due' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
+            <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name={sort?.key === 'status' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>{seesMoney && <th scope="col">Recorded value</th>}<th scope="col">Actions</th>
           </tr></thead><tbody>
             {visible.map(b => <tr key={b.id} className={showPreview && selected?.id === b.id ? 'construction-selected-row' : undefined}>
-              <td><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong><small>{b.job_number}</small></button></td>
+              <td><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
+              <td className="construction-job-number">{b.job_number}</td>
               <td>{contractor(b.id) ?? '—'}</td><td>{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</td><td><StatusBadge status={b.status} /></td>{seesMoney && <td className="construction-money">{valueFor(b) == null ? '—' : fmtMoney(valueFor(b)!)}</td>}
               <td><Link className="construction-row-link" aria-label={`${isOffice ? 'Open project' : 'Open estimate'} for ${b.name}`} to={`/bids/${b.id}${isOffice ? '' : '/estimate'}`}>{isOffice ? 'Open project' : 'Estimate'}</Link></td>
             </tr>)}
