@@ -757,7 +757,7 @@ export default function Receipts() {
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-700" title="Dismiss">×</button>
         </p>
       )}
-      <div className="print:hidden">
+      <div className="construction-receipt-heading print:hidden">
         <h1 className="text-lg font-semibold tracking-tight">Receipts</h1>
         <p className="mt-0.5 text-sm text-slate-500">
           Drop every receipt here and say which job it belongs to — it shows up on that job's Actuals
@@ -776,10 +776,11 @@ export default function Receipts() {
           setDragging(false)
           void stageFiles([...e.dataTransfer.files])
         }}
-        className={`rounded-lg border-2 bg-white p-4 transition-colors print:hidden ${
+        className={`construction-receipt-intake rounded-lg border-2 bg-white p-4 transition-colors print:hidden ${
           dragging ? 'border-dashed border-emerald-600 bg-emerald-50' : 'border-slate-800'
         }`}
       >
+        <h2 className="construction-intake-heading">Add & review receipt</h2>
         {/* The receipt being reviewed: preview + what the reader found */}
         {current && (
           <div className="mb-3 flex flex-wrap items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3">
@@ -980,6 +981,7 @@ export default function Receipts() {
           </div>
         </div>
 
+      <div className="construction-receipt-records space-y-5">
       {/* ---------- Expense report (office/admin) ---------- */}
       {reconciles && (
         <section className={reportOpen ? '' : 'print:hidden'}>
@@ -990,7 +992,7 @@ export default function Receipts() {
                 reportOpen ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
               }`}
             >
-              ▤ Expense report <UiIcon name={reportOpen ? "up" : "down"} />
+              <UiIcon name="register" /> Expense report <UiIcon name={reportOpen ? "up" : "down"} />
             </button>
             {reportOpen && (
               <>
@@ -1257,6 +1259,7 @@ export default function Receipts() {
       </div>
 
       {renderLists(overheadGrouped, grouped, overheadTotal)}
+      </div>
 
       {managingCats && (
         <ListManager

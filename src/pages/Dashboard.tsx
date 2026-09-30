@@ -7,7 +7,6 @@ import type { Bid, Customer } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 import NewBidForm from '../components/NewBidForm'
-import ProjectIndex from '../components/ProjectIndex'
 
 interface GcLink {
   bid_id: string
@@ -111,8 +110,8 @@ export default function Dashboard() {
 
   return (
     <div className="zaid-page zaid-dashboard space-y-6">
-      <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={jobValue} onNew={canEdit ? () => setShowNew(true) : undefined} />
-      <details className="index-activity"><summary>Pipeline, due dates & job activity</summary><div className="index-activity-content">
+      <div className="construction-page-heading"><div><h1>Dashboard</h1><p>Bids to finish, proposals to follow up, and work in the shop.</p></div><div className="construction-heading-actions"><Link className="index-secondary" to="/bids">Bid register</Link>{canEdit && <button className="index-primary" onClick={() => setShowNew(true)}>+ New bid</button>}</div></div>
+      <div className="construction-overview">
       {/* Pipeline counts */}
       <section className="zaid-pipeline">
         <SectionTitle>Pipeline</SectionTitle>
@@ -245,7 +244,7 @@ export default function Dashboard() {
                   >
                     {followUp
                       ? followUpDue
-                        ? '☎︎ follow up'
+                        ? <><UiIcon name="phone" /> follow up</>
                         : `follow up ${fmtFollowUp(followUp)}`
                       : '—'}
                   </span>
@@ -322,7 +321,7 @@ export default function Dashboard() {
           <Stat label="Win rate" value={winRate === null ? '—' : `${winRate}%`} />
         </div>
       </section>
-      </div></details>
+      </div>
       {showNew && (
         <NewBidForm
           customers={customers}

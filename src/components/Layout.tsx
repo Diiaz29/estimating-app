@@ -4,6 +4,7 @@ import { signOut, useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
 import { supabase } from '../lib/supabase'
 import type { Role } from '../lib/types'
+import UiIcon from './UiIcon'
 
 const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -116,7 +117,7 @@ export default function Layout() {
             const visible = tabs.filter(t => group.routes.includes(t.to))
             return visible.length > 0 && <section key={group.label} aria-label={group.label}>
               <h2>{group.label}</h2>
-              {visible.map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={() => setMenuOpen(false)}>{t.label}</NavLink>)}
+              {visible.map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={() => setMenuOpen(false)}><UiIcon name={t.to === '/schedule' ? 'calendar' : t.to === '/time' ? 'clock' : t.to === '/team' || t.to === '/contractors' ? 'people' : t.to === '/settings' ? 'settings' : t.to === '/' ? 'dashboard' : t.to === '/libraries' ? 'folder' : 'register'} /><span>{t.label}</span></NavLink>)}
             </section>
           })}
         </nav>
@@ -131,7 +132,7 @@ export default function Layout() {
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
             >
-              {theme === 'dark' ? '☼' : '☾'}
+              <UiIcon name={theme === 'dark' ? 'sun' : 'moon'} />
             </button>
             {realRole === 'admin' && (
               <label className="flex items-center gap-1.5" title="Preview the app as another role (screen only — you keep your admin powers)">

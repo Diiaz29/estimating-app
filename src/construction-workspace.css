@@ -1,0 +1,138 @@
+/* Construction workspace: screen presentation only. Document trees and print stay incumbent. */
+@media screen {
+  .zaid-app.workspace-shell { --z-canvas:#f3f1ee; --z-paper:#fff; --z-soft:#eee8df; --z-line:#dcd6ce; --z-control:#a69b90; background:var(--z-canvas); }
+  .zaid-app.workspace-shell.dark { --z-canvas:#211e1b; --z-paper:#2b2723; --z-soft:#3c342c; --z-line:#51483f; --z-control:#9d8c7b; }
+  .zaid-app .workspace-sidebar { background:#534741; border:0; }
+  .workspace-brand { height:78px; padding:12px 24px; }
+  .workspace-brand img { max-height:54px; }
+  .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
+  .workspace-company span { color:#e4d7c7; }
+  .workspace-sidebar nav { padding:10px 0; }
+  .workspace-sidebar h2 { color:#e4d7c7; padding:0 18px; margin:18px 0 6px; font-size:12px; }
+  .zaid-app .workspace-sidebar nav a { display:flex; gap:12px; align-items:center; padding:10px 18px; border-radius:0; min-height:43px; color:#fff; }
+  .zaid-app .workspace-sidebar nav a:hover { background:#66564c; }
+  .zaid-app .workspace-sidebar nav a[aria-current=page] { background:#c7b299; color:#171b1e; }
+  .zaid-app.workspace-shell .workspace-sidebar nav a:not([aria-current]) { color:#fff; background:transparent; }
+  .zaid-app.workspace-shell .workspace-sidebar nav a:not([aria-current]):hover { background:#66564c; }
+  .zaid-app.workspace-shell .workspace-sidebar nav a { border-radius:0; }
+  .workspace-sidebar .ui-icon { flex-shrink:0; width:18px; height:18px; }
+  .zaid-app .workspace-context { background:var(--z-paper); height:64px; }
+  .zaid-app .workspace-main { padding:24px; max-width:none; }
+  .construction-page-heading,.project-heading { display:flex; gap:20px; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .zaid-app :is(.construction-page-heading h1,.project-heading h1,.zaid-page h1) { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; }
+  .construction-page-heading p,.project-heading p { color:var(--z-muted); margin-top:6px; font-size:14px; }
+  .construction-heading-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .zaid-app :is(.index-primary,.index-secondary) { border-radius:4px; font-size:13px; min-height:36px; padding:8px 12px; }
+  .zaid-app :is(.index-primary,.index-secondary) svg { width:16px; height:16px; }
+  .construction-overview { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr); gap:20px; align-items:start; }
+  .zaid-app .construction-overview>section { background:var(--z-paper); padding:20px; border:1px solid var(--z-line); border-radius:6px; margin:0; min-width:0; }
+  .construction-overview .zaid-pipeline { grid-column:1/-1; }
+  .construction-overview .zaid-due-index { grid-column:1; }
+  .construction-overview .zaid-followups { grid-column:2; grid-row:2; }
+  .construction-overview .zaid-job-index { grid-column:1; }
+  .construction-overview .zaid-track-record { grid-column:2; }
+  .zaid-app .construction-overview section h2 { font-size:16px; font-weight:600; color:var(--z-ink); margin-bottom:16px; }
+  .zaid-app .zaid-dashboard .construction-overview .zaid-pipeline>h2 { font-size:16px; margin-bottom:16px; }
+  .zaid-app .construction-overview .zaid-pipeline .grid { gap:0; }
+  .zaid-app .construction-overview .zaid-pipeline .grid>a { border:0; border-radius:0; padding:4px 20px; background:transparent; }
+  .zaid-app .construction-overview .zaid-pipeline .grid>a+a { border-left:1px solid var(--z-line); }
+  .zaid-app .construction-overview :is(.zaid-due-index,.zaid-followups,.zaid-job-index)>div:last-child { border:0; border-radius:0; }
+  .zaid-app .construction-overview :is(.zaid-due-index,.zaid-followups,.zaid-job-index)>div:last-child>div { padding:14px 0; }
+  .zaid-app .construction-overview .zaid-track-record .grid> :is(a,div) { border:0; border-radius:0; padding:6px; background:transparent; }
+  .zaid-app .project-workspace.construction-register { display:block; }
+  .zaid-app .project-workspace.construction-preview-open { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; align-items:start; }
+  .construction-register .project-index-column { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; min-width:0; overflow:hidden; }
+  .zaid-app .construction-register .project-index-tools { display:flex; flex-direction:column; align-items:stretch; gap:16px; padding:0 20px 16px; border-bottom:1px solid var(--z-line); margin:0; }
+  .zaid-app .construction-register .index-tabs { border-bottom:1px solid var(--z-line); gap:24px; margin:0 -20px; padding:0 20px; overflow:auto; }
+  .zaid-app .construction-register .index-tabs button { min-height:50px; font-size:13px; padding:10px 0; }
+  .zaid-app .construction-register .index-search { max-width:360px; width:100%; min-height:36px; background:var(--z-paper); border-radius:4px; }
+  .construction-register-caption { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 20px; color:var(--z-muted); font-size:12px; }
+  .construction-table-scroll { overflow:auto; }
+  .zaid-app .construction-register-table { width:100%; min-width:740px; border-collapse:collapse; font-size:13px; }
+  .zaid-app .construction-register-table th { text-align:left; white-space:nowrap; background:var(--z-canvas); color:var(--z-muted); font-size:12px; font-weight:600; padding:12px; border-block:1px solid var(--z-line); }
+  .construction-register-table th button { cursor:pointer; padding:0; color:inherit; font-weight:inherit; }
+  .zaid-app .construction-register-table td { padding:12px; border-bottom:1px solid var(--z-line); vertical-align:middle; }
+  .construction-register-table th:first-child,.construction-register-table td:first-child { padding-left:20px; width:32%; }
+  .construction-register-table tr:hover { background:var(--z-canvas); }
+  .construction-register-table .construction-selected-row { background:var(--z-soft); }
+  .construction-project-select { display:block; text-align:left; width:100%; min-width:180px; }
+  .construction-project-select strong { display:block; color:var(--z-accent); font-size:14px; font-weight:600; }
+  .construction-project-select small { display:block; margin-top:4px; color:var(--z-muted); font-size:12px; }
+  .construction-money { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .construction-row-link { color:var(--z-accent); text-decoration:underline; text-underline-offset:3px; }
+  .zaid-app .construction-register .index-list-foot { padding:12px 20px; margin:0; background:var(--z-canvas); }
+  .zaid-app .construction-register .index-followups { margin:0; padding:20px; border-top:1px solid var(--z-line); }
+  .zaid-app .construction-register .index-preview { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; padding:20px; position:sticky; top:84px; }
+  .zaid-app .construction-register .index-preview h2 { font-size:22px; }
+  .zaid-app .workspace-project-nav { background:var(--z-paper); border:1px solid var(--z-line); border-radius:5px; padding:0 16px; margin-bottom:20px; }
+  .zaid-app .workspace-project-primary { gap:24px; }
+  .zaid-app .workspace-project-more>summary { border:0; }
+  .zaid-app .estimate-section-tabs { background:var(--z-paper); border:1px solid var(--z-line); border-bottom:0; padding:0 16px; margin:0; border-radius:5px 5px 0 0; gap:24px; }
+  .zaid-app .estimate-section-tabs button { font-size:13px; min-height:48px; }
+  .zaid-app .estimate-workspace { grid-template-columns:170px minmax(0,1fr) 250px; gap:0; border:1px solid var(--z-line); background:var(--z-paper); border-radius:0 0 5px 5px; align-items:start; }
+  .zaid-app .zaid-estimate .estimate-workspace { margin-top:0; }
+  .zaid-app .estimate-workspace-wide { grid-template-columns:minmax(0,1fr) 250px; }
+  .zaid-app .estimate-area-nav { background:var(--z-paper); padding:16px 12px; border-right:1px solid var(--z-line); min-height:100%; position:static; }
+  .zaid-app .estimate-area-nav h2 { font-size:14px; font-weight:600; margin-bottom:12px; }
+  .zaid-app .estimate-area-nav button { border-radius:4px; padding:10px; font-size:13px; }
+  .zaid-app .estimate-workspace-body { padding:20px; min-width:0; }
+  .zaid-app .takeoff-area>div { border:0; background:var(--z-paper); border-radius:0; padding:0; }
+  .zaid-app .takeoff-area>section.bg-white { border-radius:0; padding:0; }
+  .zaid-app .takeoff-area table td { padding-top:12px; padding-bottom:12px; }
+  .zaid-app .takeoff-area h2 { font-size:20px; }
+  .zaid-app .estimate-summary-panel { background:var(--z-canvas); border:0; border-left:1px solid var(--z-line); border-radius:0; padding:20px; position:sticky; top:84px; }
+  .zaid-app .estimate-summary-panel h2 { font-size:16px; }
+  .zaid-app .zaid-receipts { max-width:none; display:grid; grid-template-columns:minmax(0,1fr) 350px; column-gap:20px; align-items:start; }
+  .zaid-app .zaid-receipts> :not(.construction-receipt-intake) { grid-column:1; min-width:0; }
+  .zaid-app .zaid-receipts>.construction-receipt-heading { grid-column:1/-1; margin-bottom:20px; }
+  .zaid-app .zaid-receipts>.construction-receipt-records { grid-column:1; grid-row:2; margin-top:0; min-width:0; }
+  .zaid-app .zaid-receipts .construction-receipt-intake { grid-column:2; grid-row:2; margin-top:0; position:sticky; top:84px; background:var(--z-paper); border-radius:6px; padding:20px; }
+  .construction-intake-heading { font-size:16px; font-weight:600; margin-bottom:18px; }
+  .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
+  .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:auto; }
+  .zaid-app .construction-receipt-intake .font-mono { font-size:12px; }
+  .zaid-app .zaid-page :is(table,.overflow-hidden.rounded-lg):not(.light-doc,.light-doc *) { background:var(--z-paper); }
+  .zaid-app .zaid-page :is(input,select,textarea):not(.light-doc *) { background:var(--z-paper); border-radius:4px; }
+  .zaid-app .zaid-page> :is(section.border,div.border):not(.light-doc,.light-doc *) { background:var(--z-paper); border-radius:6px; }
+  .zaid-app .zaid-page :is(table th):not(.light-doc *) { background:var(--z-canvas); }
+  .zaid-app :is(.zaid-jobs,.zaid-customers,.zaid-team,.zaid-plans,.zaid-field)>.overflow-hidden:not(.light-doc) { border-radius:6px; background:var(--z-paper); }
+  .zaid-app .library-workspace { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; gap:0; }
+  .zaid-app .library-category-nav { padding:16px; border-right:1px solid var(--z-line); }
+  .zaid-app .library-workspace> :last-child { padding:20px; min-width:0; }
+  .zaid-app .zaid-page :is(button,a).rounded-full:not(.light-doc *) { border-radius:4px; }
+  @media(max-width:1200px) {
+    .zaid-app .estimate-workspace { grid-template-columns:150px minmax(0,1fr); }
+    .zaid-app .estimate-workspace-wide { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .estimate-summary-panel { grid-column:1/-1; position:static; border-left:0; border-top:1px solid var(--z-line); }
+    .zaid-app .project-workspace.construction-preview-open { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .construction-register .index-preview { position:static; }
+  }
+  @media(max-width:1000px) {
+    .construction-overview { grid-template-columns:minmax(0,1fr); }
+    .construction-overview>section { grid-column:1!important; grid-row:auto!important; }
+    .zaid-app .zaid-receipts { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .zaid-receipts .construction-receipt-intake { grid-column:1; grid-row:auto; position:static; margin-bottom:20px; }
+    .zaid-app .zaid-receipts>.construction-receipt-records { grid-row:auto; }
+    .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:span 2; }
+  }
+  @media(max-width:800px) {
+    .zaid-app .workspace-main { padding:20px 16px; }
+    .construction-page-heading,.project-heading { flex-wrap:wrap; gap:16px; }
+    .construction-heading-actions { width:100%; }
+    .zaid-app .estimate-workspace,.zaid-app .estimate-workspace-wide { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .estimate-area-nav { border-right:0; border-bottom:1px solid var(--z-line); min-height:0; padding:12px; }
+    .zaid-app .estimate-workspace-body { padding:16px; }
+    .zaid-app .workspace-project-nav { padding:0 12px 8px; }
+    .zaid-app .construction-register .project-index-tools { padding-inline:16px; }
+    .construction-register-caption { padding:12px 16px; }
+    .zaid-app .construction-overview>section { padding:16px; }
+  }
+  @media(max-width:639px) {
+    .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
+    .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:auto; }
+    .zaid-app .construction-register-table { min-width:650px; }
+    .zaid-app .construction-overview .zaid-pipeline .grid>a { padding:4px 10px; }
+    .zaid-app .construction-overview .zaid-pipeline .grid>a .flex { flex-wrap:wrap; }
+  }
+}
