@@ -1,5 +1,56 @@
 /* Construction workspace: screen presentation only. Document trees and print stay incumbent. */
 @media screen {
+  .zaid-app .zaid-timeclock { max-width:none; }
+  .zaid-app .zaid-timeclock > .construction-time-workspace { margin-top:0; }
+  .construction-time-workspace { display:grid; grid-template-columns:380px minmax(0,1fr); grid-template-rows:auto 1fr; gap:20px; align-items:start; }
+  .construction-time-entry { grid-column:1; grid-row:1; }
+  .construction-time-history { grid-column:1; grid-row:2; }
+  .construction-time-report { grid-column:2; grid-row:1 / 3; }
+  .construction-time-personal { grid-template-columns:minmax(320px,380px) minmax(0,1fr); }
+  .construction-time-personal .construction-time-history { grid-column:2; grid-row:1; }
+  .zaid-app :is(.construction-time-entry,.construction-time-history,.construction-time-report) { min-width:0; background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
+  .construction-time-entry { padding:20px; }
+  .zaid-app .zaid-timeclock :is(.construction-time-section-heading,.construction-time-report-heading h2,.construction-time-recent h2) { font-size:16px; font-weight:600; color:var(--z-ink); margin:0; }
+  .construction-time-section-heading { padding-bottom:20px; }
+  .zaid-app .construction-time-form { padding:0; margin:0; border:0; background:transparent; }
+  .zaid-app .construction-time-form > * + * { margin-top:16px; }
+  .zaid-app .construction-time-form label > span,.construction-time-form > div > div > span { display:block; margin-bottom:6px; }
+  .zaid-app .construction-time-form .input { width:100%; min-width:0; }
+  .zaid-app .construction-time-form label:has(input[type=checkbox]) > span { margin:0; }
+  .construction-time-report-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; border-bottom:1px solid var(--z-line); }
+  .construction-time-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:16px; padding:16px 20px; border-bottom:1px solid var(--z-line); }
+  .construction-time-range { display:flex; gap:12px; min-width:0; }
+  .construction-time-range label { min-width:0; }
+  .zaid-app .construction-time-range label { display:block; }
+  .construction-time-range label > span { display:block; }
+  .zaid-app .construction-time-range .input { width:160px; min-width:0; margin-top:6px; }
+  .construction-time-filters { align-items:center; padding-bottom:1px; }
+  .zaid-app .construction-time-filters button { display:inline-flex; align-items:center; gap:8px; min-height:38px; }
+  .construction-time-document { padding:20px; overflow-x:auto; }
+  .construction-time-document > .light-doc { max-width:850px; min-width:600px; }
+  .construction-time-document-collapsed { display:none; }
+  .construction-time-report-caption { display:flex; justify-content:space-between; gap:16px; padding:12px 20px; color:var(--z-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+  .zaid-app .construction-time-table th:nth-child(2),.zaid-app .construction-time-table td:nth-child(2) { width:auto; }
+  .zaid-app .construction-time-table th:last-child,.zaid-app .construction-time-table td:last-child { text-align:right; padding-right:20px; }
+  .zaid-app .construction-time-table td.construction-time-table-empty { text-align:center; padding:48px 20px; color:var(--z-muted); }
+  .construction-time-recent h2 { padding:20px; border-bottom:1px solid var(--z-line); }
+  .zaid-app .construction-time-recent > div { border:0; border-radius:0; }
+  .construction-time-empty { color:var(--z-muted); font-size:14px; padding:20px; margin:0; }
+  @media (max-width:1200px) {
+    .construction-time-workspace { grid-template-columns:340px minmax(0,1fr); }
+  }
+  @media (max-width:1000px) {
+    .construction-time-workspace,.construction-time-personal { display:flex; flex-direction:column; }
+    .construction-time-workspace > * { width:100%; }
+  }
+  @media (max-width:639px) {
+    .construction-time-entry,.construction-time-document { padding:16px; }
+    .construction-time-report-heading,.construction-time-toolbar,.construction-time-recent h2 { padding:16px; }
+    .construction-time-range { width:100%; }
+    .construction-time-report-heading { flex-wrap:wrap; }
+    .construction-time-range label { flex:1; }
+    .zaid-app .construction-time-range .input { width:100%; font-size:16px; }
+  }
   .zaid-app.workspace-shell { --z-canvas:#f3f1ee; --z-paper:#fff; --z-soft:#eee8df; --z-line:#dcd6ce; --z-control:#a69b90; background:var(--z-canvas); }
   .zaid-app.workspace-shell.dark { --z-canvas:#211e1b; --z-paper:#2b2723; --z-soft:#3c342c; --z-line:#51483f; --z-control:#9d8c7b; }
   .zaid-app .workspace-sidebar { background:#534741; border:0; }

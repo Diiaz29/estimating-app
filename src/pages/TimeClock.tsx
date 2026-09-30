@@ -52,6 +52,7 @@ export default function TimeClock() {
   const [showPicker, setShowPicker] = useState<'people' | 'jobs' | null>(null)
   const [company, setCompany] = useState<Record<string, string>>({})
   const [logoOk, setLogoOk] = useState(true)
+  const [showReportPreview, setShowReportPreview] = useState(false)
 
   async function load() {
     const [jobRes, allRes, mineRes] = await Promise.all([
@@ -150,20 +151,25 @@ export default function TimeClock() {
 
   return (
     <div className="zaid-page zaid-timeclock max-w-2xl space-y-5 print:max-w-none">
-      <div className="print:hidden">
+      <div className="construction-page-heading print:hidden">
+        <div>
         <h1 className="text-lg font-semibold tracking-tight">Time</h1>
         <p className="mt-0.5 text-sm text-slate-500">
           Log your shop hours against the job you worked on. Logging as{' '}
           <span className="font-semibold">{worker}</span>.
         </p>
+        </div>
       </div>
 
+      <div className={`construction-time-workspace ${seesEveryone ? '' : 'construction-time-personal'}`}>
+      <div className="construction-time-entry print:hidden">
+      <h2 className="construction-time-section-heading">Log time</h2>
       {jobs.length === 0 ? (
         <p className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 print:hidden">
           No active jobs to log time against.
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border-2 border-slate-800 bg-white p-4 print:hidden">
+        <form onSubmit={handleSubmit} className="construction-time-form space-y-3 print:hidden">
           <label className="block">
             <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Job</span>
             <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="input">
@@ -199,6 +205,7 @@ export default function TimeClock() {
                     type="button"
                     key={k}
                     onClick={() => setKind(k)}
+                    aria-pressed={kind === k}
                     className={`rounded-md border px-4 py-2 text-sm font-medium ${
                       kind === k
                         ? 'border-slate-900 bg-slate-900 text-white'
@@ -233,13 +240,49 @@ export default function TimeClock() {
           </button>
         </form>
       )}
+      </div>
+
+      <div className="construction-time-history print:hidden">
+      {mine.length > 0 ? (
+        <section className="construction-time-recent print:hidden">
+          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">My recent time</h2>
+          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+            {mine.map((t, i) => (
+              <div key={t.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
+                <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
+                <span className="min-w-0 flex-1 basis-40 truncate font-medium">{jobName(t.bid_id)}</span>
+                <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">
+                  {kindLabel(t.kind)}{t.night ? ' night' : ''}
+                </span>
+                {t.note && <span className="hidden min-w-0 truncate text-xs text-slate-500 sm:block">{t.note}</span>}
+                <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
+                <button onClick={() => void remove(t)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="construction-time-recent print:hidden">
+          <h2>My recent time</h2>
+          <p className="construction-time-empty">No time entries yet.</p>
+        </section>
+      )}
+      </div>
 
       {/* ---------- Team time report (office / PM / admin) ---------- */}
       {seesEveryone && (
-        <section>
-          <div className="mb-2 flex flex-wrap items-end gap-2 print:hidden">
+        <section className="construction-time-report">
+          <div className="construction-time-report-heading print:hidden">
             <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Team time report</h2>
-            <div className="ml-auto flex flex-wrap items-end gap-2">
+            <div className="construction-heading-actions">
+            <button onClick={() => setShowReportPreview((shown) => !shown)} aria-expanded={showReportPreview} className="index-secondary">
+              {showReportPreview ? 'Show time entries' : 'Show print preview'}
+            </button>
+            <button onClick={() => window.print()} className="index-secondary">Print</button>
+            </div>
+          </div>
+          <div className="construction-time-toolbar print:hidden">
+            <div className="construction-time-range">
               <label className="block">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">From</span>
                 <input type="date" value={repFrom} onChange={(e) => setRepFrom(e.target.value)} className="input mt-0.5 py-1.5" />
@@ -248,17 +291,10 @@ export default function TimeClock() {
                 <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">To</span>
                 <input type="date" value={repTo} onChange={(e) => setRepTo(e.target.value)} className="input mt-0.5 py-1.5" />
               </label>
-              <button
-                onClick={() => window.print()}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-              >
-                Print
-              </button>
             </div>
-          </div>
 
           {/* who / which jobs — a popup keeps this tidy when the lists grow */}
-          <div className="mb-2 flex flex-wrap gap-2 print:hidden">
+          <div className="construction-time-filters flex flex-wrap gap-2 print:hidden">
             <button
               onClick={() => setShowPicker('people')}
               className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
@@ -290,6 +326,7 @@ export default function TimeClock() {
                 clear filters
               </button>
             )}
+          </div>
           </div>
 
           {showPicker && (
@@ -340,6 +377,33 @@ export default function TimeClock() {
             </div>
           )}
 
+          {!showReportPreview && (
+            <div className="print:hidden">
+              <div className="construction-time-report-caption">
+                <span>{filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}</span>
+                <span>{grandTotal.toFixed(1)} hrs total</span>
+              </div>
+              <div className="construction-table-scroll">
+                <table className="construction-register-table construction-time-table">
+                  <thead><tr><th>Day</th><th>Person</th><th>Job</th><th>Category</th><th>Notes</th><th>Hours</th></tr></thead>
+                  <tbody>
+                    {filtered.map((t) => (
+                      <tr key={t.id}>
+                        <td>{fmtDay(t.work_date)}</td>
+                        <td>{t.worker}</td>
+                        <td>{jobName(t.bid_id)}</td>
+                        <td>{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
+                        <td>{t.note || '—'}</td>
+                        <td className="construction-money">{Number(t.hours).toFixed(1)}</td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && <tr><td colSpan={6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <div className={`construction-time-document ${showReportPreview ? '' : 'construction-time-document-collapsed'}`}>
           <div className="light-doc rounded-lg border-2 border-slate-900 bg-white p-4 print:rounded-none print:border-0 print:p-0">
             <div className="flex items-center gap-4 border-b-4 border-slate-900 pb-2">
               {logoOk && LOGO_URL ? (
@@ -396,28 +460,11 @@ export default function TimeClock() {
               </div>
             )}
           </div>
-        </section>
-      )}
-
-      {mine.length > 0 && (
-        <section className="print:hidden">
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">My recent time</h2>
-          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-            {mine.map((t, i) => (
-              <div key={t.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
-                <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
-                <span className="min-w-0 flex-1 basis-40 truncate font-medium">{jobName(t.bid_id)}</span>
-                <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">
-                  {kindLabel(t.kind)}{t.night ? ' night' : ''}
-                </span>
-                {t.note && <span className="hidden min-w-0 truncate text-xs text-slate-500 sm:block">{t.note}</span>}
-                <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
-                <button onClick={() => void remove(t)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
-              </div>
-            ))}
           </div>
         </section>
       )}
+
+      </div>
     </div>
   )
 }
