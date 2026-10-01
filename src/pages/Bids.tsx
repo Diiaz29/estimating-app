@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus, Customer } from '../lib/types'
-import { STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
-import StatusBadge from '../components/StatusBadge'
 import NewBidForm from '../components/NewBidForm'
 import ProjectIndex from '../components/ProjectIndex'
 
@@ -15,7 +13,7 @@ interface GcLink {
 }
 
 export default function Bids() {
-  const { canManageBids: canEdit, seesMoney } = useAuth()
+  const { canManageBids: canEdit } = useAuth()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
@@ -52,12 +50,6 @@ export default function Bids() {
     void load()
   }, [])
 
-  // Won work lives on the Jobs page, not here
-  const visible = useMemo(
-    () => (bids ?? []).filter((b) => (filter ? b.status === filter : b.status !== 'won')),
-    [bids, filter],
-  )
-
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
 
@@ -66,84 +58,6 @@ export default function Bids() {
   return (
     <div className="zaid-page zaid-bids space-y-4">
       <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={(b) => b.bid_value == null ? null : Number(b.bid_value)} onNew={canEdit ? () => setShowNew(true) : undefined} title="Your bids" statusFilter={filter} onStatusFilter={(status) => setParams(status ? { status } : {})} />
-      <details className="index-activity"><summary>Detailed bid records & status filters</summary><div className="index-activity-content">
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterChip label="All" active={!filter} onClick={() => setParams({})} />
-        {STATUSES.filter((s) => s.value !== 'won').map((s) => (
-          <FilterChip
-            key={s.value}
-            label={s.label}
-            active={filter === s.value}
-            onClick={() => setParams({ status: s.value })}
-          />
-        ))}
-        {canEdit && (
-          <button
-            onClick={() => setShowNew(true)}
-            className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
-          >
-            + New bid
-          </button>
-        )}
-      </div>
-
-      {!bids ? (
-        <p className="text-sm text-slate-500">Loading…</p>
-      ) : visible.length === 0 ? (
-        <p className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-          {filter ? 'No bids in this stage.' : 'No bids yet — add the first one.'}
-        </p>
-      ) : (
-        <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-          {visible.map((b, i) => {
-            const followUp = followUpAt(b, followupDays)
-            const followUpDue = followUp !== null && followUp.getTime() <= Date.now()
-            return (
-              <Link
-                key={b.id}
-                to={`/bids/${b.id}`}
-                className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-slate-50 ${
-                  i > 0 ? 'border-t border-slate-200' : ''
-                }`}
-              >
-                <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
-                <span className="flex min-w-0 flex-1 basis-40 items-center gap-3">
-                  <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
-                  {gcLabel(b.id) && (
-                    <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
-                  )}
-                </span>
-                {seesMoney && b.bid_value != null && (
-                  <span className="ml-auto text-right text-xs tabular-nums text-slate-500 sm:ml-0 sm:w-24">
-                    {fmtMoney(b.bid_value)}
-                  </span>
-                )}
-                <StatusBadge status={b.status} />
-                {followUp ? (
-                  <span
-                    className={`w-40 whitespace-nowrap text-right text-xs ${
-                      followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
-                    }`}
-                  >
-                    {followUpDue ? '☎︎ follow up' : `follow up ${fmtFollowUp(followUp)}`}
-                  </span>
-                ) : (
-                  <span
-                    className={`w-40 whitespace-nowrap text-right text-xs tabular-nums ${
-                      isOverdue(b) ? 'font-semibold text-red-600' : 'text-slate-500'
-                    }`}
-                  >
-                    {fmtDueDate(b.due_at)}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
-      )}
-
-      
-      </div></details>
       {showNew && (
         <NewBidForm
           customers={customers}
@@ -158,20 +72,3 @@ export default function Bids() {
     </div>
   )
 }
-
-function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={`rounded-full border px-3 py-1 text-xs font-medium ${
-        active
-          ? 'border-slate-900 bg-slate-900 text-white'
-          : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-

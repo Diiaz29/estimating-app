@@ -1,0 +1,220 @@
+/* Construction workspace: screen presentation only. Document trees and print stay incumbent. */
+@media screen {
+  .zaid-app .zaid-timeclock { max-width:none; }
+  .zaid-app .zaid-timeclock > .construction-time-workspace { margin-top:0; }
+  .construction-time-workspace { display:grid; grid-template-columns:380px minmax(0,1fr); grid-template-rows:auto 1fr; gap:20px; align-items:start; }
+  .construction-time-entry { grid-column:1; grid-row:1; }
+  .construction-time-history { grid-column:1; grid-row:2; }
+  .construction-time-report { grid-column:2; grid-row:1 / 3; }
+  .construction-time-personal { grid-template-columns:minmax(320px,380px) minmax(0,1fr); }
+  .construction-time-personal .construction-time-history { grid-column:2; grid-row:1; }
+  .zaid-app :is(.construction-time-entry,.construction-time-history,.construction-time-report) { min-width:0; background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
+  .construction-time-entry { padding:20px; }
+  .zaid-app .zaid-timeclock :is(.construction-time-section-heading,.construction-time-report-heading h2,.construction-time-recent h2) { font-size:16px; font-weight:600; color:var(--z-ink); margin:0; }
+  .construction-time-section-heading { padding-bottom:20px; }
+  .zaid-app .construction-time-form { padding:0; margin:0; border:0; background:transparent; }
+  .zaid-app .construction-time-form > * + * { margin-top:16px; }
+  .zaid-app .construction-time-form label > span,.construction-time-form > div > div > span { display:block; margin-bottom:6px; }
+  .zaid-app .construction-time-form .input { width:100%; min-width:0; }
+  .zaid-app .construction-time-form label:has(input[type=checkbox]) > span { margin:0; }
+  .construction-time-report-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; border-bottom:1px solid var(--z-line); }
+  .construction-time-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:16px; padding:16px 20px; border-bottom:1px solid var(--z-line); }
+  .construction-time-range { display:flex; gap:12px; min-width:0; }
+  .construction-time-range label { min-width:0; }
+  .zaid-app .construction-time-range label { display:block; }
+  .construction-time-range label > span { display:block; }
+  .zaid-app .construction-time-range .input { width:160px; min-width:0; margin-top:6px; }
+  .construction-time-filters { align-items:center; padding-bottom:1px; }
+  .zaid-app .construction-time-filters button { display:inline-flex; align-items:center; gap:8px; min-height:38px; }
+  .construction-time-document { padding:20px; overflow-x:auto; }
+  .construction-time-document > .light-doc { max-width:850px; min-width:600px; }
+  .construction-time-document-collapsed { display:none; }
+  .construction-time-report-caption { display:flex; justify-content:space-between; gap:16px; padding:12px 20px; color:var(--z-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+  .zaid-app .construction-time-table th:nth-child(2),.zaid-app .construction-time-table td:nth-child(2) { width:auto; }
+  .zaid-app .construction-time-table th:last-child,.zaid-app .construction-time-table td:last-child { text-align:right; padding-right:20px; }
+  .zaid-app .construction-time-table td.construction-time-table-empty { text-align:center; padding:48px 20px; color:var(--z-muted); }
+  .construction-time-recent h2 { padding:20px; border-bottom:1px solid var(--z-line); }
+  .zaid-app .construction-time-recent > div { border:0; border-radius:0; }
+  .construction-time-empty { color:var(--z-muted); font-size:14px; padding:20px; margin:0; }
+  @media (max-width:1200px) {
+    .construction-time-workspace { grid-template-columns:340px minmax(0,1fr); }
+  }
+  @media (max-width:1000px) {
+    .construction-time-workspace,.construction-time-personal { display:flex; flex-direction:column; }
+    .construction-time-workspace > * { width:100%; }
+  }
+  @media (max-width:639px) {
+    .construction-time-entry,.construction-time-document { padding:16px; }
+    .construction-time-report-heading,.construction-time-toolbar,.construction-time-recent h2 { padding:16px; }
+    .construction-time-range { width:100%; }
+    .construction-time-report-heading { flex-wrap:wrap; }
+    .construction-time-range label { flex:1; }
+    .zaid-app .construction-time-range .input { width:100%; font-size:16px; }
+  }
+  .zaid-app.workspace-shell { --z-canvas:#f3f1ee; --z-paper:#fff; --z-soft:#eee8df; --z-line:#dcd6ce; --z-control:#a69b90; background:var(--z-canvas); }
+  .zaid-app.workspace-shell.dark { --z-canvas:#211e1b; --z-paper:#2b2723; --z-soft:#3c342c; --z-line:#51483f; --z-control:#9d8c7b; }
+  .zaid-app .workspace-sidebar { background:#534741; border:0; }
+  .workspace-brand { height:116px; padding:12px 24px; background:#534741; color:#fff; }
+  .workspace-brand img { width:91.8px; height:91.8px; max-height:91.8px; }
+  .workspace-context-label > span { border:0; padding-left:0; }
+  .zaid-app h1.workspace-page-title { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; color:var(--z-ink); margin:0; }
+  .workspace-title-in-header .workspace-main h1:not(.light-doc *) { display:none; }
+  @media (max-width:639px) {
+    .zaid-app.workspace-title-in-header .workspace-context { height:auto; min-height:64px; }
+    .workspace-title-in-header .workspace-context-inner { flex-wrap:wrap; }
+    .zaid-app.workspace-title-in-header h1.workspace-page-title { font-size:20px; }
+    .workspace-title-in-header .workspace-context-label { flex:1; }
+    .workspace-title-in-header .workspace-context .zaid-header-tools { width:100%; justify-content:flex-end; margin-left:0; }
+  }
+  .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
+  .workspace-company span { color:#e4d7c7; }
+  .workspace-sidebar nav { padding:0 0 10px; }
+  .workspace-sidebar h2 { color:#e4d7c7; padding:0 18px; margin:18px 0 6px; font-size:12px; }
+  .workspace-sidebar nav > section:first-child h2 { margin-top:4px; }
+  .zaid-app .workspace-sidebar nav a { display:flex; gap:12px; align-items:center; padding:10px 18px; border-radius:0; min-height:43px; color:#fff; }
+  .zaid-app .workspace-sidebar nav a:hover { background:#66564c; }
+  .zaid-app .workspace-sidebar nav a[aria-current=page] { background:#c7b299; color:#171b1e; }
+  .zaid-app.workspace-shell .workspace-sidebar nav a:not([aria-current]) { color:#fff; background:transparent; }
+  .zaid-app.workspace-shell .workspace-sidebar nav a:not([aria-current]):hover { background:#66564c; }
+  .zaid-app.workspace-shell .workspace-sidebar nav a { border-radius:0; }
+  .workspace-sidebar .ui-icon { flex-shrink:0; width:18px; height:18px; }
+  .zaid-app .workspace-context { background:var(--z-paper); height:64px; }
+  .zaid-app .workspace-main { padding:24px; max-width:none; }
+  .construction-page-heading,.project-heading { display:flex; gap:20px; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .zaid-app :is(.construction-page-heading h1,.project-heading h1,.zaid-page h1) { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; }
+  .construction-page-heading p,.project-heading p { color:var(--z-muted); margin-top:6px; font-size:14px; }
+  .construction-heading-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .zaid-app :is(.index-primary,.index-secondary) { border-radius:4px; font-size:13px; min-height:36px; padding:8px 12px; }
+  .zaid-app :is(input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=hidden],[type=button],[type=submit],[type=reset],[type=image]),select,textarea):focus:not(.light-doc *) { outline:none; box-shadow:none; border-color:var(--z-accent); }
+  .zaid-app .index-search:has(input:focus-visible) { border-color:var(--z-accent); }
+  .zaid-app :is(.index-primary,.index-secondary) svg { width:16px; height:16px; }
+  .construction-overview { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr); gap:20px; align-items:start; }
+  .construction-overview-column { display:flex; flex-direction:column; gap:20px; min-width:0; }
+  .zaid-app .construction-overview>section, .zaid-app .construction-overview-column>section { background:var(--z-paper); padding:20px; border:1px solid var(--z-line); border-radius:6px; margin:0; min-width:0; }
+  .construction-overview .zaid-pipeline { grid-column:1/-1; }
+  .zaid-app .construction-overview section h2 { font-size:16px; font-weight:600; color:var(--z-ink); margin-bottom:16px; }
+  .zaid-app .zaid-dashboard .construction-overview .zaid-pipeline>h2 { font-size:16px; margin-bottom:16px; }
+  .zaid-app .construction-overview .zaid-pipeline .grid { gap:0; }
+  .zaid-app .construction-overview .zaid-pipeline .grid>a { border:0; border-radius:0; padding:4px 20px; background:transparent; }
+  .zaid-app .construction-overview .zaid-pipeline .grid>a+a { border-left:1px solid var(--z-line); }
+  .zaid-app .construction-overview :is(.zaid-due-index,.zaid-followups,.zaid-job-index)>div:last-child { border:0; border-radius:0; }
+  .zaid-app .construction-overview :is(.zaid-due-index,.zaid-followups,.zaid-job-index)>div:last-child>div { padding:14px 0; }
+  .zaid-app .construction-overview .zaid-track-record .grid> :is(a,div) { border:0; border-radius:0; padding:6px; background:transparent; }
+  .zaid-app .project-workspace.construction-register { display:block; }
+  .zaid-app .project-workspace.construction-preview-open { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; align-items:start; }
+  .construction-register .project-index-column { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; min-width:0; overflow:hidden; }
+  .zaid-app .construction-register .project-index-tools { display:flex; flex-direction:column; align-items:stretch; gap:16px; padding:0 20px 16px; border-bottom:1px solid var(--z-line); margin:0; }
+  .zaid-app .construction-register .index-tabs { border-bottom:1px solid var(--z-line); gap:24px; margin:0 -20px; padding:0 20px; overflow:auto; }
+  .zaid-app .construction-register .index-tabs button { min-height:50px; font-size:13px; padding:10px 0; }
+  .zaid-app .construction-register .index-search { max-width:360px; width:100%; min-height:36px; background:var(--z-paper); border-radius:4px; }
+  .construction-register-filters { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; }
+  .construction-register-filter { display:flex; flex-direction:column; gap:6px; width:220px; max-width:100%; min-width:0; color:var(--z-ink); font-size:12px; }
+  .construction-register-filter:first-child { width:360px; }
+  .zaid-app .construction-register-filter>input, .zaid-app .construction-register-filter>select { width:100%; min-width:0; height:42px; padding:0 12px; border:1px solid var(--z-control); border-radius:4px; background:var(--z-paper); color:var(--z-ink); font-size:13px; }
+  .zaid-app .construction-register-filter>select { appearance:auto; }
+  .zaid-app .construction-clear-filters { min-height:42px; }
+  .construction-register-caption { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 20px; color:var(--z-muted); font-size:12px; }
+  .construction-table-scroll { overflow:auto; }
+  .zaid-app .construction-register-table { width:100%; min-width:850px; border-collapse:collapse; font-size:13px; }
+  .zaid-app .construction-register-table.construction-job-register { min-width:1200px; }
+  .zaid-app .construction-register-table th { text-align:left; white-space:nowrap; background:var(--z-canvas); color:var(--z-muted); font-size:12px; font-weight:600; padding:12px; border-block:1px solid var(--z-line); }
+  .construction-register-table th button { cursor:pointer; padding:0; color:inherit; font-weight:inherit; }
+  .zaid-app .construction-register-table td { padding:12px; border-bottom:1px solid var(--z-line); vertical-align:middle; }
+  .construction-register-table th:first-child,.construction-register-table td:first-child { padding-left:20px; width:120px; }
+  .construction-register-table th:nth-child(2),.construction-register-table td:nth-child(2) { width:32%; }
+  .construction-register-table tr:hover { background:var(--z-canvas); }
+  .construction-register-table .construction-selected-row { background:var(--z-soft); }
+  .construction-register-table th[aria-sort=ascending], .construction-register-table th[aria-sort=descending] { color:var(--z-accent); }
+  .construction-job-number { white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .construction-project-select { display:block; text-align:left; width:100%; min-width:180px; }
+  .construction-project-select strong { display:block; color:var(--z-accent); font-size:14px; font-weight:600; }
+  .construction-project-select small { display:block; margin-top:4px; color:var(--z-muted); font-size:12px; }
+  .construction-money { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .construction-row-link { color:var(--z-accent); text-decoration:underline; text-underline-offset:3px; }
+  .construction-row-actions { display:flex; flex-wrap:wrap; gap:12px; }
+  .zaid-app .construction-job-register th:last-child, .zaid-app .construction-job-register td:last-child { width:1%; white-space:nowrap; padding-right:24px; }
+  .construction-job-register .construction-row-actions { width:max-content; margin-left:auto; flex-wrap:nowrap; }
+  .construction-jobs-total { display:flex; flex-direction:column; text-align:right; flex-shrink:0; }
+  .construction-jobs-total strong { font-size:20px; font-variant-numeric:tabular-nums; }
+  .construction-jobs-total span { color:var(--z-muted); font-size:12px; }
+  .zaid-app .construction-complete-job { min-height:30px; padding:4px 8px; font-size:12px; }
+  .construction-overdue { color:#b91c1c; font-weight:600; }
+  .dark .construction-overdue { color:#fca5a5; }
+  .zaid-app .construction-register .index-list-foot { padding:12px 20px; margin:0; background:var(--z-canvas); }
+  .zaid-app .construction-register .index-followups { margin:0; padding:20px; border-top:1px solid var(--z-line); }
+  .zaid-app .construction-register .index-preview { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; padding:20px; position:sticky; top:84px; }
+  .zaid-app .construction-register .index-preview h2 { font-size:22px; }
+  .zaid-app .workspace-project-nav { background:var(--z-paper); border:1px solid var(--z-line); border-radius:5px; padding:0 16px; margin-bottom:20px; }
+  .zaid-app .workspace-project-primary { gap:24px; }
+  .zaid-app .workspace-project-more>summary { border:0; }
+  .zaid-app .estimate-section-tabs { background:var(--z-paper); border:1px solid var(--z-line); border-bottom:0; padding:0 16px; margin:0; border-radius:5px 5px 0 0; gap:24px; }
+  .zaid-app .estimate-section-tabs button { font-size:13px; min-height:48px; }
+  .zaid-app .estimate-workspace { grid-template-columns:170px minmax(0,1fr) 250px; gap:0; border:1px solid var(--z-line); background:var(--z-paper); border-radius:0 0 5px 5px; align-items:start; }
+  .zaid-app .zaid-estimate .estimate-workspace { margin-top:0; }
+  .zaid-app .estimate-workspace-wide { grid-template-columns:minmax(0,1fr) 250px; }
+  .zaid-app .estimate-area-nav { background:var(--z-paper); padding:16px 12px; border-right:1px solid var(--z-line); min-height:100%; position:static; }
+  .zaid-app .estimate-area-nav h2 { font-size:14px; font-weight:600; margin-bottom:12px; }
+  .zaid-app .estimate-area-nav button { border-radius:4px; padding:10px; font-size:13px; }
+  .zaid-app .estimate-workspace-body { padding:20px; min-width:0; }
+  .zaid-app .takeoff-area>div { border:0; background:var(--z-paper); border-radius:0; padding:0; }
+  .zaid-app .takeoff-area>section.bg-white { border-radius:0; padding:0; }
+  .zaid-app .takeoff-area table td { padding-top:12px; padding-bottom:12px; }
+  .zaid-app .takeoff-area h2 { font-size:20px; }
+  .zaid-app .estimate-summary-panel { background:var(--z-canvas); border:0; border-left:1px solid var(--z-line); border-radius:0; padding:20px; position:sticky; top:84px; }
+  .zaid-app .estimate-summary-panel h2 { font-size:16px; }
+  .zaid-app .zaid-receipts { max-width:none; display:grid; grid-template-columns:minmax(0,1fr) 350px; column-gap:20px; align-items:start; }
+  .zaid-app .zaid-receipts> :not(.construction-receipt-intake) { grid-column:1; min-width:0; }
+  .zaid-app .zaid-receipts>.construction-receipt-heading { grid-column:1/-1; margin-bottom:20px; }
+  .zaid-app .zaid-receipts>.construction-receipt-records { grid-column:1; grid-row:2; margin-top:0; min-width:0; }
+  .zaid-app .zaid-receipts .construction-receipt-intake { grid-column:2; grid-row:2; margin-top:0; position:sticky; top:84px; background:var(--z-paper); border-radius:6px; padding:20px; }
+  .construction-intake-heading { font-size:16px; font-weight:600; margin-bottom:18px; }
+  .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
+  .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:auto; }
+  .zaid-app .construction-receipt-intake .font-mono { font-size:12px; }
+  .zaid-app .zaid-page :is(table,.overflow-hidden.rounded-lg):not(.light-doc,.light-doc *) { background:var(--z-paper); }
+  .zaid-app .zaid-page :is(input,select,textarea):not(.light-doc *) { background:var(--z-paper); border-radius:4px; }
+  .zaid-app .zaid-page> :is(section.border,div.border):not(.light-doc,.light-doc *) { background:var(--z-paper); border-radius:6px; }
+  .zaid-app .zaid-page :is(table th):not(.light-doc *) { background:var(--z-canvas); }
+  .zaid-app :is(.zaid-jobs,.zaid-customers,.zaid-team,.zaid-plans,.zaid-field)>.overflow-hidden:not(.light-doc) { border-radius:6px; background:var(--z-paper); }
+  .zaid-app .library-workspace { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; gap:0; }
+  .zaid-app .library-category-nav { padding:16px; border-right:1px solid var(--z-line); }
+  .zaid-app .library-workspace> :last-child { padding:20px; min-width:0; }
+  .zaid-app .zaid-page :is(button,a).rounded-full:not(.light-doc *) { border-radius:4px; }
+  @media(max-width:1200px) {
+    .zaid-app .estimate-workspace { grid-template-columns:150px minmax(0,1fr); }
+    .zaid-app .estimate-workspace-wide { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .estimate-summary-panel { grid-column:1/-1; position:static; border-left:0; border-top:1px solid var(--z-line); }
+    .zaid-app .project-workspace.construction-preview-open { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .construction-register .index-preview { position:static; }
+  }
+  @media(max-width:1000px) {
+    .construction-overview { grid-template-columns:minmax(0,1fr); }
+    .construction-overview>section { grid-column:1!important; grid-row:auto!important; }
+    .zaid-app .zaid-receipts { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .zaid-receipts .construction-receipt-intake { grid-column:1; grid-row:auto; position:static; margin-bottom:20px; }
+    .zaid-app .zaid-receipts>.construction-receipt-records { grid-row:auto; }
+    .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:span 2; }
+  }
+  @media(max-width:800px) {
+    .zaid-app .workspace-main { padding:20px 16px; }
+    .construction-page-heading,.project-heading { flex-wrap:wrap; gap:16px; }
+    .construction-heading-actions { width:100%; }
+    .zaid-app .estimate-workspace,.zaid-app .estimate-workspace-wide { grid-template-columns:minmax(0,1fr); }
+    .zaid-app .estimate-area-nav { border-right:0; border-bottom:1px solid var(--z-line); min-height:0; padding:12px; }
+    .zaid-app .estimate-workspace-body { padding:16px; }
+    .zaid-app .workspace-project-nav { padding:0 12px 8px; }
+    .zaid-app .construction-register .project-index-tools { padding-inline:16px; }
+    .construction-register-caption { padding:12px 16px; }
+    .zaid-app .construction-overview>section, .zaid-app .construction-overview-column>section { padding:16px; }
+  }
+  @media(max-width:639px) {
+    .construction-register-filter, .construction-register-filter:first-child { width:100%; }
+    .zaid-app .construction-register-filter>input, .zaid-app .construction-register-filter>select { font-size:16px; }
+    .zaid-app .construction-receipt-intake .sm\:grid-cols-2 { grid-template-columns:1fr; }
+    .zaid-app .construction-receipt-intake .sm\:col-span-2 { grid-column:auto; }
+    .zaid-app .construction-register-table { min-width:850px; }
+    .zaid-app .construction-overview .zaid-pipeline .grid>a { padding:4px 10px; }
+    .zaid-app .construction-overview .zaid-pipeline .grid>a .flex { flex-wrap:wrap; }
+  }
+}

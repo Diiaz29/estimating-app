@@ -1,11 +1,9 @@
-import UiIcon from '../components/UiIcon'
+import ProjectIndex from '../components/ProjectIndex'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Bid, Revision } from '../lib/types'
-import { fmtMoney } from '../lib/format'
 
 interface GcLink {
   bid_id: string
@@ -14,12 +12,11 @@ interface GcLink {
 }
 
 export default function Jobs() {
-  const { isAdmin, canManageBids: canEdit, isOffice, seesMoney } = useAuth()
+  const { canManageBids: canEdit } = useAuth()
   const [jobs, setJobs] = useState<Bid[] | null>(null)
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [showCompleted, setShowCompleted] = useState(false)
-  const [sort, setSort] = useState<{ field: 'job_number' | 'name'; ascending: boolean } | null>(null)
   const [jobToComplete, setJobToComplete] = useState<Bid | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,143 +63,22 @@ export default function Jobs() {
     return rev ? Number(rev.contract_amount) : b.bid_value == null ? null : Number(b.bid_value)
   }
   const activeJobs = jobs.filter((b) => !b.completed_at)
-  const completedJobs = jobs.filter((b) => b.completed_at)
-  const visible = [...(showCompleted ? completedJobs : activeJobs)]
-  if (sort) {
-    visible.sort((a, b) => {
-      const comparison = (a[sort.field] ?? '').localeCompare(b[sort.field] ?? '', undefined, { numeric: true, sensitivity: 'base' })
-      return sort.ascending ? comparison : -comparison
-    })
-  }
-  function toggleSort(field: 'job_number' | 'name') {
-    setSort((previous) => ({ field, ascending: previous?.field === field ? !previous.ascending : field === 'name' }))
-  }
   const totalValue = activeJobs.reduce((s, b) => s + (valueFor(b) ?? 0), 0)
 
   return (
     <div className="zaid-page zaid-jobs space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Jobs</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Won work — this is what the shop builds.</p>
-        </div>
-        <div className="ml-auto rounded-lg border-2 border-slate-800 bg-white px-4 py-2 text-right shadow-[3px_3px_0_0_rgba(15,23,42,0.12)]">
-          {seesMoney && <div className="text-lg font-semibold tabular-nums">{fmtMoney(totalValue)}</div>}
-          <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
-            {activeJobs.length} active job{activeJobs.length === 1 ? '' : 's'}
-          </div>
-        </div>
-      </div>
-
-      {completedJobs.length > 0 && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowCompleted(false)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${
-              !showCompleted ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
-            }`}
-          >
-            Active ({activeJobs.length})
-          </button>
-          <button
-            onClick={() => setShowCompleted(true)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${
-              showCompleted ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
-            }`}
-          >
-            Completed ({completedJobs.length})
-          </button>
-        </div>
-      )}
-
-      {visible.length === 0 ? (
-        <p className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-          {showCompleted ? 'Nothing completed yet.' : 'Nothing won yet — when a bid is marked Won, it moves here.'}
-        </p>
-      ) : (
-        <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-          <div className="jobs-column-header">
-            {(['job_number', 'name'] as const).map((field) => (
-              <div key={field} className="jobs-column-title">
-                <span>{field === 'job_number' ? 'Job Number' : 'Name'}</span>
-                <button
-                  type="button"
-                  aria-label={`Sort by ${field === 'job_number' ? 'job number' : 'name'}`}
-                  aria-pressed={sort?.field === field}
-                  title={sort?.field === field ? (sort.ascending ? 'Ascending — click to reverse' : 'Descending — click to reverse') : 'Click to sort'}
-                  onClick={() => toggleSort(field)}
-                  className="jobs-sort-button"
-                >
-                  <UiIcon name={sort?.field === field && sort.ascending ? 'up' : 'down'} />
-                </button>
-              </div>
-            ))}
-          </div>
-          {visible.map((b, i) => {
-            const value = valueFor(b)
-            const gc = gcFor(b.id)
-            return (
-              <div
-                key={b.id}
-                className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
-              >
-                <Link to={`/bids/${b.id}`} className="jobs-row-identity order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
-                  <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
-                  <span className="jobs-row-name min-w-0 flex items-center gap-3">
-                    <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
-                  {gc && (
-                    <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gc}</span>
-                  )}
-                  </span>
-                </Link>
-                <span className="jobs-row-actions order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
-                  {!isOffice && (
-                    <>
-                      <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                        Estimate
-                      </Link>
-                    </>
-                  )}
-                  <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Proposal
-                  </Link>
-                  {!isOffice && (
-                    <>
-                      <Link to={`/bids/${b.id}/schedule`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                        Schedule
-                      </Link>
-                      <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                        Order sheet
-                      </Link>
-                    </>
-                  )}
-                  {(isAdmin || isOffice) && (
-                    <Link to={`/bids/${b.id}/actuals`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Actuals
-                    </Link>
-                  )}
-                </span>
-                {seesMoney && (
-                  <span className="jobs-row-value order-2 ml-auto text-sm font-semibold tabular-nums sm:order-3 sm:ml-0">{value == null ? '—' : fmtMoney(value)}</span>
-                )}
-                {canEdit && (
-                  <button
-                    onClick={() => b.completed_at ? void setComplete(b, false) : setJobToComplete(b)}
-                    title={b.completed_at ? 'Put this job back on the active list' : 'Job is finished — move it off the active list'}
-                    className={`jobs-row-complete order-4 hidden rounded-md border px-2 py-0.5 text-xs font-medium sm:inline-block ${
-                      b.completed_at
-                        ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
-                        : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'
-                    }`}
-                  >
-                    {b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      <ProjectIndex
+        title="Jobs"
+        bids={jobs}
+        contractor={gcFor}
+        valueFor={valueFor}
+        jobControls={{
+          showCompleted,
+          onShowCompleted: setShowCompleted,
+          totalValue,
+          onToggleComplete: canEdit ? (bid) => bid.completed_at ? void setComplete(bid, false) : setJobToComplete(bid) : undefined,
+        }}
+      />
       {jobToComplete && (
         <ConfirmDialog
           title="Mark job complete?"

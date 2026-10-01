@@ -7,7 +7,6 @@ import type { Bid, Customer } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 import NewBidForm from '../components/NewBidForm'
-import ProjectIndex from '../components/ProjectIndex'
 
 interface GcLink {
   bid_id: string
@@ -111,8 +110,8 @@ export default function Dashboard() {
 
   return (
     <div className="zaid-page zaid-dashboard space-y-6">
-      <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={jobValue} onNew={canEdit ? () => setShowNew(true) : undefined} />
-      <details className="index-activity"><summary>Pipeline, due dates & job activity</summary><div className="index-activity-content">
+      <div className="construction-page-heading"><div><h1>Dashboard</h1><p>Bids to finish, proposals to follow up, and work in the shop.</p></div><div className="construction-heading-actions"><Link className="index-secondary" to="/bids">Bid register</Link>{canEdit && <button className="index-primary" onClick={() => setShowNew(true)}>+ New bid</button>}</div></div>
+      <div className="construction-overview">
       {/* Pipeline counts */}
       <section className="zaid-pipeline">
         <SectionTitle>Pipeline</SectionTitle>
@@ -141,6 +140,7 @@ export default function Dashboard() {
         </div>
       </section>
 
+      <div className="construction-overview-column">
       {/* Due soon */}
       <section className="zaid-due-index">
         <div className="mb-2 flex items-center">
@@ -201,61 +201,6 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Sent — waiting on an answer */}
-      {sentList.length > 0 && (
-        <section className="zaid-followups">
-          <SectionTitle>Sent — follow up</SectionTitle>
-          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-            {sentList.map((b, i) => {
-              const followUp = followUpAt(b, followupDays)
-              const followUpDue = followUp !== null && followUp.getTime() <= Date.now()
-              return (
-                <div
-                  key={b.id}
-                  className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${
-                    i > 0 ? 'border-t border-slate-200' : ''
-                  }`}
-                >
-                  <Link to={`/bids/${b.id}`} className="order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
-                    <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
-                    <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
-                    {gcLabel(b.id) && (
-                      <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
-                    )}
-                  </Link>
-                  <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
-                    {!isOffice && (
-                      <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                        Estimate
-                      </Link>
-                    )}
-                    <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Proposal
-                    </Link>
-                  </span>
-                  {seesMoney && b.bid_value != null && (
-                    <span className="order-2 ml-auto text-xs tabular-nums text-slate-500 sm:order-3 sm:ml-0">
-                      {fmtMoney(b.bid_value)}
-                    </span>
-                  )}
-                  <span
-                    className={`order-4 ml-auto whitespace-nowrap text-xs sm:ml-0 ${
-                      followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
-                    }`}
-                  >
-                    {followUp
-                      ? followUpDue
-                        ? '☎︎ follow up'
-                        : `follow up ${fmtFollowUp(followUp)}`
-                      : '—'}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Active jobs (won work) */}
       {jobs.length > 0 && (
         <section className="zaid-job-index">
@@ -313,6 +258,63 @@ export default function Dashboard() {
 
       
 
+      </div>
+      <div className="construction-overview-column">
+      {/* Sent — waiting on an answer */}
+      {sentList.length > 0 && (
+        <section className="zaid-followups">
+          <SectionTitle>Sent — follow up</SectionTitle>
+          <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
+            {sentList.map((b, i) => {
+              const followUp = followUpAt(b, followupDays)
+              const followUpDue = followUp !== null && followUp.getTime() <= Date.now()
+              return (
+                <div
+                  key={b.id}
+                  className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${
+                    i > 0 ? 'border-t border-slate-200' : ''
+                  }`}
+                >
+                  <Link to={`/bids/${b.id}`} className="order-1 flex min-w-0 flex-1 basis-48 items-center gap-3 hover:underline">
+                    <span className="whitespace-nowrap font-mono text-xs text-slate-500">{b.job_number}</span>
+                    <span className="min-w-0 truncate text-sm font-medium">{b.name}</span>
+                    {gcLabel(b.id) && (
+                      <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
+                    )}
+                  </Link>
+                  <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
+                    {!isOffice && (
+                      <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                        Estimate
+                      </Link>
+                    )}
+                    <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+                      Proposal
+                    </Link>
+                  </span>
+                  {seesMoney && b.bid_value != null && (
+                    <span className="order-2 ml-auto text-xs tabular-nums text-slate-500 sm:order-3 sm:ml-0">
+                      {fmtMoney(b.bid_value)}
+                    </span>
+                  )}
+                  <span
+                    className={`order-4 ml-auto whitespace-nowrap text-xs sm:ml-0 ${
+                      followUpDue ? 'font-semibold text-amber-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {followUp
+                      ? followUpDue
+                        ? <><UiIcon name="phone" /> follow up</>
+                        : `follow up ${fmtFollowUp(followUp)}`
+                      : '—'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Win rate */}
       <section className="zaid-track-record">
         <SectionTitle>Track record</SectionTitle>
@@ -322,7 +324,8 @@ export default function Dashboard() {
           <Stat label="Win rate" value={winRate === null ? '—' : `${winRate}%`} />
         </div>
       </section>
-      </div></details>
+      </div>
+      </div>
       {showNew && (
         <NewBidForm
           customers={customers}
