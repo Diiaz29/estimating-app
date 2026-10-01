@@ -68,8 +68,9 @@
   }
   .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
   .workspace-company span { color:#e4d7c7; }
-  .workspace-sidebar nav { padding:10px 0; }
+  .workspace-sidebar nav { padding:0 0 10px; }
   .workspace-sidebar h2 { color:#e4d7c7; padding:0 18px; margin:18px 0 6px; font-size:12px; }
+  .workspace-sidebar nav > section:first-child h2 { margin-top:4px; }
   .zaid-app .workspace-sidebar nav a { display:flex; gap:12px; align-items:center; padding:10px 18px; border-radius:0; min-height:43px; color:#fff; }
   .zaid-app .workspace-sidebar nav a:hover { background:#66564c; }
   .zaid-app .workspace-sidebar nav a[aria-current=page] { background:#c7b299; color:#171b1e; }
