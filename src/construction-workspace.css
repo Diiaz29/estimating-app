@@ -69,8 +69,8 @@
   .zaid-app .workspace-account-options :is(a,button) { display:flex; align-items:center; gap:8px; width:100%; min-height:42px; padding:10px; font-size:13px; text-align:left; color:var(--z-ink); background:transparent; border:0; border-radius:4px; text-decoration:none; }
   .zaid-app .workspace-account-options :is(a,button):hover { background:var(--z-soft); }
   .zaid-app .workspace-account-options :is(a,button):focus-visible { outline:2px solid var(--z-control); outline-offset:-2px; }
-  .workspace-brand { height:116px; padding:12px 24px; background:#534741; color:#fff; }
-  .workspace-brand img { width:91.8px; height:91.8px; max-height:91.8px; }
+  .workspace-brand { height:144px; padding:12px 24px; background:#534741; color:#fff; }
+  .workspace-brand img { width:119.34px; height:119.34px; max-height:119.34px; }
   .workspace-context-label > span { border:0; padding-left:0; }
   .zaid-app h1.workspace-page-title { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; color:var(--z-ink); margin:0; }
   .workspace-title-in-header .workspace-main h1:not(.light-doc *) { display:none; }
