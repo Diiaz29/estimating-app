@@ -1,3 +1,4 @@
+import LibraryCategories from '../../components/LibraryCategories'
 import UiIcon from '../../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -9,6 +10,7 @@ import { GroupTitle } from '../../components/LibraryBits'
 
 export default function Assemblies() {
   const { isAdmin } = useAuth()
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [assemblies, setAssemblies] = useState<Assembly[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -77,6 +79,9 @@ export default function Assemblies() {
     return [...map.entries()]
   }, [assemblies])
 
+  const selectedCategory = grouped.some(([category]) => category === categoryFilter) ? categoryFilter : null
+  const visibleGroups = grouped.filter(([category]) => selectedCategory === null || category === selectedCategory)
+
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!assemblies) return <p className="text-sm text-slate-500">Loading…</p>
@@ -108,8 +113,14 @@ export default function Assemblies() {
         </p>
       )}
 
-      <div className="library-workspace"><nav className="library-category-nav" aria-label="Library categories"><h2>Categories</h2>{grouped.map(([category, items]) => <a key={category} href={`#library-${encodeURIComponent(category)}`}>{category}<span>{items.length}</span></a>)}</nav><div className="library-records">
-      {grouped.map(([category, items]) => (
+      <div className="library-workspace">
+        <LibraryCategories
+          categories={grouped.map(([name, items]) => ({ name, count: items.length }))}
+          selected={selectedCategory}
+          onSelect={setCategoryFilter}
+        />
+        <div className="library-records">
+      {visibleGroups.map(([category, items]) => (
         <section key={category} id={`library-${category}`}>
           <GroupTitle>{category}</GroupTitle>
           <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
