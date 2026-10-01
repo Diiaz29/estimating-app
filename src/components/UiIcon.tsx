@@ -1,7 +1,8 @@
-type IconName = 'warning' | 'copy' | 'check' | 'pen' | 'star' | 'close' | 'up' | 'down' | 'left' | 'right' | 'phone' | 'download' | 'calendar' | 'clock' | 'people' | 'settings' | 'dashboard' | 'folder' | 'register' | 'sort' | 'sun' | 'moon' | 'contrast'
+type IconName = 'warning' | 'copy' | 'check' | 'pen' | 'star' | 'close' | 'up' | 'down' | 'left' | 'right' | 'phone' | 'download' | 'calendar' | 'clock' | 'people' | 'settings' | 'gear' | 'dashboard' | 'folder' | 'register' | 'sort' | 'sun' | 'moon' | 'contrast'
 
 export default function UiIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    gear: 'M9.5 2h5l.5 2.5 2 1.2 2.5-.8L22 9.2 20 11v2l2 1.8-2.5 4.3-2.5-.8-2 1.2-.5 2.5h-5L9 19.5l-2-1.2-2.5.8L2 14.8 4 13v-2L2 9.2l2.5-4.3 2.5.8 2-1.2L9.5 2Zm2.5 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z',
     contrast: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z',
     sort: 'M8 4v16m-4-4 4 4 4-4m4 4V4m-4 4 4-4 4 4',
     sun: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0-5v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
