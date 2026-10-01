@@ -192,7 +192,10 @@
   /* Repeated category tables share a schema instead of sizing to each category's contents. */
   .zaid-app .library-records table:not(.light-doc *) { table-layout:fixed; }
   .zaid-app .library-records > section > .overflow-x-auto { border:0; border-radius:0; }
-  .zaid-app .library-records thead tr { border:1px solid var(--z-line); }
+  .zaid-app .library-records thead tr { border:0; }
+  .zaid-app .library-records thead th { box-shadow:inset 0 1px var(--z-line),inset 0 -1px var(--z-line); }
+  .zaid-app .library-records thead th:first-child { border-radius:6px 0 0 6px; box-shadow:inset 1px 0 var(--z-line),inset 0 1px var(--z-line),inset 0 -1px var(--z-line); }
+  .zaid-app .library-records thead th:last-child { border-radius:0 6px 6px 0; box-shadow:inset -1px 0 var(--z-line),inset 0 1px var(--z-line),inset 0 -1px var(--z-line); }
   .zaid-app .library-records td:not(.light-doc *) { overflow-wrap:anywhere; }
   .zaid-app .zaid-materials .library-records table { min-width:900px; }
   .zaid-app .zaid-materials .library-records th:nth-child(2) { width:84px; }
