@@ -7,6 +7,7 @@ import type { Profile, Role } from './types'
 interface AuthState {
   session: Session | null
   profile: Profile | null
+  refreshProfile: () => Promise<void>
   isAdmin: boolean
   /** admin or estimator — may create/edit bids, estimates, contractors */
   canEdit: boolean
@@ -29,6 +30,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState>({
   session: null,
   profile: null,
+  refreshProfile: async () => {},
   isAdmin: false,
   canEdit: false,
   canSchedule: false,
@@ -86,6 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [viewAs, setViewAs] = useState<Role | null>(null)
   const realRole = profile?.role ?? null
+  async function refreshProfile() {
+    if (!session || !supabase) return
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+    if (error) throw error
+    setProfile(data as Profile)
+  }
   // view-as only applies to real admins, and only changes what the UI shows
   const role = realRole === 'admin' && viewAs ? viewAs : realRole
   return (
@@ -93,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         profile,
+        refreshProfile,
         isAdmin: role === 'admin',
         canEdit: role === 'admin' || role === 'estimator',
         canSchedule: role === 'admin' || role === 'estimator' || role === 'pm',

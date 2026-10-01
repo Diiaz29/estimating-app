@@ -191,6 +191,7 @@
   .zaid-app .library-workspace { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; gap:0; }
   .zaid-app .zaid-reports section > :is(.overflow-x-auto,.overflow-hidden).rounded-lg { border:1px solid var(--z-line); border-radius:6px; }
   .zaid-app .construction-settings-text-panel { padding:22px; border-radius:6px; }
+  .zaid-app .construction-profile-name-panel { padding:20px; background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
   .zaid-app .zaid-team > .overflow-hidden:has(.team-member-row) { border:1px solid var(--z-line); border-radius:6px; }
   .zaid-app .zaid-team > .overflow-hidden > .team-member-row { padding:20px; }
   .zaid-app .construction-card-row { display:grid; grid-template-columns:minmax(0,1fr) 250px 112px; gap:12px; }

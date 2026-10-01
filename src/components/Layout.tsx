@@ -38,6 +38,7 @@ const pageTitles: Record<string, string> = {
   '/reports': 'Reports',
   '/settings': 'Settings',
   '/team': 'Team',
+  '/account': 'My profile',
 }
 
 export default function Layout() {
@@ -170,7 +171,9 @@ export default function Layout() {
                 </select>
               </label>
             )}
-            <span className="hidden sm:block text-xs text-slate-500">{session?.user.email}</span>
+            <NavLink to="/account" title="Edit your first and last name" className="text-xs text-slate-500 hover:underline">
+              <span className="hidden sm:inline">{session?.user.email}</span><span className="sm:hidden">My profile</span>
+            </NavLink>
             <button
               onClick={() => void signOut()}
               className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"

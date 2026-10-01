@@ -2,6 +2,7 @@
 // browser app deliberately doesn't have. Only callers whose profile role is
 // 'admin' get through.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { validatedNames } from '../_shared/profile-names.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,7 +41,9 @@ Deno.serve(async (req) => {
     .single()
   if (profile?.role !== 'admin') return json(403, { error: 'Admins only' })
 
-  const { email, password } = await req.json().catch(() => ({}))
+  const { email, password, first_name, last_name } = await req.json().catch(() => ({}))
+  const names = validatedNames(first_name, last_name)
+  if (!names) return json(400, { error: 'First and last name are required (up to 80 characters each).' })
   if (typeof email !== 'string' || !email.includes('@')) {
     return json(400, { error: 'A valid email is required' })
   }
@@ -54,6 +57,7 @@ Deno.serve(async (req) => {
     email: email.trim().toLowerCase(),
     password,
     email_confirm: true,
+    user_metadata: names,
   })
   if (error) return json(400, { error: error.message })
 
