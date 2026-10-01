@@ -190,6 +190,7 @@
   .zaid-app :is(.zaid-jobs,.zaid-customers,.zaid-team,.zaid-plans,.zaid-field)>.overflow-hidden:not(.light-doc) { border-radius:6px; background:var(--z-paper); }
   .zaid-app .library-workspace { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; gap:0; }
   .zaid-app .zaid-reports section > :is(.overflow-x-auto,.overflow-hidden).rounded-lg { border:1px solid var(--z-line); border-radius:6px; }
+  .zaid-app .construction-settings-text-panel { padding:22px; border-radius:6px; }
   .zaid-app .zaid-reports { row-gap:24px; }
   .zaid-app .zaid-reports > div:first-child { display:none; }
   .construction-report-summary { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }

@@ -126,7 +126,7 @@ function TextRowsCard({ group, intro, multiline }: { group: string; intro: strin
   }
 
   return (
-    <div className="space-y-4">
+    <div className="construction-settings-text-panel space-y-4">
       <p className="text-sm text-slate-500">{intro}</p>
       {rows.map((t) => (
         <label key={t.key} className="block">
