@@ -7,7 +7,10 @@ import type { OverheadItem, Setting } from '../lib/types'
 import { fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 
-export default function Overhead() {
+export default function Overhead({ embedded = false, onRateApplied }: {
+  embedded?: boolean
+  onRateApplied?: (rate: number) => void
+} = {}) {
   const { isAdmin } = useAuth()
   const [items, setItems] = useState<OverheadItem[] | null>(null)
   const [settings, setSettings] = useState<Record<string, number>>({})
@@ -84,19 +87,22 @@ export default function Overhead() {
   async function applyRate() {
     const rounded = Math.round(rate * 100) / 100
     await patchSetting('cost_shop_rate', rounded)
+    onRateApplied?.(rounded)
     setApplied(true)
     setTimeout(() => setApplied(false), 3000)
   }
 
   return (
-    <div className="zaid-page zaid-overhead max-w-3xl space-y-6">
+    <div className={`${embedded ? 'construction-settings-overhead' : 'zaid-page max-w-3xl'} zaid-overhead space-y-6`}>
       <div>
-        <div className="flex items-center gap-3">
+        {!embedded && <div className="flex items-center gap-3">
           <Link to="/settings" className="text-sm text-slate-500 hover:text-slate-900">
             <UiIcon name="left" /> Settings
           </Link>
-        </div>
-        <h1 className="mt-2 text-lg font-semibold tracking-tight">Overhead → true cost rate</h1>
+        </div>}
+        {embedded
+          ? <h2 className="text-lg font-semibold tracking-tight">Overhead → true cost rate</h2>
+          : <h1 className="mt-2 text-lg font-semibold tracking-tight">Overhead → true cost rate</h1>}
         <p className="mt-1 text-sm text-slate-500">
           List what the company really pays for a year. The app turns it into an honest cost rate
           per shop hour.

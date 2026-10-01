@@ -103,17 +103,20 @@ export default function Reports() {
     <div className="zaid-page zaid-reports space-y-6">
       <div>
         <h1 className="text-lg font-semibold tracking-tight">Reports</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
-          Values use the latest snapshot when one exists, otherwise the bid's estimated value.
-        </p>
       </div>
 
       {/* Headline stats */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="construction-report-summary">
+        <div className="construction-report-summary-heading">
+          <h2>Bid results</h2>
+          <p>Values use the latest snapshot when one exists, otherwise the bid's estimated value.</p>
+        </div>
+        <dl className="construction-report-metrics">
         <Stat label="Jobs won" value={String(wonBids.length)} />
         <Stat label="Jobs lost" value={String(lostBids.length)} />
         <Stat label="Won value" value={fmtMoney(totalWonValue)} />
         <Stat label="Avg margin (won)" value={avgMargin == null ? '—' : `${(avgMargin * 100).toFixed(1)}%`} />
+        </dl>
       </div>
 
       {/* Win/loss by GC */}
@@ -200,9 +203,9 @@ export default function Reports() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border-2 border-slate-800 bg-white p-3 text-center shadow-[3px_3px_0_0_rgba(15,23,42,0.12)]">
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
-      <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{label}</div>
+    <div className="construction-report-metric">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   )
 }

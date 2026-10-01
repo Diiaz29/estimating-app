@@ -1,3 +1,4 @@
+import LibraryCategories from '../../components/LibraryCategories'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -13,6 +14,7 @@ const HARDWARE_CATEGORIES = ['HARDWARE', 'EQUIPMENT']
 
 export default function Materials({ mode = 'general' }: { mode?: 'general' | 'hardware' }) {
   const { isAdmin } = useAuth()
+  const [categoryFilter, setCategoryFilter] = useState<{ mode: typeof mode; category: string | null }>({ mode, category: null })
   const [materials, setMaterials] = useState<Material[] | null>(null)
   const [staleDays, setStaleDays] = useState(90)
   const [error, setError] = useState<string | null>(null)
@@ -44,6 +46,9 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
     }
     return [...map.entries()]
   }, [materials, mode])
+
+  const selectedCategory = categoryFilter.mode === mode && grouped.some(([category]) => category === categoryFilter.category) ? categoryFilter.category : null
+  const visibleGroups = grouped.filter(([category]) => selectedCategory === null || category === selectedCategory)
 
   async function saveCost(m: Material, cost: number | null) {
     const { error } = await supabase!.from('materials').update({ cost }).eq('id', m.id)
@@ -81,8 +86,14 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
         )}
       </div>
 
-      <div className="library-workspace"><nav className="library-category-nav" aria-label="Library categories"><h2>Categories</h2>{grouped.map(([category, items]) => <a key={category} href={`#library-${encodeURIComponent(category)}`}>{category}<span>{items.length}</span></a>)}</nav><div className="library-records">
-      {grouped.map(([category, items]) => (
+      <div className="library-workspace">
+        <LibraryCategories
+          categories={grouped.map(([name, items]) => ({ name, count: items.length }))}
+          selected={selectedCategory}
+          onSelect={(category) => setCategoryFilter({ mode, category })}
+        />
+        <div className="library-records">
+      {visibleGroups.map(([category, items]) => (
         <section key={category} id={`library-${category}`}>
           <GroupTitle>{category}</GroupTitle>
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
@@ -109,11 +120,13 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                     </td>
                     <td className="px-2 py-2 text-xs text-slate-500">{m.supplier ?? '—'}</td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <div className="library-row-actions"><span className="library-price-status">
                       <StaleBadge
                         costUpdatedAt={m.cost_updated_at}
                         thresholdDays={staleDays}
                         onConfirm={isAdmin ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
+                      </span><span className="library-record-actions">
                       {isAdmin && (
                         <>
                           <button onClick={() => setFormTarget(m)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
@@ -131,6 +144,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                           </button>
                         </>
                       )}
+                      </span></div>
                     </td>
                   </tr>
                 ))}

@@ -9,6 +9,7 @@ import BidDetail from './pages/BidDetail'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Team from './pages/Team'
+import Account from './pages/Account'
 import Settings from './pages/Settings'
 import Overhead from './pages/Overhead'
 import Estimate from './pages/Estimate'
@@ -95,6 +96,7 @@ function Gate() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/overhead" element={<Overhead />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/account" element={<Account />} />
         <Route path="*" element={<Dashboard />} />
       </Route>
     </Routes>

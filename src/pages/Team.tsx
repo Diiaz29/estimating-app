@@ -5,10 +5,12 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SignaturePad from '../components/SignaturePad'
+import ProfileNameForm from '../components/ProfileNameForm'
+import { profileName } from '../lib/profileName'
 import type { Profile, Role } from '../lib/types'
 
 export default function Team() {
-  const { isAdmin, profile: me } = useAuth()
+  const { isAdmin, profile: me, refreshProfile } = useAuth()
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<Profile | null>(null)
@@ -92,10 +94,12 @@ export default function Team() {
               key={p.id}
               className={`team-member-row flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
             >
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {p.email}
+              <div className="team-member-identity min-w-0">
+                <div className="text-sm font-medium">{p.email}
                 {p.id === me?.id && <span className="ml-2 text-xs text-slate-400">(you)</span>}
-              </span>
+                </div>
+              </div>
+              <ProfileNameForm profile={p} inline onSaved={async () => { await load(); if (p.id === me?.id) await refreshProfile() }} />
               <div className="team-role-options flex gap-1.5" role="group" aria-label={`Role for ${p.email}`}>
                 {(['viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button
@@ -284,7 +288,10 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
     else void load()
   }
 
-  const who = (id: string | null) => profiles.find((p) => p.id === id)?.email.split('@')[0] ?? null
+  const who = (id: string | null) => {
+    const person = profiles.find((p) => p.id === id)
+    return person ? profileName(person) : null
+  }
 
   return (
     <section>
@@ -293,7 +300,7 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
       </h2>
       <div className="rounded-lg border-2 border-slate-800 bg-white">
         {cards.map((c, i) => (
-          <div key={c.id} className={`flex flex-wrap items-center gap-2 px-4 py-2 ${i > 0 ? 'border-t border-slate-100' : ''} ${c.active ? '' : 'opacity-50'}`}>
+          <div key={c.id} className={`construction-card-row flex flex-wrap items-center gap-2 px-4 py-2 ${i > 0 ? 'border-t border-slate-100' : ''} ${c.active ? '' : 'opacity-50'}`}>
             <input
               defaultValue={c.name}
               onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== c.name && void patch(c, { name: e.target.value.trim() })}
@@ -309,10 +316,11 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
               >
                 <option value="">— shared / nobody —</option>
                 {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>{p.email.split('@')[0]}</option>
+                  <option key={p.id} value={p.id}>{profileName(p)}</option>
                 ))}
               </select>
             </label>
+            <div className="construction-card-actions">
             <button
               onClick={() => void patch(c, { active: !c.active })}
               className="text-xs text-slate-400 hover:text-slate-900"
@@ -323,21 +331,25 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
             <button onClick={() => void remove(c)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600" title="Delete — receipts on this card lose the link">
               ×
             </button>
+            </div>
           </div>
         ))}
-        <form onSubmit={add} className={`flex flex-wrap items-center gap-2 px-4 py-2.5 ${cards.length > 0 ? 'border-t border-slate-200' : ''}`}>
+        <form onSubmit={add} className={`construction-card-row flex flex-wrap items-center gap-2 px-4 py-2.5 ${cards.length > 0 ? 'border-t border-slate-200' : ''}`}>
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder='new card — e.g. "Visa 4421"'
             className="input mt-0 min-w-0 flex-1 basis-40 py-1.5"
           />
-          <select value={newOwner} onChange={(e) => setNewOwner(e.target.value)} className="input mt-0 w-auto py-1.5">
-            <option value="">carried by… (shared)</option>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            carried by
+          <select value={newOwner} onChange={(e) => setNewOwner(e.target.value)} className="input mt-0 w-auto py-1 text-sm">
+            <option value="">— shared / nobody —</option>
             {profiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.email.split('@')[0]}</option>
+              <option key={p.id} value={p.id}>{profileName(p)}</option>
             ))}
           </select>
+          </label>
           <button type="submit" disabled={!newName.trim()} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-40">
             + Add card
           </button>
@@ -357,6 +369,8 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
 
 function AddUserForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -365,10 +379,12 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (busy) return
+    if (!firstName.trim() || !lastName.trim()) return setError('Enter first and last name.')
     setBusy(true)
     setError(null)
     const { data, error } = await supabase!.functions.invoke('create-user', {
-      body: { email: email.trim().toLowerCase(), password },
+      body: { email: email.trim().toLowerCase(), password, first_name: firstName.trim(), last_name: lastName.trim() },
     })
     setBusy(false)
     if (error) {
@@ -388,6 +404,8 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
     }
     setOkMsg(`${data.email} can now sign in.`)
     setEmail('')
+    setFirstName('')
+    setLastName('')
     setPassword('')
     onCreated()
     setTimeout(() => setOkMsg(null), 5000)
@@ -413,6 +431,14 @@ function AddUserForm({ onCreated }: { onCreated: () => void }) {
       className="space-y-3 rounded-lg border-2 border-slate-800 bg-white p-4"
     >
       <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-sm">First name</span>
+          <input autoComplete="given-name" required maxLength={80} disabled={busy} value={firstName} onChange={e => setFirstName(e.target.value)} className="input" />
+        </label>
+        <label className="block">
+          <span className="text-sm">Last name</span>
+          <input autoComplete="family-name" required maxLength={80} disabled={busy} value={lastName} onChange={e => setLastName(e.target.value)} className="input" />
+        </label>
         <label className="block">
           <span className="font-mono text-xs uppercase tracking-widest text-slate-500">Email</span>
           <input

@@ -5,6 +5,8 @@ export type Role = 'admin' | 'estimator' | 'pm' | 'viewer' | 'office'
 export interface Profile {
   id: string
   email: string
+  first_name?: string | null
+  last_name?: string | null
   role: Role
   created_at: string
   /** drawn signature as a PNG data URL + how the name prints under it */

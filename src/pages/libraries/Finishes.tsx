@@ -1,3 +1,4 @@
+import LibraryCategories from '../../components/LibraryCategories'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -13,6 +14,7 @@ const SLOT_OPTIONS = ['', 'CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4',
 
 export default function Finishes() {
   const { isAdmin } = useAuth()
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [finishes, setFinishes] = useState<Finish[] | null>(null)
   const [staleDays, setStaleDays] = useState(90)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +45,9 @@ export default function Finishes() {
     return [...map.entries()]
   }, [finishes])
 
+  const selectedCategory = grouped.some(([category]) => category === categoryFilter) ? categoryFilter : null
+  const visibleGroups = grouped.filter(([category]) => selectedCategory === null || category === selectedCategory)
+
   async function patch(f: Finish, fields: Partial<Finish>) {
     const { error } = await supabase!.from('finishes').update(fields).eq('id', f.id)
     if (error) setError(error.message)
@@ -71,8 +76,14 @@ export default function Finishes() {
         )}
       </div>
 
-      <div className="library-workspace"><nav className="library-category-nav" aria-label="Library categories"><h2>Categories</h2>{grouped.map(([category, items]) => <a key={category} href={`#library-${encodeURIComponent(category)}`}>{category}<span>{items.length}</span></a>)}</nav><div className="library-records">
-      {grouped.map(([type, items]) => (
+      <div className="library-workspace">
+        <LibraryCategories
+          categories={grouped.map(([name, items]) => ({ name, count: items.length }))}
+          selected={selectedCategory}
+          onSelect={setCategoryFilter}
+        />
+        <div className="library-records">
+      {visibleGroups.map(([type, items]) => (
         <section key={type} id={`library-${type}`}>
           <GroupTitle>{type}</GroupTitle>
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
@@ -106,11 +117,13 @@ export default function Finishes() {
                       )}
                     </td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <div className="library-row-actions"><span className="library-price-status">
                       <StaleBadge
                         costUpdatedAt={f.cost_updated_at}
                         thresholdDays={staleDays}
                         onConfirm={isAdmin ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
+                      </span><span className="library-record-actions">
                       {isAdmin && (
                         <>
                           <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
@@ -128,6 +141,7 @@ export default function Finishes() {
                           </button>
                         </>
                       )}
+                      </span></div>
                     </td>
                   </tr>
                 ))}
