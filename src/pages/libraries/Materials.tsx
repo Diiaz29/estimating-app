@@ -109,11 +109,13 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                     </td>
                     <td className="px-2 py-2 text-xs text-slate-500">{m.supplier ?? '—'}</td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <div className="library-row-actions"><span className="library-price-status">
                       <StaleBadge
                         costUpdatedAt={m.cost_updated_at}
                         thresholdDays={staleDays}
                         onConfirm={isAdmin ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
+                      </span><span className="library-record-actions">
                       {isAdmin && (
                         <>
                           <button onClick={() => setFormTarget(m)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
@@ -131,6 +133,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                           </button>
                         </>
                       )}
+                      </span></div>
                     </td>
                   </tr>
                 ))}

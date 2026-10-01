@@ -106,11 +106,13 @@ export default function Finishes() {
                       )}
                     </td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <div className="library-row-actions"><span className="library-price-status">
                       <StaleBadge
                         costUpdatedAt={f.cost_updated_at}
                         thresholdDays={staleDays}
                         onConfirm={isAdmin ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
+                      </span><span className="library-record-actions">
                       {isAdmin && (
                         <>
                           <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
@@ -128,6 +130,7 @@ export default function Finishes() {
                           </button>
                         </>
                       )}
+                      </span></div>
                     </td>
                   </tr>
                 ))}

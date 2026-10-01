@@ -201,14 +201,18 @@
   .zaid-app .zaid-materials .library-records th:nth-child(2) { width:84px; }
   .zaid-app .zaid-materials .library-records th:nth-child(3) { width:112px; }
   .zaid-app .zaid-materials .library-records th:nth-child(4) { width:22%; }
-  .zaid-app .zaid-materials .library-records th:nth-child(5) { width:240px; }
+  .zaid-app .zaid-materials .library-records th:nth-child(5) { width:360px; }
   .zaid-app .zaid-finishes .library-records table { min-width:1120px; }
   .zaid-app .zaid-finishes .library-records th:nth-child(2),
   .zaid-app .zaid-finishes .library-records th:nth-child(3) { width:14%; }
   .zaid-app .zaid-finishes .library-records th:nth-child(4) { width:84px; }
   .zaid-app .zaid-finishes .library-records th:nth-child(5) { width:112px; }
   .zaid-app .zaid-finishes .library-records th:nth-child(6) { width:140px; }
-  .zaid-app .zaid-finishes .library-records th:nth-child(7) { width:240px; }
+  .zaid-app .zaid-finishes .library-records th:nth-child(7) { width:360px; }
+  .library-row-actions { display:grid; grid-template-columns:minmax(0,1fr) max-content; align-items:center; gap:12px; }
+  .library-price-status { min-width:0; text-align:left; }
+  .library-price-status > span { flex-wrap:wrap; white-space:normal; }
+  .library-record-actions { display:flex; align-items:center; justify-content:flex-end; white-space:nowrap; }
   .zaid-app .zaid-ordersheet table:not(.light-doc *) { table-layout:fixed; min-width:850px; }
   .zaid-app .zaid-ordersheet th:first-child { width:40px; }
   .zaid-app .zaid-ordersheet th:nth-child(3),
