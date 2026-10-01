@@ -334,12 +334,15 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
             placeholder='new card — e.g. "Visa 4421"'
             className="input mt-0 min-w-0 flex-1 basis-40 py-1.5"
           />
-          <select value={newOwner} onChange={(e) => setNewOwner(e.target.value)} className="input mt-0 w-auto py-1.5">
-            <option value="">carried by… (shared)</option>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            carried by
+          <select value={newOwner} onChange={(e) => setNewOwner(e.target.value)} className="input mt-0 w-auto py-1 text-sm">
+            <option value="">— shared / nobody —</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>{p.email.split('@')[0]}</option>
             ))}
           </select>
+          </label>
           <button type="submit" disabled={!newName.trim()} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-40">
             + Add card
           </button>
