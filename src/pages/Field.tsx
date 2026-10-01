@@ -1,4 +1,6 @@
 import UiIcon from '../components/UiIcon'
+import Modal from '../components/Modal'
+import { profileName } from '../lib/profileName'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { FormEvent } from 'react'
@@ -147,7 +149,7 @@ export default function Field() {
               type="file"
               accept="image/*"
               multiple
-              className="hidden"
+              className="file-upload-input"
               disabled={uploading}
               onChange={(e) => {
                 if (e.target.files?.length) void uploadPhotos([...e.target.files])
@@ -321,7 +323,7 @@ export default function Field() {
 }
 
 function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void }) {
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
   // time always logs against the signed-in account — no typing someone else's name
   const worker = session?.user.email?.split('@')[0] ?? 'unknown'
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -357,7 +359,7 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
       <div className="block">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Logging as</span>
         <div className="field-time-worker mt-0.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-medium text-slate-600">
-          {worker}
+          {profile ? profileName(profile) : worker}
         </div>
       </div>
       <label className="block">
@@ -449,12 +451,7 @@ function ReportForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
-      <div className="w-full max-w-2xl rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">{report ? 'Edit report' : 'New client report'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
-        </div>
+    <Modal title={report ? 'Edit report' : 'New client report'} onClose={onClose} className="field-report-modal">
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
@@ -518,7 +515,6 @@ function ReportForm({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }

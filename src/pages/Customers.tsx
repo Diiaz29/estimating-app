@@ -72,12 +72,12 @@ export default function Customers() {
           No contractors yet. Add the GCs you bid to most.
         </p>
       ) : (
-        <div className="construction-table-scroll"><table className="construction-register-table construction-contact-table">
+        <div className="construction-table-scroll"><table className="responsive-record-table construction-register-table construction-contact-table">
           <thead><tr>{(['company', 'type'] as const).map(key => <th key={key} scope="col" aria-sort={sort.key === key ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy(key)}>{key === 'company' ? 'Company' : 'Type'} <UiIcon name={sort.key === key ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>)}<th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Notes</th><th scope="col">Actions</th></tr></thead>
           <tbody>{visible.map(c => <tr key={c.id}>
-            <td><Link to={`/contractors/${c.id}`} className="construction-contact-company">{c.company}</Link></td>
-            <td>{TYPE_LABEL[c.type]}</td><td>{c.phone || '—'}</td><td>{c.email || '—'}</td><td>{c.notes || '—'}</td>
-            <td><Link className="index-secondary" to={`/contractors/${c.id}`}>Details</Link></td>
+            <td data-label="Contractor"><Link to={`/contractors/${c.id}`} className="construction-contact-company">{c.company}</Link></td>
+            <td data-label="Type">{TYPE_LABEL[c.type]}</td><td data-label="Phone">{c.phone || '—'}</td><td data-label="Email">{c.email || '—'}</td><td data-label="Notes">{c.notes || '—'}</td>
+            <td data-label="Actions"><Link className="index-secondary" to={`/contractors/${c.id}`}>Details</Link></td>
           </tr>)}</tbody>
         </table></div>
       )}

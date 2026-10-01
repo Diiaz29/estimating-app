@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import type { Bid } from '../lib/types'
 import type { JobTask } from '../lib/schedule'
 import { completionDate, isWorkday, parseDay, toDay } from '../lib/schedule'
+import LoadError from '../components/LoadError'
+import { requireLoaded, errorMessage } from '../lib/loadResults'
 
 // one color per job, cycled
 const JOB_COLORS = [
@@ -29,27 +31,38 @@ export default function Schedule() {
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
   const [error, setError] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    let cancelled = false
+    setError(null)
+    setJobs(null)
     ;(async () => {
-      const [jobRes, holRes] = await Promise.all([
-        supabase!.from('bids').select('*').eq('status', 'won').order('created_at'),
-        supabase!.from('holidays').select('day, name'),
-      ])
-      if (jobRes.error) return setError(jobRes.error.message)
-      const jobRows = jobRes.data as Bid[]
-      setJobs(jobRows)
-      setHolidays(new Map(((holRes.data ?? []) as { day: string; name: string | null }[]).map((h) => [h.day, h.name])))
-      if (jobRows.length > 0) {
-        const { data } = await supabase!
-          .from('job_tasks')
-          .select('*')
-          .in('bid_id', jobRows.map((j) => j.id))
-          .order('sort_order')
-        setTasks((data ?? []) as JobTask[])
-      }
+      try {
+        const [jobRes, holRes] = await Promise.all([
+          supabase!.from('bids').select('*').eq('status', 'won').order('created_at'),
+          supabase!.from('holidays').select('day, name'),
+        ])
+        requireLoaded({ Jobs: jobRes, Holidays: holRes })
+        if (cancelled) return
+        const jobRows = jobRes.data as Bid[]
+        setHolidays(new Map(((holRes.data ?? []) as { day: string; name: string | null }[]).map((h) => [h.day, h.name])))
+        if (jobRows.length > 0) {
+          const { data, error } = await supabase!
+            .from('job_tasks')
+            .select('*')
+            .in('bid_id', jobRows.map((j) => j.id))
+            .order('sort_order')
+          requireLoaded({ Tasks: { error } })
+          if (cancelled) return
+          setTasks((data ?? []) as JobTask[])
+        } else { setTasks([]) }
+        setJobs(jobRows)
+      } catch (error) { if (!cancelled) setError(errorMessage(error)) }
     })()
-  }, [])
+    return () => { cancelled = true }
+  }, [reload])
 
   const spans: Span[] = useMemo(() => {
     if (!jobs) return []
@@ -71,7 +84,7 @@ export default function Schedule() {
   }, [jobs, tasks, holidays])
 
   if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+    return <LoadError subject="production schedule" error={error} retry={() => setReload(n => n + 1)} />
   if (!jobs) return <p className="text-sm text-slate-500">Loading…</p>
 
   // calendar grid: weeks covering this month, Sunday-first
@@ -161,10 +174,14 @@ export default function Schedule() {
               // tasks only occupy working days — no bars on weekends or holidays
               const workday = isWorkday(day, new Set(holidays.keys()))
               const dayTasks = workday ? spans.filter((s) => day >= s.start && day <= s.finish) : []
-              const shown = dayTasks.slice(0, 4)
+              const expanded = expandedDays.has(key)
+              const shown = expanded ? dayTasks : dayTasks.slice(0, 4)
+              const dayLabel = day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
               return (
                 <div
                   key={i}
+                  role="group"
+                  aria-label={`${dayLabel}${holidayName ? ` — ${holidayName}` : ''}`}
                   className={`min-h-24 border-b border-r border-slate-100 p-1 ${
                     !inMonth ? 'bg-slate-50 opacity-50' : weekend || holidayName ? 'bg-slate-50' : ''
                   } ${key === todayKey ? 'ring-2 ring-inset ring-red-400' : ''}`}
@@ -182,16 +199,17 @@ export default function Schedule() {
                       <Link
                         key={s.task.id}
                         to={`/bids/${s.job.id}/schedule`}
-                        title={`${s.job.job_number} — ${s.task.name}`}
+                        title={`${s.job.job_number} — ${s.job.name} — ${s.task.name}`}
+                        aria-label={`${s.job.job_number} — ${s.job.name}: ${s.task.name}, ${dayLabel}${s.task.done ? ', completed' : ''}`}
                         className={`block truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight text-white ${s.color} ${
                           s.task.done ? 'opacity-40 line-through' : ''
                         }`}
                       >
-                        {s.task.name}
+                        {s.job.job_number} · {s.task.name}
                       </Link>
                     ))}
-                    {dayTasks.length > shown.length && (
-                      <div className="px-1 text-[10px] text-slate-400">+{dayTasks.length - shown.length} more</div>
+                    {dayTasks.length > 4 && (
+                      <button className="schedule-day-more" aria-expanded={expanded} aria-label={`${expanded ? 'Show fewer tasks' : `Show all ${dayTasks.length} tasks`} for ${dayLabel}`} onClick={() => setExpandedDays(previous => { const next = new Set(previous); if (expanded) next.delete(key); else next.add(key); return next })}>{expanded ? 'Show fewer' : `+${dayTasks.length - shown.length} more`}</button>
                     )}
                   </div>
                 </div>

@@ -1,5 +1,10 @@
+import LoadError from '../components/LoadError'
+import SaveFeedback from '../components/SaveFeedback'
+import { useSaveQueue, useUnsavedWarning } from '../lib/useSaveQueue'
+import { checkedWrite } from '../lib/saveQueue'
+import { requireLoaded, errorMessage } from '../lib/loadResults'
 import UiIcon from '../components/UiIcon'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import JSZip from 'jszip'
 import { supabase } from '../lib/supabase'
@@ -104,6 +109,12 @@ export default function Receipts() {
   // anyone signed in can file a receipt (installers buy things too);
   // office/admin see everyone's and reconcile by card
   const reconciles = isOffice || isAdmin
+  const saves = useSaveQueue()
+  const rowPending = useRef(new Map<string, number>())
+  const [rowSaves, setRowSaves] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [savingReceipt, setSavingReceipt] = useState(false)
   const [jobs, setJobs] = useState<Bid[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -144,25 +155,29 @@ export default function Receipts() {
   // receipt row until the uploader checks the numbers and hits Save
   const [pending, setPending] = useState<Pending[]>([])
   const current = pending[0]
+  useUnsavedWarning(pending.length > 0 || uploading || savingReceipt)
 
   async function load() {
-    const [jobRes, recRes, catRes, pmRes] = await Promise.all([
-      supabase!.from('bids').select('*').eq('status', 'won').order('job_number'),
-      supabase!.from('receipts').select('*').order('receipt_date', { ascending: false }).order('created_at', { ascending: false }),
-      supabase!.from('overhead_categories').select('*').order('sort_order').order('name'),
-      supabase!.from('payment_methods').select('*').order('sort_order').order('name'),
-    ])
-    if (jobRes.error) return setError(jobRes.error.message)
-    const rows = jobRes.data as Bid[]
-    setJobs(rows)
-    setJobId((cur) => cur || rows.find((j) => !j.completed_at)?.id || rows[0]?.id || '')
-    setReceipts((recRes.data ?? []) as Receipt[])
-    const cats = (catRes.data ?? []) as OverheadCategory[]
-    setOhCats(cats)
-    setOverheadCat((cur) => (cur && cats.some((c) => c.name === cur) ? cur : cats[0]?.name ?? ''))
-    setMethods((pmRes.data ?? []) as PaymentMethod[])
-    const { data: co } = await supabase!.from('text_settings').select('key, value').eq('group_name', 'Company')
-    if (co) setCompany(Object.fromEntries((co as { key: string; value: string }[]).map((t) => [t.key, t.value])))
+    setLoadError(null)
+    try {
+      const [jobRes, recRes, catRes, pmRes] = await Promise.all([
+        supabase!.from('bids').select('*').eq('status', 'won').order('job_number'),
+        supabase!.from('receipts').select('*').order('receipt_date', { ascending: false }).order('created_at', { ascending: false }),
+        supabase!.from('overhead_categories').select('*').order('sort_order').order('name'),
+        supabase!.from('payment_methods').select('*').order('sort_order').order('name'),
+      ])
+      requireLoaded({ jobs: jobRes, receipts: recRes, categories: catRes, cards: pmRes })
+      const rows = jobRes.data as Bid[]
+      setJobs(rows)
+      setJobId((cur) => cur || rows.find((j) => !j.completed_at)?.id || rows[0]?.id || '')
+      setReceipts((recRes.data ?? []) as Receipt[])
+      const cats = (catRes.data ?? []) as OverheadCategory[]
+      setOhCats(cats)
+      setOverheadCat((cur) => (cur && cats.some((c) => c.name === cur) ? cur : cats[0]?.name ?? ''))
+      setMethods((pmRes.data ?? []) as PaymentMethod[])
+      const { data: co } = await supabase!.from('text_settings').select('key, value').eq('group_name', 'Company')
+      if (co) setCompany(Object.fromEntries((co as { key: string; value: string }[]).map((t) => [t.key, t.value])))
+    } catch (e) { setLoadError(errorMessage(e)) } finally { setLoading(false) }
   }
 
   const catNames = ohCats.map((c) => c.name)
@@ -283,26 +298,32 @@ export default function Receipts() {
 
   // Step 2: the uploader checked the numbers → file the receipt for real.
   async function saveCurrent() {
-    if (!current || (!isOverhead && !jobId)) return
-    const { error } = await supabase!.from('receipts').insert({
-      bid_id: isOverhead ? null : jobId,
-      is_overhead: isOverhead,
-      overhead_category: isOverhead ? overheadCat : null,
-      payment_method_id: methodId || null,
-      // no card on file for this person → office needs to sort out which card
-      needs_card_review: !methodId && noCard,
-      file_path: current.path,
-      amount: (() => { const v = parseMoney(amount); return v == null || Number.isNaN(v) ? null : v })(),
-      category: isOverhead ? 'other' : category,
-      note: note.trim() || null,
-      receipt_date: date || null,
-      uploaded_by: session?.user.email ?? null,
-    })
-    if (error) return setError(error.message)
-    // jump to the month it landed in so the new row is on screen
-    if (date && month !== 'all') setMonth(date.slice(0, 7))
-    dropCurrent()
-    void load()
+    if (!current || savingReceipt || saves.pending || (!isOverhead && !jobId)) return
+    const parsedAmount = parseMoney(amount)
+    if (parsedAmount != null && !Number.isFinite(parsedAmount)) { setError('Enter a valid receipt amount.'); return }
+    setSavingReceipt(true)
+    setError(null)
+    try {
+      const { error } = await supabase!.from('receipts').insert({
+        bid_id: isOverhead ? null : jobId,
+        is_overhead: isOverhead,
+        overhead_category: isOverhead ? overheadCat : null,
+        payment_method_id: methodId || null,
+        // no card on file for this person → office needs to sort out which card
+        needs_card_review: !methodId && noCard,
+        file_path: current.path,
+        amount: (() => { const v = parseMoney(amount); return v == null || Number.isNaN(v) ? null : v })(),
+        category: isOverhead ? 'other' : category,
+        note: note.trim() || null,
+        receipt_date: date || null,
+        uploaded_by: session?.user.email ?? null,
+      })
+      if (error) return setError(error.message)
+      // jump to the month it landed in so the new row is on screen
+      if (date && month !== 'all') setMonth(date.slice(0, 7))
+      dropCurrent()
+      void load()
+    } catch (e) { setError(errorMessage(e)) } finally { setSavingReceipt(false) }
   }
 
   async function discardCurrent() {
@@ -313,8 +334,20 @@ export default function Receipts() {
 
   async function patch(r: Receipt, fields: Partial<Receipt>) {
     setReceipts((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...fields } : x)))
-    const { error } = await supabase!.from('receipts').update(fields).eq('id', r.id)
-    if (error) setError(error.message)
+    rowPending.current.set(r.id, (rowPending.current.get(r.id) ?? 0) + 1)
+    setRowSaves(previous => ({ ...previous, [r.id]: 'Waiting to save…' }))
+    saves.queue.enqueue(`Receipt ${r.note || r.receipt_date || r.id}`, async () => {
+      setRowSaves(previous => ({ ...previous, [r.id]: 'Saving…' }))
+      try {
+        await checkedWrite(supabase!.from('receipts').update(fields).eq('id', r.id).select('id').single())
+        const remaining = (rowPending.current.get(r.id) ?? 1) - 1
+        rowPending.current.set(r.id, remaining)
+        setRowSaves(previous => ({ ...previous, [r.id]: remaining ? 'Waiting to save…' : 'Saved' }))
+      } catch (e) {
+        setRowSaves(previous => ({ ...previous, [r.id]: 'Not saved — retry above' }))
+        throw e
+      }
+    })
   }
 
   async function view(r: Receipt) {
@@ -539,17 +572,20 @@ export default function Receipts() {
                     <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
                       <input
                         type="date"
+                        aria-label={`Receipt date: ${r.note || r.file_path.split('/').pop()}`}
                         defaultValue={r.receipt_date ?? ''}
                         onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
                         className="order-1 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:flex-none sm:basis-auto sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
                       />
                       <input
+                        aria-label={`Receipt description: ${r.receipt_date || 'undated'}`}
                         defaultValue={r.note ?? ''}
                         placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
                         onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
                         className="order-3 min-w-0 flex-1 basis-full rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-24 sm:border-transparent sm:px-1.5 sm:py-0.5"
                       />
                       <select
+                        aria-label={`Overhead category: ${r.note || r.receipt_date}`}
                         value={r.overhead_category ?? 'other'}
                         onChange={(e) => void patch(r, { overhead_category: e.target.value })}
                         className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
@@ -562,6 +598,7 @@ export default function Receipts() {
                         <span className="pointer-events-none absolute left-2 text-xs text-slate-400 sm:left-1.5">$</span>
                         <input
                           type="text" inputMode="decimal"
+                          aria-label={`Receipt amount: ${r.note || r.receipt_date}`}
                           defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
                           placeholder="0.00"
                           onBlur={(e) => {
@@ -577,6 +614,7 @@ export default function Receipts() {
                       </span>
                       {reconciles ? (
                         <select
+                          aria-label={`Paid with: ${r.note || r.receipt_date}`}
                           value={r.payment_method_id ?? ''}
                           onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                           title="Paid with"
@@ -598,9 +636,10 @@ export default function Receipts() {
                         view
                       </button>
                       <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
-                        save
+                        Download
                       </button>
-                      <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
+                      <span className="receipt-row-save order-last w-full text-xs" role="status">{rowSaves[r.id]}</span>
+                      <button aria-label={`Remove receipt: ${r.note || r.receipt_date}`} disabled={saves.pending > 0} onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
                     </div>
                   ))}
                 </div>
@@ -669,17 +708,20 @@ export default function Receipts() {
                           <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-4 py-3 text-sm first:border-t-0 sm:gap-y-0.5 sm:border-t-0 sm:py-1.5">
                             <input
                               type="date"
+                              aria-label={`Receipt date: ${r.note || r.file_path.split('/').pop()}`}
                               defaultValue={r.receipt_date ?? ''}
                               onBlur={(e) => (e.target.value || null) !== r.receipt_date && void patch(r, { receipt_date: e.target.value || null })}
                               className="order-1 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 px-1.5 py-2 font-mono text-sm text-slate-500 hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:w-36 sm:flex-none sm:basis-auto sm:border-transparent sm:px-1 sm:py-0.5 sm:text-xs"
                             />
                             <input
+                              aria-label={`Receipt description: ${r.receipt_date || 'undated'}`}
                               defaultValue={r.note ?? ''}
                               placeholder={r.file_path.split('/').pop()?.replace(/^\d+_/, '')}
                               onBlur={(e) => (e.target.value || null) !== r.note && void patch(r, { note: e.target.value || null })}
                               className="order-3 min-w-0 flex-1 basis-full rounded border border-slate-200 px-2 py-2 text-sm hover:border-slate-200 focus:border-slate-800 focus:outline-none sm:order-2 sm:basis-24 sm:border-transparent sm:px-1.5 sm:py-0.5"
                             />
                             <select
+                              aria-label={`Expense category: ${r.note || r.receipt_date}`}
                               value={r.category}
                               onChange={(e) => void patch(r, { category: e.target.value as Receipt['category'] })}
                               className="order-4 min-w-0 flex-1 basis-[38%] rounded border border-slate-200 bg-slate-50 px-2 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 focus:border-slate-800 focus:outline-none sm:order-3 sm:flex-none sm:basis-auto sm:px-1 sm:py-0.5 sm:text-[10px]"
@@ -692,6 +734,7 @@ export default function Receipts() {
                               <span className="pointer-events-none absolute left-2 text-xs text-slate-400 sm:left-1.5">$</span>
                               <input
                                 type="text" inputMode="decimal"
+                                aria-label={`Receipt amount: ${r.note || r.receipt_date}`}
                                 defaultValue={r.amount == null ? '' : Number(r.amount).toFixed(2)}
                                 placeholder="0.00"
                                 onBlur={(e) => {
@@ -707,6 +750,7 @@ export default function Receipts() {
                             </span>
                             {reconciles ? (
                               <select
+                                aria-label={`Paid with: ${r.note || r.receipt_date}`}
                                 value={r.payment_method_id ?? ''}
                                 onChange={(e) => void patch(r, { payment_method_id: e.target.value || null, needs_card_review: false })}
                                 title="Paid with"
@@ -728,9 +772,10 @@ export default function Receipts() {
                               view
                             </button>
                             <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
-                              save
+                              Download
                             </button>
-                            <button onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
+                            <span className="receipt-row-save order-last w-full text-xs" role="status">{rowSaves[r.id]}</span>
+                      <button aria-label={`Remove receipt: ${r.note || r.receipt_date}`} disabled={saves.pending > 0} onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
                           </div>
                         ))}
                       </div>
@@ -748,6 +793,9 @@ export default function Receipts() {
     )
   }
   const missingAmount = receipts.filter((r) => r.amount == null && (r.is_overhead || (r.bid_id && jobById.get(r.bid_id)))).length
+
+  if (loadError) return <LoadError error={loadError} retry={() => void load()} subject="receipts" />
+  if (loading) return <p role="status">Loading receipts…</p>
 
   return (
     <div className="zaid-page zaid-receipts max-w-4xl space-y-5 print:max-w-none">
@@ -780,7 +828,8 @@ export default function Receipts() {
           dragging ? 'border-dashed border-emerald-600 bg-emerald-50' : 'border-slate-800'
         }`}
       >
-        <h2 className="construction-intake-heading">Add & review receipt</h2>
+        <h2 className="construction-intake-heading">{current ? 'Review receipt' : 'Add receipt'}</h2>
+        {!current && <p className="text-sm text-slate-500">Choose a photo or PDF. We’ll read the details, then you can check them before saving.</p>}
         {/* The receipt being reviewed: preview + what the reader found */}
         {current && (
           <div className="mb-3 flex flex-wrap items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3">
@@ -808,6 +857,8 @@ export default function Receipts() {
             </div>
           </div>
         )}
+        {current && <fieldset disabled={savingReceipt} className="min-w-0">
+        <legend className="sr-only">Receipt details</legend>
         <label className="mb-3 flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
@@ -830,7 +881,7 @@ export default function Receipts() {
                   edit categories
                 </button>
               </span>
-              <select value={overheadCat} onChange={(e) => setOverheadCat(e.target.value)} className="input mt-0.5">
+              <select aria-label="Overhead category" value={overheadCat} onChange={(e) => setOverheadCat(e.target.value)} className="input mt-0.5">
                 {catNames.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -926,17 +977,19 @@ export default function Receipts() {
               </p>
             )}
           </div>
+          </fieldset>}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             {current ? (
               <>
                 <button
                   onClick={() => void saveCurrent()}
-                  disabled={current.read.state === 'reading' || (!isOverhead && !jobId)}
+                  disabled={savingReceipt || saves.pending > 0 || current.read.state === 'reading' || (!isOverhead && !jobId)}
                   className="flex-1 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:bg-slate-400 sm:flex-none sm:py-2"
                 >
-                  {current.read.state === 'reading' ? 'Reading…' : '✓ Save receipt'}
+                  {savingReceipt ? 'Saving…' : current.read.state === 'reading' ? 'Reading…' : 'Save receipt'}
                 </button>
                 <button
+                  disabled={savingReceipt}
                   onClick={() => void discardCurrent()}
                   className="rounded-md border border-slate-300 px-3 py-2.5 text-sm text-slate-600 hover:border-red-400 hover:text-red-700 sm:py-2"
                 >
@@ -948,7 +1001,7 @@ export default function Receipts() {
                     type="file"
                     accept="image/*,application/pdf"
                     multiple
-                    className="hidden"
+                    className="file-upload-input"
                     disabled={uploading}
                     onChange={(e) => {
                       if (e.target.files?.length) void stageFiles([...e.target.files])
@@ -968,7 +1021,7 @@ export default function Receipts() {
                     type="file"
                     accept="image/*,application/pdf"
                     multiple
-                    className="hidden"
+                    className="file-upload-input"
                     disabled={uploading}
                     onChange={(e) => {
                       if (e.target.files?.length) void stageFiles([...e.target.files])
@@ -982,6 +1035,7 @@ export default function Receipts() {
         </div>
 
       <div className="construction-receipt-records space-y-5">
+      <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" />
       {/* ---------- Expense report (office/admin) ---------- */}
       {reconciles && (
         <section className={reportOpen ? '' : 'print:hidden'}>

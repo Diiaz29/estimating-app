@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Bid, Customer, Revision } from '../lib/types'
 import { fmtMoney } from '../lib/format'
+import LoadError from '../components/LoadError'
+import { requireLoaded, errorMessage } from '../lib/loadResults'
 
 interface BidCustomerRow {
   bid_id: string
@@ -18,25 +20,33 @@ export default function Reports() {
   const [links, setLinks] = useState<BidCustomerRow[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
+    setError(null)
+    setBids(null)
     ;(async () => {
-      const [bidRes, custRes, linkRes, revRes] = await Promise.all([
-        supabase!.from('bids').select('*'),
-        supabase!.from('customers').select('*'),
-        supabase!.from('bid_customers').select('bid_id, customer_id, won_through'),
-        supabase!
-          .from('revisions')
-          .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
-          .order('rev_number'),
-      ])
-      if (bidRes.error) return setError(bidRes.error.message)
-      setBids(bidRes.data as Bid[])
-      setCustomers((custRes.data ?? []) as Customer[])
-      setLinks((linkRes.data ?? []) as BidCustomerRow[])
-      setRevisions((revRes.data ?? []) as Revision[])
+      try {
+        const [bidRes, custRes, linkRes, revRes] = await Promise.all([
+          supabase!.from('bids').select('*'),
+          supabase!.from('customers').select('*'),
+          supabase!.from('bid_customers').select('bid_id, customer_id, won_through'),
+          supabase!
+            .from('revisions')
+            .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
+            .order('rev_number'),
+        ])
+        requireLoaded({ Bids: bidRes, Contractors: custRes, 'Contractor assignments': linkRes, Revisions: revRes })
+        if (cancelled) return
+        setBids(bidRes.data as Bid[])
+        setCustomers((custRes.data ?? []) as Customer[])
+        setLinks((linkRes.data ?? []) as BidCustomerRow[])
+        setRevisions((revRes.data ?? []) as Revision[])
+      } catch (error) { if (!cancelled) setError(errorMessage(error)) }
     })()
-  }, [])
+    return () => { cancelled = true }
+  }, [reload])
 
   /** Latest revision per bid (list is ordered by rev_number ascending). */
   const latestRev = useMemo(() => {
@@ -84,7 +94,7 @@ export default function Reports() {
     )
   }
   if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+    return <LoadError subject="report data" error={error} retry={() => setReload(n => n + 1)} />
   if (!bids) return <p className="text-sm text-slate-500">Loading…</p>
 
   const wonBids = bids
@@ -130,7 +140,7 @@ export default function Reports() {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
-            <table className="w-full text-sm">
+            <table className="responsive-record-table w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left font-mono text-[10px] uppercase tracking-wider text-slate-400">
                   <th className="px-4 py-2 font-medium">Contractor</th>
@@ -144,18 +154,18 @@ export default function Reports() {
               <tbody>
                 {byGC.map((r) => (
                   <tr key={r.customer.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2">
+                    <td data-label="Contractor" className="px-4 py-2">
                       <Link to={`/contractors/${r.customer.id}`} className="hover:underline">
                         {r.customer.company}
                       </Link>
                     </td>
-                    <td className="px-2 py-2 text-right tabular-nums">{r.total}</td>
-                    <td className="px-2 py-2 text-right tabular-nums text-emerald-700">{r.won}</td>
-                    <td className="px-2 py-2 text-right tabular-nums text-red-600">{r.lost}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">
+                    <td data-label="Bids" className="px-2 py-2 text-right tabular-nums">{r.total}</td>
+                    <td data-label="Won" className="px-2 py-2 text-right tabular-nums text-emerald-700">{r.won}</td>
+                    <td data-label="Lost" className="px-2 py-2 text-right tabular-nums text-red-600">{r.lost}</td>
+                    <td data-label="Win rate" className="px-2 py-2 text-right tabular-nums">
                       {r.winRate == null ? '—' : `${Math.round(r.winRate * 100)}%`}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums">{fmtMoney(r.wonValue)}</td>
+                    <td data-label="Won value" className="px-4 py-2 text-right tabular-nums">{fmtMoney(r.wonValue)}</td>
                   </tr>
                 ))}
               </tbody>

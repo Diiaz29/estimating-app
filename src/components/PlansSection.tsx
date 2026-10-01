@@ -117,7 +117,7 @@ export default function PlansSection({ bidId, kind = 'plan' }: { bidId: string; 
               <input
                 type="file"
                 multiple
-                className="hidden"
+                className="file-upload-input"
                 disabled={uploading}
                 onChange={(e) => {
                   if (e.target.files?.length) void uploadFiles([...e.target.files])

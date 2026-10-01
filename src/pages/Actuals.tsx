@@ -10,6 +10,11 @@ import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
 import { actualsLaborCosts } from '../lib/actuals'
 import ConfirmDialog from '../components/ConfirmDialog'
+import LoadError from '../components/LoadError'
+import SaveFeedback from '../components/SaveFeedback'
+import { requireLoaded, errorMessage } from '../lib/loadResults'
+import { useSaveQueue } from '../lib/useSaveQueue'
+import { writeActualsFields, type ActualsEdit } from '../lib/actualsWrite'
 
 interface Receipt {
   id: string
@@ -62,59 +67,77 @@ export default function Actuals() {
   const [contract, setContract] = useState<number | null>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [receiptRefreshError, setReceiptRefreshError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [reload, setReload] = useState(0)
+  const saves = useSaveQueue()
 
   async function loadReceipts() {
-    const { data } = await supabase!
+    const { data, error } = await supabase!
       .from('receipts')
       .select('*')
       .eq('bid_id', id!)
       .order('created_at', { ascending: false })
+    if (error) { setReceiptRefreshError(error.message); return }
+    setReceiptRefreshError(null)
     setReceipts((data ?? []) as Receipt[])
   }
 
   useEffect(() => {
     if (!isAdmin) return
+    let cancelled = false
+    setLoading(true)
+    setLoadError(null)
     ;(async () => {
-      const [bidRes, areaRes, asmRes, bomRes, matRes, bfRes, ovrRes, setRes, actRes, revRes] =
-        await Promise.all([
-          supabase!.from('bids').select('*').eq('id', id!).single(),
-          supabase!.from('areas').select('*').eq('bid_id', id!),
-          supabase!.from('assemblies').select('*'),
-          supabase!.from('assembly_materials').select('*'),
-          supabase!.from('materials').select('*'),
-          supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', id!),
-          supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
-          supabase!.from('settings').select('*'),
-          supabase!.from('job_actuals').select('*').eq('bid_id', id!).maybeSingle(),
-          supabase!.from('revisions').select('contract_amount').eq('bid_id', id!).order('rev_number', { ascending: false }).limit(1),
-        ])
-      if (bidRes.error) return setError(bidRes.error.message)
-      setBid(bidRes.data as Bid)
-      const areaRows = (areaRes.data ?? []) as Area[]
-      setAreas(areaRows)
-      if (areaRows.length > 0) {
-        const [lineRes, aoRes, afoRes] = await Promise.all([
-          supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)),
-          supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
-          supabase!.from('area_finish_overrides').select('*, finish:finishes(*)').in('area_id', areaRows.map((a) => a.id)),
-        ])
-        setLines((lineRes.data ?? []) as LineItem[])
-        setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
-        setAreaFinishOverrides((afoRes.data ?? []) as AreaFinishOverride[])
-      }
-      setAssemblies((asmRes.data ?? []) as Assembly[])
-      setBom((bomRes.data ?? []) as AssemblyMaterial[])
-      setMaterials((matRes.data ?? []) as Material[])
-      setBidFinishes((bfRes.data ?? []) as BidFinish[])
-      setOverrides((ovrRes.data ?? []) as BidMaterialOverride[])
-      setSettings((setRes.data ?? []) as Setting[])
-      setActuals((actRes.data as JobActuals) ?? { bid_id: id!, ...EMPTY })
-      const rev = (revRes.data ?? [])[0] as { contract_amount: number } | undefined
-      setContract(rev ? Number(rev.contract_amount) : null)
-      void loadReceipts()
+      try {
+        const [bidRes, areaRes, asmRes, bomRes, matRes, bfRes, ovrRes, setRes, actRes, revRes, recRes] =
+          await Promise.all([
+            supabase!.from('bids').select('*').eq('id', id!).single(),
+            supabase!.from('areas').select('*').eq('bid_id', id!),
+            supabase!.from('assemblies').select('*'),
+            supabase!.from('assembly_materials').select('*'),
+            supabase!.from('materials').select('*'),
+            supabase!.from('bid_finishes').select('*, finish:finishes(*)').eq('bid_id', id!),
+            supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
+            supabase!.from('settings').select('*'),
+            supabase!.from('job_actuals').select('*').eq('bid_id', id!).maybeSingle(),
+            supabase!.from('revisions').select('contract_amount').eq('bid_id', id!).order('rev_number', { ascending: false }).limit(1),
+            supabase!.from('receipts').select('*').eq('bid_id', id!).order('created_at', { ascending: false }),
+          ])
+        requireLoaded({ Project: bidRes, Areas: areaRes, Assemblies: asmRes, Recipes: bomRes, Materials: matRes, Finishes: bfRes, Overrides: ovrRes, Settings: setRes, 'Actual hours': actRes, Revision: revRes, Receipts: recRes })
+        if (cancelled) return
+        setBid(bidRes.data as Bid)
+        const areaRows = (areaRes.data ?? []) as Area[]
+        setAreas(areaRows)
+        if (areaRows.length > 0) {
+          const [lineRes, aoRes, afoRes] = await Promise.all([
+            supabase!.from('line_items').select('*').in('area_id', areaRows.map((a) => a.id)),
+            supabase!.from('area_material_overrides').select('*').in('area_id', areaRows.map((a) => a.id)),
+            supabase!.from('area_finish_overrides').select('*, finish:finishes(*)').in('area_id', areaRows.map((a) => a.id)),
+          ])
+          requireLoaded({ 'Line items': lineRes, 'Area materials': aoRes, 'Area finishes': afoRes })
+          if (cancelled) return
+          setLines((lineRes.data ?? []) as LineItem[])
+          setAreaOverrides((aoRes.data ?? []) as AreaMaterialOverride[])
+          setAreaFinishOverrides((afoRes.data ?? []) as AreaFinishOverride[])
+        } else { setLines([]); setAreaOverrides([]); setAreaFinishOverrides([]) }
+        setAssemblies((asmRes.data ?? []) as Assembly[])
+        setBom((bomRes.data ?? []) as AssemblyMaterial[])
+        setMaterials((matRes.data ?? []) as Material[])
+        setBidFinishes((bfRes.data ?? []) as BidFinish[])
+        setOverrides((ovrRes.data ?? []) as BidMaterialOverride[])
+        setSettings((setRes.data ?? []) as Setting[])
+        setActuals((actRes.data as JobActuals) ?? { bid_id: id!, ...EMPTY })
+        const rev = (revRes.data ?? [])[0] as { contract_amount: number } | undefined
+        setContract(rev ? Number(rev.contract_amount) : null)
+        setReceipts((recRes.data ?? []) as Receipt[])
+      } catch (error) { if (!cancelled) setLoadError(errorMessage(error)) }
+      finally { if (!cancelled) setLoading(false) }
     })()
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isAdmin])
+  }, [id, isAdmin, reload])
 
   const ctx = useMemo(() => {
     const areaMap = new Map<string, Map<string, string>>()
@@ -149,9 +172,9 @@ export default function Actuals() {
       </p>
     )
   }
-  if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
-  if (!bid || !pricing || !actuals) return <p className="text-sm text-slate-500">Loading…</p>
+  if (receiptRefreshError) return <><SaveFeedback state={saves} retry={saves.queue.retry} explanation="" /><LoadError subject="updated receipts" error={receiptRefreshError} retry={() => void loadReceipts()} /></>
+  if (loadError) return <LoadError subject="actual costs" error={loadError} retry={() => setReload(n => n + 1)} />
+  if (loading || !bid || !pricing || !actuals) return <p role="status" className="text-sm text-slate-500">Loading actual costs…</p>
 
   const s = ctx.settings
   const cb = pricing.costBreakdown
@@ -164,13 +187,12 @@ export default function Actuals() {
   const estTravel = cb.travel + estFuel
   const contractAmount = contract ?? pricing.contractAmount
 
-  async function save(fields: Partial<JobActuals>) {
-    const next = { ...actuals!, ...fields }
-    setActuals(next)
-    const { error } = await supabase!
-      .from('job_actuals')
-      .upsert({ ...next, bid_id: bid!.id, updated_by: session?.user.email ?? null, updated_at: new Date().toISOString() })
-    if (error) setError(error.message)
+  async function save(fields: ActualsEdit) {
+    if (!bid) return
+    const bidId = bid.id
+    setActuals(previous => previous ? { ...previous, ...fields } : previous)
+    // A partial upsert preserves every untouched field, including on retry.
+    saves.queue.enqueue('Actual costs', () => writeActualsFields(supabase!, bidId, session?.user.email ?? null, fields))
   }
 
   const a = actuals
@@ -200,6 +222,8 @@ export default function Actuals() {
 
   return (
     <div className="zaid-page zaid-actuals max-w-3xl space-y-5">
+      <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" />
+      {error && <div className="save-feedback save-failed" role="alert"><div><strong>The receipt action did not complete.</strong><p>Check the receipt and try again. Your edits are still here.</p><details><summary>Error details</summary>{error}</details></div><button className="index-secondary" onClick={() => setError(null)}>Dismiss</button></div>}
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
           <UiIcon name="left" /> {bid.job_number}
@@ -428,7 +452,7 @@ function ReceiptsSection({
               type="file"
               accept="image/*,application/pdf"
               multiple
-              className="hidden"
+              className="file-upload-input"
               disabled={uploading}
               onChange={(e) => {
                 if (e.target.files?.length) void uploadFiles([...e.target.files])
@@ -540,10 +564,12 @@ function Row({
           </span>
         ) : (
           <input
+            aria-label={label}
             type="number" step="any" min="0"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => {
+            onBlur={(e) => {
+              if (!e.currentTarget.reportValidity()) return
               const v = draft === '' ? null : Number(draft)
               if (v !== actual) onSave?.(v)
             }}

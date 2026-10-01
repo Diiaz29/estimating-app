@@ -75,7 +75,7 @@ export default function Team() {
           <span className="font-medium">Estimator</span> — create and edit bids, estimates,
           contractors; no deleting. <span className="font-medium">PM</span> — manage schedules,
           order checkboxes, and receipts; everything else view-only.{' '}
-          <span className="font-medium">Viewer</span> — look, don't touch. New people start as
+          <span className="font-medium">Office</span> — set up bids and jobs, reconcile receipts, and review team time. <span className="font-medium">Viewer</span> — look, don't touch. New people start as
           estimators.
         </p>
       </div>
@@ -588,7 +588,7 @@ function MySignatureCard({ me, onSaved }: { me: Profile; onSaved: () => void }) 
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
+                    className="file-upload-input"
                     onChange={(e) => {
                       const f = e.target.files?.[0]
                       if (f) void fromFile(f)

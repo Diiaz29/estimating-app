@@ -1,3 +1,6 @@
+import SaveFeedback from '../../components/SaveFeedback'
+import { useSaveQueue } from '../../lib/useSaveQueue'
+import { checkedWrite } from '../../lib/saveQueue'
 import LibraryCategories from '../../components/LibraryCategories'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -7,6 +10,7 @@ import type { Material } from '../../lib/types'
 import { fmtCost } from '../../lib/format'
 import { GroupTitle, StaleBadge, confirmPrice } from '../../components/LibraryBits'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import Modal from '../../components/Modal'
 
 export const MATERIAL_UNITS = ['EACH', 'SHEET', 'SQ/FT', 'LF', 'GALLON']
 const GENERAL_CATEGORIES = ['WOOD PANEL', 'QUARTZ', 'CONSUMABLES']
@@ -14,6 +18,7 @@ const HARDWARE_CATEGORIES = ['HARDWARE', 'EQUIPMENT']
 
 export default function Materials({ mode = 'general' }: { mode?: 'general' | 'hardware' }) {
   const { isAdmin } = useAuth()
+  const saves = useSaveQueue()
   const [categoryFilter, setCategoryFilter] = useState<{ mode: typeof mode; category: string | null }>({ mode, category: null })
   const [materials, setMaterials] = useState<Material[] | null>(null)
   const [staleDays, setStaleDays] = useState(90)
@@ -51,9 +56,9 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
   const visibleGroups = grouped.filter(([category]) => selectedCategory === null || category === selectedCategory)
 
   async function saveCost(m: Material, cost: number | null) {
-    const { error } = await supabase!.from('materials').update({ cost }).eq('id', m.id)
-    if (error) setError(error.message)
-    void load()
+    const cost_updated_at = new Date().toISOString()
+    setMaterials(previous => previous!.map(row => row.id === m.id ? { ...row, cost, cost_updated_at } : row))
+    saves.queue.enqueue(`Price for ${m.name}`, () => checkedWrite(supabase!.from('materials').update({ cost, cost_updated_at }).eq('id', m.id).select('id').single()))
   }
 
   async function remove(m: Material) {
@@ -63,12 +68,14 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
     void load()
   }
 
-  if (error)
+  if (error && !materials)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!materials) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
     <div className="zaid-page zaid-materials">
+      <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" />
+      {error && <p role="alert" className="save-feedback save-failed">{error}<button onClick={() => setError(null)}>Dismiss</button></p>}
       <div className="flex items-center">
         <p className="text-sm text-slate-500">
           {mode === 'hardware'
@@ -97,7 +104,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
         <section key={category} id={`library-${category}`}>
           <GroupTitle>{category}</GroupTitle>
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
-            <table className="w-full text-sm">
+            <table className="responsive-record-table w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left font-mono text-[10px] uppercase tracking-wider text-slate-400">
                   <th className="px-4 py-2 font-medium">Material</th>
@@ -110,21 +117,21 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
               <tbody>
                 {items.map((m) => (
                   <tr key={m.id} className="border-t border-slate-100 first:border-t-0">
-                    <td className="px-4 py-2">
+                    <td data-label="Material" className="px-4 py-2">
                       {m.name}
                       {m.notes && <div className="text-xs text-slate-400">{m.notes}</div>}
                     </td>
-                    <td className="px-2 py-2 text-xs text-slate-500 whitespace-nowrap">{m.unit}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">
-                      {isAdmin ? <CostCell value={m.cost} onSave={(v) => void saveCost(m, v)} /> : fmtCost(m.cost)}
+                    <td data-label="Unit" className="px-2 py-2 text-xs text-slate-500 whitespace-nowrap">{m.unit}</td>
+                    <td data-label="Cost" className="px-2 py-2 text-right tabular-nums">
+                      {isAdmin ? <CostCell label={`Cost for ${m.name}`} value={m.cost} onSave={(v) => void saveCost(m, v)} /> : fmtCost(m.cost)}
                     </td>
-                    <td className="px-2 py-2 text-xs text-slate-500">{m.supplier ?? '—'}</td>
-                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                    <td data-label="Supplier" className="px-2 py-2 text-xs text-slate-500">{m.supplier ?? '—'}</td>
+                    <td data-label="Actions" className="px-4 py-2 text-right whitespace-nowrap">
                       <div className="library-row-actions"><span className="library-price-status">
                       <StaleBadge
                         costUpdatedAt={m.cost_updated_at}
                         thresholdDays={staleDays}
-                        onConfirm={isAdmin ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
+                        onConfirm={isAdmin && !saves.pending ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
                       {isAdmin && (
@@ -204,7 +211,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
 }
 
 /** Click-to-edit cost cell; Enter or click away saves. */
-export function CostCell({ value, onSave }: { value: number | null; onSave: (v: number | null) => void }) {
+export function CostCell({ value, onSave, label = 'Cost' }: { label?: string; value: number | null; onSave: (v: number | null) => void }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -218,6 +225,7 @@ export function CostCell({ value, onSave }: { value: number | null; onSave: (v: 
         className={`group rounded px-1.5 py-0.5 tabular-nums underline decoration-dotted decoration-slate-300 underline-offset-4 hover:bg-amber-50 hover:decoration-amber-500 ${
           value == null ? 'text-red-500 font-medium' : ''
         }`}
+        aria-label={`${label}: ${value == null ? 'not set' : fmtCost(value)}`}
         title="Click to edit price"
       >
         {value == null ? 'no cost!' : fmtCost(value)}
@@ -228,12 +236,14 @@ export function CostCell({ value, onSave }: { value: number | null; onSave: (v: 
   return (
     <input
       autoFocus
+      aria-label={label}
       type="number"
       step="any"
       min="0"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
+      onBlur={(e) => {
+        if (!e.currentTarget.reportValidity()) return
         setEditing(false)
         const v = draft === '' ? null : Number(draft)
         if (v !== value) onSave(v)
@@ -292,12 +302,7 @@ function MaterialForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
-      <div className="w-full max-w-lg rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">{duplicate ? 'Duplicate material' : material ? 'Edit material' : 'Add material'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
-        </div>
+    <Modal title={duplicate ? 'Duplicate material' : material ? 'Edit material' : 'Add material'} onClose={onClose}>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <label className="block">
             <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Name</span>
@@ -343,7 +348,6 @@ function MaterialForm({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }

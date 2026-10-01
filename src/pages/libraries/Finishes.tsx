@@ -1,3 +1,6 @@
+import SaveFeedback from '../../components/SaveFeedback'
+import { useSaveQueue } from '../../lib/useSaveQueue'
+import { checkedWrite } from '../../lib/saveQueue'
 import LibraryCategories from '../../components/LibraryCategories'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -7,6 +10,7 @@ import type { Finish } from '../../lib/types'
 import { fmtCost } from '../../lib/format'
 import { GroupTitle, StaleBadge, confirmPrice } from '../../components/LibraryBits'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import Modal from '../../components/Modal'
 import { CostCell } from './Materials'
 
 const FINISH_UNITS = ['SQ/FT', 'SHEET']
@@ -14,6 +18,7 @@ const SLOT_OPTIONS = ['', 'CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4',
 
 export default function Finishes() {
   const { isAdmin } = useAuth()
+  const saves = useSaveQueue()
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [finishes, setFinishes] = useState<Finish[] | null>(null)
   const [staleDays, setStaleDays] = useState(90)
@@ -49,17 +54,22 @@ export default function Finishes() {
   const visibleGroups = grouped.filter(([category]) => selectedCategory === null || category === selectedCategory)
 
   async function patch(f: Finish, fields: Partial<Finish>) {
-    const { error } = await supabase!.from('finishes').update(fields).eq('id', f.id)
-    if (error) setError(error.message)
-    void load()
+    const changes = fields.cost !== undefined ? { ...fields, cost_updated_at: new Date().toISOString() } : fields
+    if (fields.active !== false) setFinishes(previous => previous!.map(row => row.id === f.id ? { ...row, ...changes } : row))
+    saves.queue.enqueue(`Finish ${f.name}`, async () => {
+      await checkedWrite(supabase!.from('finishes').update(changes).eq('id', f.id).select('id').single())
+      if (fields.active === false) setFinishes(previous => previous!.filter(row => row.id !== f.id))
+    })
   }
 
-  if (error)
+  if (error && !finishes)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!finishes) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
     <div className="zaid-page zaid-finishes">
+      <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" />
+      {error && <p role="alert" className="save-feedback save-failed">{error}<button onClick={() => setError(null)}>Dismiss</button></p>}
       <div className="flex items-center">
         <p className="text-sm text-slate-500">
           Laminates and solid surfaces. Each job assigns these to its finish slots (PLAM 1–4, SS 1–4) —
@@ -87,7 +97,7 @@ export default function Finishes() {
         <section key={type} id={`library-${type}`}>
           <GroupTitle>{type}</GroupTitle>
           <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
-            <table className="w-full text-sm">
+            <table className="responsive-record-table w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left font-mono text-[10px] uppercase tracking-wider text-slate-400">
                   <th className="px-4 py-2 font-medium">Finish</th>
@@ -102,26 +112,26 @@ export default function Finishes() {
               <tbody>
                 {items.map((f) => (
                   <tr key={f.id} className="border-t border-slate-100 first:border-t-0">
-                    <td className="px-4 py-2">{f.name}</td>
-                    <td className="px-2 py-2 text-xs text-slate-500">{f.brand ?? '—'}</td>
-                    <td className="px-2 py-2 text-xs text-slate-500">{f.color_code ?? '—'}</td>
-                    <td className="px-2 py-2 text-xs text-slate-500 whitespace-nowrap">{f.unit}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">
-                      {isAdmin ? <CostCell value={f.cost} onSave={(v) => void patch(f, { cost: v })} /> : fmtCost(f.cost)}
+                    <td data-label="Finish" className="px-4 py-2">{f.name}</td>
+                    <td data-label="Brand" className="px-2 py-2 text-xs text-slate-500">{f.brand ?? '—'}</td>
+                    <td data-label="Color / code" className="px-2 py-2 text-xs text-slate-500">{f.color_code ?? '—'}</td>
+                    <td data-label="Unit" className="px-2 py-2 text-xs text-slate-500 whitespace-nowrap">{f.unit}</td>
+                    <td data-label="Cost" className="px-2 py-2 text-right tabular-nums">
+                      {isAdmin ? <CostCell label={`Cost for ${f.name}`} value={f.cost} onSave={(v) => void patch(f, { cost: v })} /> : fmtCost(f.cost)}
                     </td>
-                    <td className="px-2 py-2">
+                    <td data-label="Default slot" className="px-2 py-2">
                       {f.default_slot && (
                         <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
                           {f.default_slot}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                    <td data-label="Actions" className="px-4 py-2 text-right whitespace-nowrap">
                       <div className="library-row-actions"><span className="library-price-status">
                       <StaleBadge
                         costUpdatedAt={f.cost_updated_at}
                         thresholdDays={staleDays}
-                        onConfirm={isAdmin ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
+                        onConfirm={isAdmin && !saves.pending ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
                       {isAdmin && (
@@ -229,12 +239,7 @@ function FinishForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
-      <div className="w-full max-w-lg rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">{duplicate ? 'Duplicate finish' : finish ? 'Edit finish' : 'Add finish'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
-        </div>
+    <Modal title={duplicate ? 'Duplicate finish' : finish ? 'Edit finish' : 'Add finish'} onClose={onClose}>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
@@ -289,7 +294,6 @@ function FinishForm({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
