@@ -339,3 +339,67 @@
     .zaid-app .construction-overview .zaid-pipeline .grid>a .flex { flex-wrap:wrap; }
   }
 }
+/* Native file inputs remain keyboard accessible; the enclosing label is the control. */
+@media screen {
+  .zaid-app label:has(> .file-upload-input) { position:relative; overflow:hidden; }
+  .zaid-app label:has(> .file-upload-input):focus-within { outline:2px solid var(--z-ink); outline-offset:3px; }
+  .zaid-app .file-upload-input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+  .zaid-app .zaid-receipts .construction-receipt-intake { max-height:calc(100dvh - 108px); overflow-y:auto; }
+  .zaid-app .app-modal.field-report-modal { width:min(672px,calc(100vw - 32px)); }
+  .zaid-app .receipt-row-save:empty { display:none; }
+  .zaid-app .schedule-day-more { padding:6px 8px; text-align:left; color:var(--z-ink); text-decoration:underline; }
+  .zaid-app :is(button,a).text-slate-300:not(.light-doc *),
+  .zaid-app .zaid-actuals .text-slate-300:not(.light-doc *) { color:var(--z-muted); }
+  @media(max-width:1200px) {
+    .zaid-app .zaid-receipts .construction-receipt-intake { max-height:none; }
+  }
+}
+
+/* Keep record actions beside their record; use labeled compact rows on smaller screens. */
+@media screen {
+  .zaid-app .construction-register-table.construction-job-register { min-width:0; }
+  .zaid-app .construction-job-register th:last-child,
+  .zaid-app .construction-job-register td:last-child { width:1%; white-space:normal; padding-right:20px; }
+  .construction-job-register .construction-row-actions { width:max-content; max-width:clamp(320px,calc(100vw - 1100px),600px); flex-wrap:wrap; margin-left:0; gap:8px 12px; }
+  .zaid-app .zaid-materials .library-records table,
+  .zaid-app .zaid-finishes .library-records table { min-width:0; }
+  .zaid-app .zaid-materials .library-records th:nth-child(5) { width:220px; }
+  .zaid-app .zaid-finishes .library-records th:nth-child(7) { width:172px; }
+  .zaid-app .zaid-finishes .library-records th:nth-child(2),
+  .zaid-app .zaid-finishes .library-records th:nth-child(3) { width:12%; }
+  .zaid-app .zaid-finishes .library-records th:nth-child(4) { width:64px; }
+  .zaid-app .zaid-finishes .library-records th:nth-child(5),
+  .zaid-app .zaid-finishes .library-records th:nth-child(6) { width:100px; }
+  .zaid-app .library-record-actions { flex-wrap:wrap; }
+  .zaid-app .library-record-actions button { min-height:32px; margin-left:0; padding-inline:6px; }
+  .zaid-app .library-row-actions { grid-template-columns:1fr; gap:4px; }
+  .zaid-app .library-price-status { min-height:28px; text-align:right; }
+  .zaid-app .library-price-status > span { justify-content:flex-end; }
+  .mobile-record-sort { display:none; }
+  @media(max-width:1000px) {
+    .zaid-app .mobile-record-sort { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px 16px; font-size:13px; }
+    .zaid-app .mobile-record-sort select { min-height:40px; padding:8px; border:1px solid var(--z-control); border-radius:4px; background:var(--z-paper); color:var(--z-ink); }
+    .zaid-app .responsive-record-table,
+    .zaid-app .library-records table.responsive-record-table { display:block; width:100%; min-width:0; }
+    .zaid-app .responsive-record-table thead { display:none; }
+    .zaid-app .responsive-record-table tbody { display:block; }
+    .zaid-app .responsive-record-table tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 16px; padding:16px; border-bottom:1px solid var(--z-line); }
+    .zaid-app .responsive-record-table tbody tr:last-child { border-bottom:0; }
+    .zaid-app .responsive-record-table tbody td,
+    .zaid-app .library-records .responsive-record-table tbody td { display:block; width:auto; min-width:0; border:0; padding:0; text-align:left; white-space:normal; overflow-wrap:anywhere; }
+    .zaid-app .responsive-record-table tbody td::before { content:attr(data-label); display:block; margin-bottom:4px; font-size:12px; font-weight:400; color:var(--z-muted); }
+    .zaid-app .responsive-record-table td:is([data-label="Project"],[data-label="Material"],[data-label="Finish"],[data-label="Contractor"],[data-label="Actions"],[data-label="Job"],[data-label="Notes"],[colspan]) { grid-column:1 / -1; }
+    .zaid-app .responsive-record-table td[data-label="Actions"]::before { display:none; }
+    .zaid-app .responsive-record-table td:is([data-label="Material"],[data-label="Finish"]):first-child { font-weight:600; }
+    .zaid-app .responsive-record-table td:is([data-label="Material"],[data-label="Finish"]):first-child::before { display:none; }
+    .zaid-app .responsive-record-table .construction-project-select { min-width:0; }
+    .zaid-app .responsive-record-table .construction-row-actions { min-width:0; width:auto; margin:0; flex-wrap:wrap; gap:8px; }
+    .zaid-app .responsive-record-table :is(.construction-row-link,.library-record-actions button) { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:6px 10px; border:1px solid var(--z-line); border-radius:4px; }
+    .zaid-app .library-row-actions { gap:8px; }
+    .zaid-app .library-price-status { min-height:0; text-align:left; }
+    .zaid-app .library-price-status > span { justify-content:flex-start; }
+    .zaid-app .library-record-actions { justify-content:flex-start; flex-wrap:wrap; gap:8px; }
+    .zaid-app .library-workspace > .library-records { padding:16px; }
+    .zaid-app .responsive-record-table .library-price-status button { min-height:36px; }
+  }
+}

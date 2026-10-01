@@ -1,3 +1,7 @@
+import { errorMessage } from '../lib/loadResults'
+import { useUnsavedWarning } from '../lib/useSaveQueue'
+import LoadError from '../components/LoadError'
+import { validateSettingDraft } from '../lib/settingValidation'
 import Overhead from './Overhead'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -58,7 +62,7 @@ function ImageCard({
           <input
             type="file"
             accept={accept}
-            className="hidden"
+            className="file-upload-input"
             disabled={uploading}
             onChange={(e) => {
               const f = e.target.files?.[0]
@@ -87,7 +91,11 @@ function TextRowsCard({ group, intro, multiline }: { group: string; intro: strin
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  const [reload, setReload] = useState(0)
+  useUnsavedWarning(busy || !!rows?.some(t => drafts[t.key] !== undefined && drafts[t.key] !== t.value))
+
   useEffect(() => {
+    setError(null)
     supabase!
       .from('text_settings')
       .select('*')
@@ -101,44 +109,51 @@ function TextRowsCard({ group, intro, multiline }: { group: string; intro: strin
           setDrafts(Object.fromEntries(r.map((t) => [t.key, t.value])))
         }
       })
-  }, [group])
+  }, [group, reload])
 
-  if (error) return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+  if (error && !rows) return <LoadError error={error} retry={() => setReload(n => n + 1)} subject="text settings" />
   if (!rows) return <p className="text-sm text-slate-500">Loading…</p>
 
   const changed = rows.filter((t) => drafts[t.key] !== undefined && drafts[t.key] !== t.value)
 
   async function save() {
     setBusy(true)
-    for (const t of changed) {
-      const { error } = await supabase!.from('text_settings').update({ value: drafts[t.key] }).eq('key', t.key)
-      if (error) {
-        setError(error.message)
-        setBusy(false)
-        return
+    setError(null)
+    setSaved(false)
+    try {
+      for (const t of changed) {
+        const { error } = await supabase!.from('text_settings').update({ value: drafts[t.key] }).eq('key', t.key).select('key').single()
+        if (error) {
+          setError(error.message)
+          setBusy(false)
+          return
+        }
+        setRows(prev => prev!.map(row => row.key === t.key ? { ...row, value: drafts[t.key] } : row))
       }
-    }
-    setRows((prev) => prev!.map((t) => ({ ...t, value: drafts[t.key] ?? t.value })))
-    setBusy(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+      setBusy(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
 
   return (
     <div className="construction-settings-text-panel space-y-4">
       <p className="text-sm text-slate-500">{intro}</p>
+      {error && <p role="alert" className="text-sm text-red-600">Could not save all changes. Your remaining edits are still here. Try Save again. {error}</p>}
       {rows.map((t) => (
         <label key={t.key} className="block">
           <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">{t.label}</span>
           {multiline ? (
             <textarea
               rows={Math.max(6, drafts[t.key]?.split('\n').length ?? 6)}
+              disabled={busy}
               value={drafts[t.key] ?? ''}
               onChange={(e) => setDrafts((d) => ({ ...d, [t.key]: e.target.value }))}
               className={`input ${drafts[t.key] !== t.value ? 'border-amber-400 bg-amber-50' : ''}`}
             />
           ) : (
             <input
+              disabled={busy}
               value={drafts[t.key] ?? ''}
               onChange={(e) => setDrafts((d) => ({ ...d, [t.key]: e.target.value }))}
               className={`input ${drafts[t.key] !== t.value ? 'border-amber-400 bg-amber-50' : ''}`}
@@ -169,14 +184,19 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  useUnsavedWarning(busy || !!settings?.some(s => drafts[s.key] !== undefined && (drafts[s.key].trim() === '' || Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format))))
+
   async function load() {
-    const { data, error } = await supabase!.from('settings').select('*').order('sort_order')
-    if (error) setError(error.message)
-    else {
-      const rows = data as Setting[]
-      setSettings(rows)
-      setDrafts(Object.fromEntries(rows.map((s) => [s.key, String(settingToDisplay(Number(s.value), s.format))])))
-    }
+    setError(null)
+    try {
+      const { data, error } = await supabase!.from('settings').select('*').order('sort_order')
+      if (error) setError(error.message)
+      else {
+        const rows = data as Setting[]
+        setSettings(rows)
+        setDrafts(Object.fromEntries(rows.map((s) => [s.key, String(settingToDisplay(Number(s.value), s.format))])))
+      }
+    } catch (e) { setError(errorMessage(e)) }
   }
 
   useEffect(() => {
@@ -202,30 +222,34 @@ export default function Settings() {
       </p>
     )
   }
-  if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+  if (error && !settings) return <LoadError error={error} retry={() => void load()} subject="settings" />
   if (!settings) return <p className="text-sm text-slate-500">Loading…</p>
 
   const changed = settings.filter(
-    (s) => drafts[s.key] !== undefined && Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format),
+    (s) => drafts[s.key] !== undefined && (drafts[s.key].trim() === '' || Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)),
   )
 
   async function saveAll() {
+    const invalid = changed.find(s => validateSettingDraft(drafts[s.key], s.key))
+    if (invalid) { setError(`${invalid.label}: ${validateSettingDraft(drafts[invalid.key], invalid.key)}`); setActive(invalid.group_name); return }
+    setSaved(false)
     setBusy(true)
     setError(null)
-    for (const s of changed) {
-      const value = settingFromDisplay(Number(drafts[s.key]), s.format)
-      const { error } = await supabase!.from('settings').update({ value }).eq('key', s.key)
-      if (error) {
-        setError(error.message)
-        setBusy(false)
-        return
+    try {
+      for (const s of changed) {
+        const value = settingFromDisplay(Number(drafts[s.key]), s.format)
+        const { error } = await supabase!.from('settings').update({ value }).eq('key', s.key).select('key').single()
+        if (error) {
+          setError(error.message)
+          setBusy(false)
+          return
+        }
+        setSettings(previous => previous!.map(row => row.key === s.key ? { ...row, value } : row))
       }
-    }
-    setBusy(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-    void load()
+      setBusy(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
 
   const activeItems = grouped.find(([g]) => g === active)?.[1] ?? grouped[0]?.[1] ?? []
@@ -253,6 +277,7 @@ export default function Settings() {
         </div>
       </div>
 
+      {error && <p role="alert" className="save-feedback save-failed">{error} Your edits are still here. Correct the value or try Save again.</p>}
       <div className="flex flex-col gap-5 sm:flex-row">
         {/* Category sidebar (horizontal chips on phones) */}
         <nav className="shrink-0 sm:w-44">
@@ -260,6 +285,7 @@ export default function Settings() {
             {[...grouped.map(([g]) => g), 'Terms', 'Overhead'].map((group) => (
               <button
                 key={group}
+                aria-pressed={active === group}
                 onClick={() => setActive(group)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-left text-sm font-medium ${
                   active === group
@@ -308,20 +334,25 @@ export default function Settings() {
           <div className={`overflow-hidden rounded-lg border-2 border-slate-800 bg-white ${active === 'Terms' || active === 'Overhead' ? 'hidden' : ''}`}>
             {activeItems.map((s, i) => {
               const suffix = settingSuffix(s.format)
-              const isDirty = Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)
+              const isDirty = drafts[s.key]?.trim() === '' || Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)
               return (
                 <div
                   key={s.key}
                   className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-slate-100' : ''}`}
                 >
-                  <span className="min-w-0 flex-1 text-sm">{s.label}</span>
+                  <label htmlFor={`setting-${s.key}`} className="min-w-0 flex-1 text-sm">{s.label}</label>
                   <div className="flex shrink-0 items-center gap-1.5">
                     <span className="w-2 shrink-0 text-xs text-slate-400">{suffix === '$' ? '$' : ''}</span>
                     <input
+                      id={`setting-${s.key}`}
+                      aria-label={s.label}
+                      disabled={busy}
+                      required
+                      min="0"
                       type="number"
                       step="any"
                       value={drafts[s.key] ?? ''}
-                      onChange={(e) => setDrafts((d) => ({ ...d, [s.key]: e.target.value }))}
+                      onChange={(e) => { setError(null); setDrafts((d) => ({ ...d, [s.key]: e.target.value })) }}
                       className={`w-28 rounded-md border px-2 py-1.5 text-right text-sm tabular-nums focus:border-slate-800 focus:outline-none ${
                         isDirty ? 'border-amber-400 bg-amber-50' : 'border-slate-300'
                       }`}

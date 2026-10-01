@@ -1,3 +1,6 @@
+import LoadError from '../components/LoadError'
+import { requireLoaded, errorMessage } from '../lib/loadResults'
+import { profileName } from '../lib/profileName'
 import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -28,9 +31,14 @@ const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).to
 /** Shop time clock: pick the job you worked on, log the hours.
  *  Office/PM/admin also get a printable team time report. */
 export default function TimeClock() {
-  const { session, canSchedule, isOffice } = useAuth()
+  const { session, profile, canSchedule, isOffice } = useAuth()
   const worker = session?.user.email?.split('@')[0] ?? 'unknown'
   const seesEveryone = canSchedule || isOffice
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reportLoading, setReportLoading] = useState(true)
+  const [reportError, setReportError] = useState<string | null>(null)
+  const [reportReload, setReportReload] = useState(0)
   const [jobs, setJobs] = useState<Bid[]>([])
   const [allBids, setAllBids] = useState<Pick<Bid, 'id' | 'job_number' | 'name'>[]>([])
   const [mine, setMine] = useState<TimeEntry[]>([])
@@ -55,26 +63,30 @@ export default function TimeClock() {
   const [showReportPreview, setShowReportPreview] = useState(false)
 
   async function load() {
-    const [jobRes, allRes, mineRes] = await Promise.all([
-      supabase!.from('bids').select('*').eq('status', 'won').is('completed_at', null).order('job_number'),
-      supabase!.from('bids').select('id, job_number, name'),
-      supabase!
-        .from('time_entries')
-        .select('*')
-        .eq('created_by', session?.user.email ?? '')
-        .order('work_date', { ascending: false })
-        .limit(30),
-    ])
-    if (jobRes.error) setError(jobRes.error.message)
-    else {
-      const rows = jobRes.data as Bid[]
-      setJobs(rows)
-      setJobId((cur) => cur || rows[0]?.id || '')
-    }
-    if (allRes.data) setAllBids(allRes.data as Pick<Bid, 'id' | 'job_number' | 'name'>[])
-    if (mineRes.data) setMine(mineRes.data as TimeEntry[])
-    const { data: co } = await supabase!.from('text_settings').select('key, value').eq('group_name', 'Company')
-    if (co) setCompany(Object.fromEntries((co as { key: string; value: string }[]).map((t) => [t.key, t.value])))
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const [jobRes, allRes, mineRes] = await Promise.all([
+        supabase!.from('bids').select('*').eq('status', 'won').is('completed_at', null).order('job_number'),
+        supabase!.from('bids').select('id, job_number, name'),
+        supabase!
+          .from('time_entries')
+          .select('*')
+          .eq('created_by', session?.user.email ?? '')
+          .order('work_date', { ascending: false })
+          .limit(30),
+      ])
+      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes })
+      {
+        const rows = jobRes.data as Bid[]
+        setJobs(rows)
+        setJobId((cur) => cur || rows[0]?.id || '')
+      }
+      if (allRes.data) setAllBids(allRes.data as Pick<Bid, 'id' | 'job_number' | 'name'>[])
+      if (mineRes.data) setMine(mineRes.data as TimeEntry[])
+      const { data: co } = await supabase!.from('text_settings').select('key, value').eq('group_name', 'Company')
+      if (co) setCompany(Object.fromEntries((co as { key: string; value: string }[]).map((t) => [t.key, t.value])))
+    } catch (e) { setLoadError(errorMessage(e)) } finally { setLoading(false) }
   }
 
   useEffect(() => {
@@ -84,14 +96,23 @@ export default function TimeClock() {
 
   useEffect(() => {
     if (!seesEveryone) return
+    let cancelled = false
+    setReportLoading(true)
+    setReportError(null)
     supabase!
       .from('time_entries')
       .select('*')
       .gte('work_date', repFrom)
       .lte('work_date', repTo)
       .order('work_date')
-      .then(({ data }) => setReport((data ?? []) as TimeEntry[]))
-  }, [seesEveryone, repFrom, repTo, mine.length])
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) setReportError(error.message)
+        else setReport((data ?? []) as TimeEntry[])
+        setReportLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [seesEveryone, repFrom, repTo, mine.length, reportReload])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -127,8 +148,8 @@ export default function TimeClock() {
     return j ? `${j.job_number} ${j.name}` : '—'
   }
 
-  if (error)
-    return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+  if (loadError) return <LoadError error={loadError} retry={() => void load()} subject="time entries" />
+  if (loading) return <p role="status">Loading time entries…</p>
 
   // filters: empty picks mean "all"
   const allWorkers = [...new Set(report.map((t) => t.worker))].sort()
@@ -151,12 +172,13 @@ export default function TimeClock() {
 
   return (
     <div className="zaid-page zaid-timeclock max-w-2xl space-y-5 print:max-w-none">
+      {error && <p role="alert" className="save-feedback save-failed">{error} Your entry is still here. Try again.</p>}
       <div className="construction-page-heading print:hidden">
         <div>
         <h1 className="text-lg font-semibold tracking-tight">Time</h1>
         <p className="mt-0.5 text-sm text-slate-500">
           Log your shop hours against the job you worked on. Logging as{' '}
-          <span className="font-semibold">{worker}</span>.
+          <span className="font-semibold">{profile ? profileName(profile) : worker}</span>.
         </p>
         </div>
       </div>
@@ -377,24 +399,26 @@ export default function TimeClock() {
             </div>
           )}
 
-          {!showReportPreview && (
+          {reportError && <LoadError error={reportError} retry={() => setReportReload(n => n + 1)} subject="the time report" />}
+          {reportLoading && <p role="status" className="p-4">Loading time report…</p>}
+          {!showReportPreview && !reportError && !reportLoading && (
             <div className="print:hidden">
               <div className="construction-time-report-caption">
                 <span>{filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}</span>
                 <span>{grandTotal.toFixed(1)} hrs total</span>
               </div>
               <div className="construction-table-scroll">
-                <table className="construction-register-table construction-time-table">
+                <table className="responsive-record-table construction-register-table construction-time-table">
                   <thead><tr><th>Day</th><th>Person</th><th>Job</th><th>Category</th><th>Notes</th><th>Hours</th></tr></thead>
                   <tbody>
                     {filtered.map((t) => (
                       <tr key={t.id}>
-                        <td>{fmtDay(t.work_date)}</td>
-                        <td>{t.worker}</td>
-                        <td>{jobName(t.bid_id)}</td>
-                        <td>{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
-                        <td>{t.note || '—'}</td>
-                        <td className="construction-money">{Number(t.hours).toFixed(1)}</td>
+                        <td data-label="Day">{fmtDay(t.work_date)}</td>
+                        <td data-label="Person">{t.worker}</td>
+                        <td data-label="Job">{jobName(t.bid_id)}</td>
+                        <td data-label="Category">{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
+                        <td data-label="Notes">{t.note || '—'}</td>
+                        <td data-label="Hours" className="construction-money">{Number(t.hours).toFixed(1)}</td>
                       </tr>
                     ))}
                     {filtered.length === 0 && <tr><td colSpan={6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
@@ -403,7 +427,7 @@ export default function TimeClock() {
               </div>
             </div>
           )}
-          <div className={`construction-time-document ${showReportPreview ? '' : 'construction-time-document-collapsed'}`}>
+          <div hidden={reportLoading || !!reportError} className={`construction-time-document ${showReportPreview ? '' : 'construction-time-document-collapsed'}`}>
           <div className="light-doc rounded-lg border-2 border-slate-900 bg-white p-4 print:rounded-none print:border-0 print:p-0">
             <div className="flex items-center gap-4 border-b-4 border-slate-900 pb-2">
               {logoOk && LOGO_URL ? (

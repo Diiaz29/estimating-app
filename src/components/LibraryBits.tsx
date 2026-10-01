@@ -42,8 +42,8 @@ export async function confirmPrice(table: 'materials' | 'finishes', id: string) 
 
 export function GroupTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mb-2 mt-6 first:mt-0 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-      {children}
+    <h2 className="mb-2 mt-6 first:mt-0 font-mono text-[11px] tracking-wide text-slate-500">
+      {typeof children === 'string' ? children.charAt(0).toUpperCase() + children.slice(1).toLowerCase() : children}
     </h2>
   )
 }

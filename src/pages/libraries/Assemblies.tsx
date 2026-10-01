@@ -1,4 +1,5 @@
 import LibraryCategories from '../../components/LibraryCategories'
+import Modal from '../../components/Modal'
 import UiIcon from '../../components/UiIcon'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -213,12 +214,7 @@ function AddAssemblyForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6">
-      <div className="w-full max-w-md rounded-t-xl sm:rounded-xl border-2 border-slate-800 bg-white">
-        <div className="flex items-center justify-between border-b-2 border-slate-800 px-5 py-3">
-          <h2 className="font-semibold">Add assembly</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
-        </div>
+    <Modal title="Add assembly" onClose={onClose}>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <label className="block">
             <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Name</span>
@@ -240,6 +236,7 @@ function AddAssemblyForm({
                   <button
                     type="button"
                     key={u}
+                    aria-pressed={pricingUnit === u}
                     onClick={() => setPricingUnit(u)}
                     className={`flex-1 rounded-md border px-2 py-2 text-xs font-medium ${
                       pricingUnit === u
@@ -264,7 +261,6 @@ function AddAssemblyForm({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
