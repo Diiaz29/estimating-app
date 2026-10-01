@@ -190,6 +190,24 @@
   .zaid-app :is(.zaid-jobs,.zaid-customers,.zaid-team,.zaid-plans,.zaid-field)>.overflow-hidden:not(.light-doc) { border-radius:6px; background:var(--z-paper); }
   .zaid-app .library-workspace { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; gap:0; }
   .zaid-app .zaid-reports section > :is(.overflow-x-auto,.overflow-hidden).rounded-lg { border:1px solid var(--z-line); border-radius:6px; }
+  .zaid-app .zaid-reports { row-gap:24px; }
+  .zaid-app .zaid-reports > div:first-child { display:none; }
+  .construction-report-summary { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
+  .construction-report-summary-heading { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 24px; padding:16px 20px; border-bottom:1px solid var(--z-line); }
+  .zaid-app .construction-report-summary-heading h2 { margin:0; font-size:16px; font-weight:600; }
+  .construction-report-summary-heading p { margin:0; max-width:75ch; font-size:12px; color:var(--z-muted); }
+  .construction-report-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0; padding:20px 0; }
+  .construction-report-metric { padding:0 20px; min-width:0; }
+  .construction-report-metric + .construction-report-metric { border-left:1px solid var(--z-line); }
+  .construction-report-metric dt { font-size:13px; color:var(--z-muted); }
+  .construction-report-metric dd { margin:8px 0 0; font-size:22px; line-height:1.25; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  @media(max-width:639px) {
+    .construction-report-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); padding:0; }
+    .construction-report-metric { padding:16px; }
+    .construction-report-metric:nth-child(3) { border-left:0; }
+    .construction-report-metric:nth-child(n+3) { border-top:1px solid var(--z-line); }
+    .construction-report-summary-heading { padding:16px; }
+  }
   .zaid-app .library-category-nav { padding:16px; border-right:1px solid var(--z-line); }
   .zaid-app .library-category-nav button { display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px; padding:10px 12px; border:0; border-radius:5px; background:transparent; color:var(--z-muted); text-align:left; font-size:13px; }
   .zaid-app .library-category-nav button>span { font-size:11px; }
