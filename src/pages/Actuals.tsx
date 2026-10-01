@@ -8,6 +8,7 @@ import type {
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
+import { actualsLaborCosts } from '../lib/actuals'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Receipt {
@@ -154,10 +155,12 @@ export default function Actuals() {
 
   const s = ctx.settings
   const cb = pricing.costBreakdown
-  const shopRate = s.cost_shop_rate ?? 0
-  const installRate = s.install_rate ?? 0
-  const estInstallLabor = pricing.installHours * installRate
-  const estFuel = cb.install - estInstallLabor // trip fuel that lives inside the install bucket
+  const labor = actualsLaborCosts(s, actuals.shop_hours, actuals.install_hours,
+    pricing.installHours, cb.install, bid.adders.install)
+  const shopRate = labor.rate
+  const installRate = labor.rate
+  const estInstallLabor = labor.estimatedInstallLabor
+  const estFuel = labor.estimatedFuel
   const estTravel = cb.travel + estFuel
   const contractAmount = contract ?? pricing.contractAmount
 
@@ -184,14 +187,14 @@ export default function Actuals() {
   const rOther = receiptTotal('other')
   const missingAmounts = receipts.filter((r) => r.amount == null).length
 
-  const actShopLabor = (a.shop_hours ?? 0) * shopRate
-  const actInstallLabor = (a.install_hours ?? 0) * installRate
+  const actShopLabor = labor.shopLabor
+  const actInstallLabor = labor.installLabor
   const actTotal =
     (rMaterials ?? 0) + actShopLabor + actInstallLabor +
     (rDelivery ?? 0) + (rTravel ?? 0) + (rSubs ?? 0) + (rOther ?? 0)
   const anyEntered = receipts.length > 0 || a.shop_hours != null || a.install_hours != null
 
-  const estTotal = cb.materials + cb.shopLabor + cb.install + cb.delivery + cb.travel + cb.subs + cb.other
+  const estTotal = cb.materials + cb.shopLabor + labor.estimatedInstallCost + cb.delivery + cb.travel + cb.subs + cb.other
   const estProfit = contractAmount - estTotal
   const actProfit = contractAmount - actTotal
 
