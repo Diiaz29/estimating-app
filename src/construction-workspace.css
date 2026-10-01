@@ -359,8 +359,8 @@
 @media screen {
   .zaid-app .construction-register-table.construction-job-register { min-width:0; }
   .zaid-app .construction-job-register th:last-child,
-  .zaid-app .construction-job-register td:last-child { width:260px; white-space:normal; padding-right:20px; }
-  .construction-job-register .construction-row-actions { width:auto; min-width:210px; flex-wrap:wrap; margin-left:0; gap:8px 12px; }
+  .zaid-app .construction-job-register td:last-child { width:1%; white-space:normal; padding-right:20px; }
+  .construction-job-register .construction-row-actions { width:max-content; max-width:clamp(320px,calc(100vw - 1100px),600px); flex-wrap:wrap; margin-left:0; gap:8px 12px; }
   .zaid-app .zaid-materials .library-records table,
   .zaid-app .zaid-finishes .library-records table { min-width:0; }
   .zaid-app .zaid-materials .library-records th:nth-child(5) { width:220px; }
