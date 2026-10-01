@@ -124,6 +124,16 @@
   .construction-register-table th:nth-child(2),.construction-register-table td:nth-child(2) { width:32%; }
   .construction-register-table tr:hover { background:var(--z-canvas); }
   .construction-register-table .construction-selected-row { background:var(--z-soft); }
+  .zaid-app .construction-contact-table { table-layout:fixed; min-width:1120px; }
+  .zaid-app .construction-contact-table th:first-child { width:24%; }
+  .zaid-app .construction-contact-table th:nth-child(2) { width:160px; }
+  .zaid-app .construction-contact-table th:nth-child(3) { width:160px; }
+  .zaid-app .construction-contact-table th:nth-child(4) { width:23%; }
+  .zaid-app .construction-contact-table th:last-child { width:108px; }
+  .zaid-app .construction-contact-table td { overflow-wrap:anywhere; }
+  .zaid-app .construction-contact-table td:first-child { width:auto; }
+  .zaid-app .construction-contact-table td:nth-child(2) { width:auto; }
+  .construction-contact-company { font-weight:600; }
   .construction-register-table th[aria-sort=ascending], .construction-register-table th[aria-sort=descending] { color:var(--z-accent); }
   .construction-job-number { white-space:nowrap; font-variant-numeric:tabular-nums; }
   .construction-project-select { display:block; text-align:left; width:100%; min-width:180px; }

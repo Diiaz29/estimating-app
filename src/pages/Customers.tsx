@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Customer, CustomerType } from '../lib/types'
+import UiIcon from '../components/UiIcon'
 
 const TYPE_LABEL: Record<CustomerType, string> = {
   GC: 'General contractor',
@@ -17,6 +18,14 @@ export default function Customers() {
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<CustomerType | null>(null)
+  const [sort, setSort] = useState<{ key: 'company' | 'type'; descending: boolean }>({ key: 'company', descending: false })
+  const visible = (customers ?? []).filter(c => (!typeFilter || c.type === typeFilter) &&
+    c.company.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) => (a[sort.key] ?? '').localeCompare(b[sort.key] ?? '', undefined, { numeric: true }) * (sort.descending ? -1 : 1))
+  function sortBy(key: typeof sort.key) {
+    setSort(current => ({ key, descending: current.key === key ? !current.descending : false }))
+  }
 
   async function load() {
     const { data, error } = await supabase!.from('customers').select('*').order('company')
@@ -33,19 +42,29 @@ export default function Customers() {
 
   return (
     <div className="zaid-page zaid-customers space-y-4">
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold tracking-tight">Contractors & clients</h1>
+      <div className="project-heading">
+        <div><h1 className="text-lg font-semibold tracking-tight">Contractors & clients</h1><p>Companies you bid to and work with.</p></div>
         {canEdit && (
           <button
             onClick={() => setShowNew(true)}
-            className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+            className="index-primary"
           >
-            + Add
+            + Add contractor / client
           </button>
         )}
       </div>
 
-      <div className="directory-tools"><span>{customers?.length ?? 0} contacts</span><label className="index-search"><input type="search" aria-label="Search contractors and clients" placeholder="Find a contractor" value={search} onChange={(e) => setSearch(e.target.value)} /></label></div>
+      <div className="project-workspace construction-register construction-contact-register"><div className="project-index-column">
+        <div className="project-index-tools">
+          <nav className="index-tabs" aria-label="Contact types">
+            {([null, 'GC', 'direct', 'architect'] as const).map(type => <button key={type ?? 'all'} aria-pressed={typeFilter === type} onClick={() => setTypeFilter(type)}>{type ? TYPE_LABEL[type] : 'All contacts'}<span>{(customers ?? []).filter(c => !type || c.type === type).length}</span></button>)}
+          </nav>
+          <div className="construction-register-filters">
+            <label className="construction-register-filter"><span>Search</span><span className="index-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg><input type="search" aria-label="Search contractors and clients" placeholder="Find a company" value={search} onChange={e => setSearch(e.target.value)} /></span></label>
+            {(search || typeFilter) && <button className="index-secondary construction-clear-filters" onClick={() => { setSearch(''); setTypeFilter(null) }}>Clear filters</button>}
+          </div>
+        </div>
+        <div className="construction-register-caption"><span>{visible.length} {visible.length === 1 ? 'contact' : 'contacts'}</span></div>
       {!customers ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : customers.length === 0 ? (
@@ -53,27 +72,18 @@ export default function Customers() {
           No contractors yet. Add the GCs you bid to most.
         </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {customers.filter((c) => `${c.company} ${c.email ?? ''} ${c.phone ?? ''}`.toLowerCase().includes(search.toLowerCase())).map((c) => (
-            <Link
-              key={c.id}
-              to={`/contractors/${c.id}`}
-              className="rounded-lg border-2 border-slate-800 bg-white p-4 shadow-[3px_3px_0_0_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-transform"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="font-semibold">{c.company}</div>
-                <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                  {c.type}
-                </span>
-              </div>
-              <div className="mt-1 text-xs text-slate-500">{c.phone || c.email || ' '}</div>
-              {c.notes && <div className="mt-2 line-clamp-2 text-xs italic text-slate-500">"{c.notes}"</div>}
-            </Link>
-          ))}
-        </div>
+        <div className="construction-table-scroll"><table className="construction-register-table construction-contact-table">
+          <thead><tr>{(['company', 'type'] as const).map(key => <th key={key} scope="col" aria-sort={sort.key === key ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy(key)}>{key === 'company' ? 'Company' : 'Type'} <UiIcon name={sort.key === key ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>)}<th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Notes</th><th scope="col">Actions</th></tr></thead>
+          <tbody>{visible.map(c => <tr key={c.id}>
+            <td><Link to={`/contractors/${c.id}`} className="construction-contact-company">{c.company}</Link></td>
+            <td>{TYPE_LABEL[c.type]}</td><td>{c.phone || '—'}</td><td>{c.email || '—'}</td><td>{c.notes || '—'}</td>
+            <td><Link className="index-secondary" to={`/contractors/${c.id}`}>Details</Link></td>
+          </tr>)}</tbody>
+        </table></div>
       )}
 
-      {customers && customers.length > 0 && !customers.some((c) => `${c.company} ${c.email ?? ''} ${c.phone ?? ''}`.toLowerCase().includes(search.toLowerCase())) && <div className="index-empty"><h2>No matching contacts</h2><p>Try a company name, email, or phone number.</p><button className="index-secondary" onClick={() => setSearch('')}>Clear search</button></div>}
+      {customers && customers.length > 0 && visible.length === 0 && <div className="index-empty"><h2>No matching contacts</h2><p>Try another company name or contact type.</p><button className="index-secondary" onClick={() => { setSearch(''); setTypeFilter(null) }}>Clear filters</button></div>}
+      </div></div>
 
       {showNew && (
         <NewCustomerForm
