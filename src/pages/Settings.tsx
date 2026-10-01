@@ -1,6 +1,5 @@
-import UiIcon from '../components/UiIcon'
+import Overhead from './Overhead'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Setting } from '../lib/types'
@@ -258,7 +257,7 @@ export default function Settings() {
         {/* Category sidebar (horizontal chips on phones) */}
         <nav className="shrink-0 sm:w-44">
           <div className="flex gap-1 overflow-x-auto sm:flex-col">
-            {[...grouped.map(([g]) => g), 'Terms'].map((group) => (
+            {[...grouped.map(([g]) => g), 'Terms', 'Overhead'].map((group) => (
               <button
                 key={group}
                 onClick={() => setActive(group)}
@@ -274,18 +273,15 @@ export default function Settings() {
                 )}
               </button>
             ))}
-            <Link
-              to="/settings/overhead"
-              className="flex shrink-0 items-center rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
-              title="List real costs (salaries, rent, trucks) and get an honest cost rate per shop hour"
-            >
-              Overhead <UiIcon name="right" />
-            </Link>
           </div>
         </nav>
 
         {/* Selected category */}
         <div className="min-w-0 max-w-2xl flex-1 space-y-5">
+          {active === 'Overhead' && <Overhead embedded onRateApplied={(rate) => {
+            setSettings((previous) => previous!.map((setting) => setting.key === 'cost_shop_rate' ? { ...setting, value: rate } : setting))
+            setDrafts((previous) => ({ ...previous, cost_shop_rate: String(rate) }))
+          }} />}
           {active === 'Company' && (
             <>
               <ImageCard
@@ -309,7 +305,7 @@ export default function Settings() {
               multiline={true}
             />
           )}
-          <div className={`overflow-hidden rounded-lg border-2 border-slate-800 bg-white ${active === 'Terms' ? 'hidden' : ''}`}>
+          <div className={`overflow-hidden rounded-lg border-2 border-slate-800 bg-white ${active === 'Terms' || active === 'Overhead' ? 'hidden' : ''}`}>
             {activeItems.map((s, i) => {
               const suffix = settingSuffix(s.format)
               const isDirty = Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)
