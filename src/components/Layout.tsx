@@ -23,6 +23,23 @@ const adminTabs = [
   { to: '/team', label: 'Team', icon: '▩' },
 ]
 
+const pageTitles: Record<string, string> = {
+  '/': 'Dashboard',
+  '/bids': 'Your bids',
+  '/jobs': 'Jobs',
+  '/schedule': 'Production schedule',
+  '/time': 'Time',
+  '/receipts': 'Receipts',
+  '/contractors': 'Contractors & clients',
+  '/libraries': 'Libraries',
+  '/libraries/hardware': 'Libraries',
+  '/libraries/finishes': 'Libraries',
+  '/libraries/assemblies': 'Libraries',
+  '/reports': 'Reports',
+  '/settings': 'Settings',
+  '/team': 'Team',
+}
+
 export default function Layout() {
   const { session, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
@@ -102,9 +119,10 @@ export default function Layout() {
     { label: 'Company', routes: ['/contractors', '/libraries', '/reports', '/team', '/settings'] },
   ]
   const currentPage = tabs.find(t => t.to === '/' ? pathname === '/' : pathname.startsWith(t.to))?.label ?? 'Project workspace'
+  const pageTitle = pageTitles[pathname.replace(/\/$/, '') || '/']
 
   return (
-    <div className={`zaid-app workspace-shell min-h-screen bg-slate-100 print:bg-white ${dark ? 'dark' : ''} ${menuOpen ? 'workspace-menu-open' : ''} ${fullWidth ? 'workspace-plan-room' : ''}`}>
+    <div className={`zaid-app workspace-shell min-h-screen bg-slate-100 print:bg-white ${pageTitle ? 'workspace-title-in-header' : ''} ${dark ? 'dark' : ''} ${menuOpen ? 'workspace-menu-open' : ''} ${fullWidth ? 'workspace-plan-room' : ''}`}>
       {menuOpen && <button className="workspace-backdrop print:hidden" tabIndex={-1} aria-label="Close workspace navigation" onClick={() => setMenuOpen(false)} />}
       <aside id="workspace-navigation" ref={drawer} role={menuOpen ? 'dialog' : undefined} aria-modal={menuOpen || undefined} onKeyDown={handleDrawerKey} className="workspace-sidebar print:hidden" aria-label="Workspace navigation">
         <button className="workspace-drawer-close" aria-label="Close workspace navigation" onClick={() => setMenuOpen(false)}>Close</button>
@@ -124,7 +142,7 @@ export default function Layout() {
       <header inert={menuOpen} className="zaid-header workspace-context sticky top-0 z-20 bg-white print:hidden">
         <div className="workspace-context-inner">
           <button ref={menuButton} className={`workspace-menu-button ${fullWidth ? 'workspace-menu-always' : ''}`} aria-label={menuOpen ? 'Close workspace navigation' : 'Open workspace navigation'} aria-expanded={menuOpen} aria-controls="workspace-navigation" onClick={() => setMenuOpen(!menuOpen)}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-          <div className="workspace-context-label">{pathname === '/jobs' ? <h1 className="workspace-page-title">Jobs</h1> : <span>{currentPage}</span>}</div>
+          <div className="workspace-context-label">{pageTitle ? <h1 className="workspace-page-title">{pageTitle}</h1> : <span>{currentPage}</span>}</div>
           <div className="zaid-header-tools ml-auto flex items-center gap-3">
             <button
               onClick={toggleTheme}

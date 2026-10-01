@@ -58,6 +58,14 @@
   .workspace-brand img { width:91.8px; height:91.8px; max-height:91.8px; }
   .workspace-context-label > span { border:0; padding-left:0; }
   .zaid-app h1.workspace-page-title { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; color:var(--z-ink); margin:0; }
+  .workspace-title-in-header .workspace-main h1:not(.light-doc *) { display:none; }
+  @media (max-width:639px) {
+    .zaid-app.workspace-title-in-header .workspace-context { height:auto; min-height:64px; }
+    .workspace-title-in-header .workspace-context-inner { flex-wrap:wrap; }
+    .zaid-app.workspace-title-in-header h1.workspace-page-title { font-size:20px; }
+    .workspace-title-in-header .workspace-context-label { flex:1; }
+    .workspace-title-in-header .workspace-context .zaid-header-tools { width:100%; justify-content:flex-end; margin-left:0; }
+  }
   .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
   .workspace-company span { color:#e4d7c7; }
   .workspace-sidebar nav { padding:10px 0; }

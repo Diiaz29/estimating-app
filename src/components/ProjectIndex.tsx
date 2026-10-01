@@ -55,7 +55,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
   return (
     <section className="project-index">
       <div className="project-heading">
-        <div>{!jobControls && <h1>{title}</h1>}<p>{jobControls ? 'Won work — this is what the shop builds.' : <>{bids.filter(b => b.status === 'received' || b.status === 'working').length} bids in progress. {sent.length} proposals awaiting a reply.</>}</p></div>
+        <div><h1>{title}</h1><p>{jobControls ? 'Won work — this is what the shop builds.' : <>{bids.filter(b => b.status === 'received' || b.status === 'working').length} bids in progress. {sent.length} proposals awaiting a reply.</>}</p></div>
         {jobControls && <div className="construction-jobs-total">{seesMoney && <strong>{fmtMoney(jobControls.totalValue)}</strong>}<span>{bids.filter(b => !b.completed_at).length} active jobs</span></div>}
         {onNew && <button className="index-primary" onClick={onNew}>+ New bid</button>}
       </div>
