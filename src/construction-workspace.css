@@ -57,7 +57,7 @@
   .workspace-brand { height:116px; padding:12px 24px; background:#534741; color:#fff; }
   .workspace-brand img { width:91.8px; height:91.8px; max-height:91.8px; }
   .workspace-context-label > span { border:0; padding-left:0; }
-  .zaid-app .workspace-page-title { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; color:var(--z-ink); margin:0; }
+  .zaid-app h1.workspace-page-title { font-size:26px; line-height:1.25; font-weight:600; letter-spacing:-.02em; color:var(--z-ink); margin:0; }
   .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
   .workspace-company span { color:#e4d7c7; }
   .workspace-sidebar nav { padding:10px 0; }
