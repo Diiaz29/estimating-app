@@ -1,7 +1,8 @@
-type IconName = 'warning' | 'copy' | 'check' | 'pen' | 'star' | 'close' | 'up' | 'down' | 'left' | 'right' | 'phone' | 'download' | 'calendar' | 'clock' | 'people' | 'settings' | 'dashboard' | 'folder' | 'register' | 'sort' | 'sun' | 'moon'
+type IconName = 'warning' | 'copy' | 'check' | 'pen' | 'star' | 'close' | 'up' | 'down' | 'left' | 'right' | 'phone' | 'download' | 'calendar' | 'clock' | 'people' | 'settings' | 'dashboard' | 'folder' | 'register' | 'sort' | 'sun' | 'moon' | 'contrast'
 
 export default function UiIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    contrast: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z',
     sort: 'M8 4v16m-4-4 4 4 4-4m4 4V4m-4 4 4-4 4 4',
     sun: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0-5v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
     moon: 'M20 14A9 9 0 0 1 10 4a9 9 0 1 0 10 10Z',
@@ -25,5 +26,5 @@ export default function UiIcon({ name }: { name: IconName }) {
     right: 'm9 6 6 6-6 6',
     phone: 'M5 3h4l2 5-3 2a15 15 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2C10 21 3 14 3 5a2 2 0 0 1 2-2Z',
   }
-  return <svg className="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
+  return <svg className="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} />{name === 'contrast' && <path d="M12 3a9 9 0 0 0 0 18V3Z" fill="currentColor" stroke="none" />}</svg>
 }

@@ -146,10 +146,11 @@ export default function Layout() {
           <div className="zaid-header-tools ml-auto flex items-center gap-3">
             <button
               onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
             >
-              <UiIcon name={theme === 'dark' ? 'sun' : 'moon'} />
+              <UiIcon name="contrast" />
             </button>
             {realRole === 'admin' && (
               <label className="flex items-center gap-1.5" title="Preview the app as another role (screen only — you keep your admin powers)">
