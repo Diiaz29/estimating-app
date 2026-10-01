@@ -33,6 +33,8 @@
   .zaid-app .construction-time-table th:nth-child(2),.zaid-app .construction-time-table td:nth-child(2) { width:auto; }
   .zaid-app .construction-time-table th:last-child,.zaid-app .construction-time-table td:last-child { text-align:right; padding-right:20px; }
   .zaid-app .construction-time-table td.construction-time-table-empty { text-align:center; padding:48px 20px; color:var(--z-muted); }
+  .construction-time-report .construction-table-scroll { border-radius:0 0 5px 5px; }
+  .zaid-app .construction-time-table tbody tr:last-child td { border-bottom:0; }
   .construction-time-recent h2 { padding:20px; border-bottom:1px solid var(--z-line); }
   .zaid-app .construction-time-recent > div { border:0; border-radius:0; }
   .construction-time-empty { color:var(--z-muted); font-size:14px; padding:20px; margin:0; }
