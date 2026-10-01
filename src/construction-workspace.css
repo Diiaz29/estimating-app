@@ -193,6 +193,14 @@
   .zaid-app .construction-settings-text-panel { padding:22px; border-radius:6px; }
   .zaid-app .zaid-team > .overflow-hidden:has(.team-member-row) { border:1px solid var(--z-line); border-radius:6px; }
   .zaid-app .zaid-team > .overflow-hidden > .team-member-row { padding:20px; }
+  .zaid-app .construction-card-row { display:grid; grid-template-columns:minmax(0,1fr) 250px 112px; gap:12px; }
+  .construction-card-row > label { min-width:0; white-space:nowrap; }
+  .zaid-app .construction-card-row > select,.zaid-app .construction-card-row > label select { width:100%; min-width:0; }
+  .construction-card-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
+  @media(max-width:639px) {
+    .zaid-app .construction-card-row { grid-template-columns:minmax(0,1fr) 112px; }
+    .construction-card-row > input { grid-column:1 / -1; }
+  }
   .zaid-app .zaid-settings > .flex:last-child > .max-w-2xl > .construction-settings-overhead { background:transparent; border:0; }
   .zaid-app .construction-settings-overhead section > .rounded-lg { border:1px solid var(--z-line); border-radius:6px; background:var(--z-paper); }
   .zaid-app .zaid-reports { row-gap:24px; }

@@ -293,7 +293,7 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
       </h2>
       <div className="rounded-lg border-2 border-slate-800 bg-white">
         {cards.map((c, i) => (
-          <div key={c.id} className={`flex flex-wrap items-center gap-2 px-4 py-2 ${i > 0 ? 'border-t border-slate-100' : ''} ${c.active ? '' : 'opacity-50'}`}>
+          <div key={c.id} className={`construction-card-row flex flex-wrap items-center gap-2 px-4 py-2 ${i > 0 ? 'border-t border-slate-100' : ''} ${c.active ? '' : 'opacity-50'}`}>
             <input
               defaultValue={c.name}
               onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== c.name && void patch(c, { name: e.target.value.trim() })}
@@ -313,6 +313,7 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
                 ))}
               </select>
             </label>
+            <div className="construction-card-actions">
             <button
               onClick={() => void patch(c, { active: !c.active })}
               className="text-xs text-slate-400 hover:text-slate-900"
@@ -323,9 +324,10 @@ function CardsSection({ profiles }: { profiles: Profile[] }) {
             <button onClick={() => void remove(c)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600" title="Delete — receipts on this card lose the link">
               ×
             </button>
+            </div>
           </div>
         ))}
-        <form onSubmit={add} className={`flex flex-wrap items-center gap-2 px-4 py-2.5 ${cards.length > 0 ? 'border-t border-slate-200' : ''}`}>
+        <form onSubmit={add} className={`construction-card-row flex flex-wrap items-center gap-2 px-4 py-2.5 ${cards.length > 0 ? 'border-t border-slate-200' : ''}`}>
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
