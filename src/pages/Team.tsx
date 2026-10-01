@@ -10,13 +10,12 @@ import { profileName } from '../lib/profileName'
 import type { Profile, Role } from '../lib/types'
 
 export default function Team() {
-  const { isAdmin, profile: me } = useAuth()
+  const { isAdmin, profile: me, refreshProfile } = useAuth()
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<Profile | null>(null)
   const [resetting, setResetting] = useState<Profile | null>(null)
   const [resetMessage, setResetMessage] = useState<string | null>(null)
-  const [editingName, setEditingName] = useState<Profile | null>(null)
 
   async function load() {
     const { data, error } = await supabase!.from('profiles').select('*').order('created_at')
@@ -86,7 +85,6 @@ export default function Team() {
 
       {me && <MySignatureCard me={profiles.find((p) => p.id === me.id) ?? me} onSaved={() => void load()} />}
       <CardsSection profiles={profiles} />
-      {editingName && <ProfileNameForm key={editingName.id} profile={editingName} onSaved={async () => { await load(); setEditingName(null) }} onCancel={() => setEditingName(null)} />}
 
       <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
         {profiles.map((p, i) => {
@@ -96,12 +94,12 @@ export default function Team() {
               key={p.id}
               className={`team-member-row flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
             >
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                <span className="block">{profileName(p)}</span>
-                {(p.first_name || p.last_name) && <span className="block text-xs text-slate-500">{p.email}</span>}
+              <div className="team-member-identity min-w-0">
+                <div className="mb-2 text-sm font-medium">{p.email}
                 {p.id === me?.id && <span className="ml-2 text-xs text-slate-400">(you)</span>}
-                <button type="button" onClick={() => setEditingName(p)} className="ml-3 text-xs text-slate-500 underline">Edit name</button>
-              </span>
+                </div>
+                <ProfileNameForm profile={p} inline onSaved={async () => { await load(); if (p.id === me?.id) await refreshProfile() }} />
+              </div>
               <div className="team-role-options flex gap-1.5" role="group" aria-label={`Role for ${p.email}`}>
                 {(['viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button
