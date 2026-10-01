@@ -40,11 +40,11 @@ export default function ProfileNameForm({ profile, onSaved, inline = false }: {
       </div>}
       {!inline && <p className="text-sm text-slate-500">Used in team lists and card assignments.</p>}
       <div className={inline ? 'team-name-fields' : 'grid gap-4 sm:grid-cols-2'}>
-        <label className="block">First name
-          <input className="input" autoComplete="given-name" required maxLength={80} disabled={busy} value={first} onChange={e => { setFirst(e.target.value); setSaved(false) }} />
+        <label className="block"><span className={inline ? 'sr-only' : undefined}>First name</span>
+          <input className="input" placeholder={inline ? 'First name' : undefined} autoComplete="given-name" required maxLength={80} disabled={busy} value={first} onChange={e => { setFirst(e.target.value); setSaved(false) }} />
         </label>
-        <label className="block">Last name
-          <input className="input" autoComplete="family-name" required maxLength={80} disabled={busy} value={last} onChange={e => { setLast(e.target.value); setSaved(false) }} />
+        <label className="block"><span className={inline ? 'sr-only' : undefined}>Last name</span>
+          <input className="input" placeholder={inline ? 'Last name' : undefined} autoComplete="family-name" required maxLength={80} disabled={busy} value={last} onChange={e => { setLast(e.target.value); setSaved(false) }} />
         </label>
       </div>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
