@@ -56,6 +56,19 @@
   .zaid-app.workspace-shell { --z-canvas:#f3f1ee; --z-paper:#fff; --z-soft:#eee8df; --z-line:#dcd6ce; --z-control:#a69b90; background:var(--z-canvas); }
   .zaid-app.workspace-shell.dark { --z-canvas:#211e1b; --z-paper:#2b2723; --z-soft:#3c342c; --z-line:#51483f; --z-control:#9d8c7b; }
   .zaid-app .workspace-sidebar { background:#534741; border:0; }
+  .workspace-account { position:relative; display:flex; align-items:center; gap:4px; flex-shrink:0; padding:12px 10px; border-top:1px solid #78675b; }
+  .zaid-app .workspace-account-identity { display:flex; align-items:center; gap:10px; flex:1; min-width:0; color:#fff; text-decoration:none; padding:4px; border-radius:5px; }
+  .workspace-account-avatar { display:flex; align-items:center; justify-content:center; width:34px; height:34px; flex-shrink:0; border-radius:50%; background:#c7b299; color:#171b1e; font-size:12px; font-weight:600; }
+  .workspace-account-name { min-width:0; }
+  .workspace-account-name strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; }
+  .workspace-account-name small { display:block; margin-top:3px; color:#e4d7c7; font-size:12px; text-transform:capitalize; }
+  .zaid-app .workspace-account-toggle { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; min-height:44px; padding:0; background:transparent; color:#fff; border:0; border-radius:5px; }
+  .zaid-app .workspace-account-identity:hover,.zaid-app .workspace-account-toggle:hover { background:#66564c; }
+  .zaid-app .workspace-account-toggle:focus-visible { outline:2px solid #c7b299; outline-offset:-2px; }
+  .workspace-account-options { position:absolute; bottom:calc(100% + 6px); left:10px; right:10px; z-index:2; padding:6px; background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
+  .zaid-app .workspace-account-options :is(a,button) { display:flex; align-items:center; gap:8px; width:100%; min-height:42px; padding:10px; font-size:13px; text-align:left; color:var(--z-ink); background:transparent; border:0; border-radius:4px; text-decoration:none; }
+  .zaid-app .workspace-account-options :is(a,button):hover { background:var(--z-soft); }
+  .zaid-app .workspace-account-options :is(a,button):focus-visible { outline:2px solid var(--z-control); outline-offset:-2px; }
   .workspace-brand { height:116px; padding:12px 24px; background:#534741; color:#fff; }
   .workspace-brand img { width:91.8px; height:91.8px; max-height:91.8px; }
   .workspace-context-label > span { border:0; padding-left:0; }
@@ -63,10 +76,10 @@
   .workspace-title-in-header .workspace-main h1:not(.light-doc *) { display:none; }
   @media (max-width:639px) {
     .zaid-app.workspace-title-in-header .workspace-context { height:auto; min-height:64px; }
-    .workspace-title-in-header .workspace-context-inner { flex-wrap:wrap; }
+    .workspace-title-in-header .workspace-context-inner { flex-wrap:nowrap; }
     .zaid-app.workspace-title-in-header h1.workspace-page-title { font-size:20px; }
     .workspace-title-in-header .workspace-context-label { flex:1; }
-    .workspace-title-in-header .workspace-context .zaid-header-tools { width:100%; justify-content:flex-end; margin-left:0; }
+    .workspace-title-in-header .workspace-context .zaid-header-tools { width:auto; justify-content:flex-end; margin-left:auto; }
   }
   .workspace-company { padding:16px 18px; border-bottom-color:#77675b; }
   .workspace-company span { color:#e4d7c7; }

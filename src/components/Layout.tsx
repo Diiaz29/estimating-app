@@ -5,6 +5,7 @@ import { LOGO_URL } from '../lib/branding'
 import { supabase } from '../lib/supabase'
 import type { Role } from '../lib/types'
 import UiIcon from './UiIcon'
+import { profileName } from '../lib/profileName'
 
 const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -42,11 +43,23 @@ const pageTitles: Record<string, string> = {
 }
 
 export default function Layout() {
-  const { session, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
+  const { session, profile, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
   const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const accountArea = useRef<HTMLDivElement>(null)
+  const accountButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => { setAccountOpen(false) }, [pathname])
+  useEffect(() => {
+    if (!accountOpen) return
+    function dismiss(event: PointerEvent) {
+      if (!accountArea.current?.contains(event.target as Node)) setAccountOpen(false)
+    }
+    document.addEventListener('pointerdown', dismiss)
+    return () => document.removeEventListener('pointerdown', dismiss)
+  }, [accountOpen])
   const drawer = useRef<HTMLElement>(null)
   const menuButton = useRef<HTMLButtonElement>(null)
   const wasDrawerOpen = useRef(false)
@@ -64,7 +77,7 @@ export default function Layout() {
       event.preventDefault()
       setMenuOpen(false)
     } else if (event.key === 'Tab') {
-      const controls = drawer.current?.querySelectorAll<HTMLElement>('a[href], button')
+      const controls = Array.from(drawer.current?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), select:not(:disabled)') ?? []).filter(control => control.getClientRects().length > 0)
       if (!controls?.length) return
       const first = controls[0], last = controls[controls.length - 1]
       if (event.shiftKey && document.activeElement === first) {
@@ -121,6 +134,8 @@ export default function Layout() {
   ]
   const currentPage = tabs.find(t => t.to === '/' ? pathname === '/' : pathname.startsWith(t.to))?.label ?? 'Project workspace'
   const pageTitle = pageTitles[pathname.replace(/\/$/, '') || '/']
+  const accountName = profile ? profileName(profile) : session?.user.email ?? 'My profile'
+  const initials = [profile?.first_name?.[0], profile?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || accountName[0]?.toUpperCase()
 
   return (
     <div className={`zaid-app workspace-shell min-h-screen bg-slate-100 print:bg-white ${pageTitle ? 'workspace-title-in-header' : ''} ${dark ? 'dark' : ''} ${menuOpen ? 'workspace-menu-open' : ''} ${fullWidth ? 'workspace-plan-room' : ''}`}>
@@ -139,20 +154,31 @@ export default function Layout() {
             </section>
           })}
         </nav>
+        <div ref={accountArea} className="workspace-account" onKeyDown={event => {
+          if (event.key === 'Escape' && accountOpen) {
+            event.preventDefault()
+            event.stopPropagation()
+            setAccountOpen(false)
+            accountButton.current?.focus()
+          }
+        }}>
+          {accountOpen && <div id="workspace-account-options" className="workspace-account-options" aria-label="Account options">
+            <NavLink to="/account" onClick={() => setMenuOpen(false)}>My profile</NavLink>
+            <button onClick={toggleTheme}><UiIcon name="contrast" />{dark ? 'Switch to light mode' : 'Switch to dark mode'}</button>
+            <button onClick={() => void signOut()}>Sign out</button>
+          </div>}
+          <NavLink to="/account" className="workspace-account-identity" title="My profile" onClick={() => setMenuOpen(false)}>
+            <span className="workspace-account-avatar" aria-hidden="true">{initials}</span>
+            <span className="workspace-account-name"><strong>{accountName}</strong><small>{realRole}</small></span>
+          </NavLink>
+          <button ref={accountButton} className="workspace-account-toggle" aria-label="Account options" aria-expanded={accountOpen} aria-controls="workspace-account-options" onClick={() => setAccountOpen(!accountOpen)}><UiIcon name="gear" /></button>
+        </div>
       </aside>
       <header inert={menuOpen} className="zaid-header workspace-context sticky top-0 z-20 bg-white print:hidden">
         <div className="workspace-context-inner">
           <button ref={menuButton} className={`workspace-menu-button ${fullWidth ? 'workspace-menu-always' : ''}`} aria-label={menuOpen ? 'Close workspace navigation' : 'Open workspace navigation'} aria-expanded={menuOpen} aria-controls="workspace-navigation" onClick={() => setMenuOpen(!menuOpen)}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
           <div className="workspace-context-label">{pageTitle ? <h1 className="workspace-page-title">{pageTitle}</h1> : <span>{currentPage}</span>}</div>
           <div className="zaid-header-tools ml-auto flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
-            >
-              <UiIcon name="contrast" />
-            </button>
             {realRole === 'admin' && (
               <label className="flex items-center gap-1.5" title="Preview the app as another role (screen only — you keep your admin powers)">
                 <span className="hidden font-mono text-[10px] uppercase tracking-wider text-slate-400 sm:inline">view as</span>
@@ -171,15 +197,6 @@ export default function Layout() {
                 </select>
               </label>
             )}
-            <NavLink to="/account" title="Edit your first and last name" className="text-xs text-slate-500 hover:underline">
-              <span className="hidden sm:inline">{session?.user.email}</span><span className="sm:hidden">My profile</span>
-            </NavLink>
-            <button
-              onClick={() => void signOut()}
-              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-            >
-              Sign out
-            </button>
           </div>
         </div>
       </header>
