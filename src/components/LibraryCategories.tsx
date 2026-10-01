@@ -13,7 +13,7 @@ export default function LibraryCategories({ categories, selected, onSelect }: {
       </button>
       {categories.map(({ name, count }) => (
         <button key={name} type="button" aria-pressed={selected === name} onClick={() => onSelect(name)}>
-          {name.toLowerCase()}<span>{count}</span>
+          {name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()}<span>{count}</span>
         </button>
       ))}
     </nav>
