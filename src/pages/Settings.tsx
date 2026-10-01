@@ -319,8 +319,8 @@ export default function Settings() {
                   className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-slate-100' : ''}`}
                 >
                   <span className="min-w-0 flex-1 text-sm">{s.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    {suffix === '$' && <span className="text-xs text-slate-400">$</span>}
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <span className="w-2 shrink-0 text-xs text-slate-400">{suffix === '$' ? '$' : ''}</span>
                     <input
                       type="number"
                       step="any"
@@ -330,10 +330,7 @@ export default function Settings() {
                         isDirty ? 'border-amber-400 bg-amber-50' : 'border-slate-300'
                       }`}
                     />
-                    {suffix !== '$' && suffix !== '' && (
-                      <span className="w-9 text-xs text-slate-400">{suffix}</span>
-                    )}
-                    {suffix === '$' && <span className="w-9"></span>}
+                    <span className="w-9 shrink-0 text-xs text-slate-400">{suffix === '$' ? '' : suffix}</span>
                   </div>
                 </div>
               )
