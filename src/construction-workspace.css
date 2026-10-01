@@ -145,7 +145,7 @@
   .zaid-app .construction-register .index-preview { background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; padding:20px; position:sticky; top:84px; }
   .zaid-app .construction-register .index-preview h2 { font-size:22px; }
   .zaid-app .workspace-project-nav { background:var(--z-paper); border:1px solid var(--z-line); border-radius:5px; padding:0 16px; margin-bottom:20px; }
-  .zaid-app .workspace-project-primary { gap:24px; }
+  .zaid-app .workspace-project-primary { gap:0 24px; flex-wrap:wrap; overflow:visible; }
   .zaid-app .workspace-project-more>summary { border:0; }
   .zaid-app .estimate-section-tabs { background:var(--z-paper); border:1px solid var(--z-line); border-bottom:0; padding:0 16px; margin:0; border-radius:5px 5px 0 0; gap:24px; }
   .zaid-app .estimate-section-tabs button { font-size:13px; min-height:48px; }
