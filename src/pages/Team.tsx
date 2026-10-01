@@ -95,11 +95,11 @@ export default function Team() {
               className={`team-member-row flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''}`}
             >
               <div className="team-member-identity min-w-0">
-                <div className="mb-2 text-sm font-medium">{p.email}
+                <div className="text-sm font-medium">{p.email}
                 {p.id === me?.id && <span className="ml-2 text-xs text-slate-400">(you)</span>}
                 </div>
-                <ProfileNameForm profile={p} inline onSaved={async () => { await load(); if (p.id === me?.id) await refreshProfile() }} />
               </div>
+              <ProfileNameForm profile={p} inline onSaved={async () => { await load(); if (p.id === me?.id) await refreshProfile() }} />
               <div className="team-role-options flex gap-1.5" role="group" aria-label={`Role for ${p.email}`}>
                 {(['viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button

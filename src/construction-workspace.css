@@ -193,15 +193,17 @@
   .zaid-app .construction-settings-text-panel { padding:22px; border-radius:6px; }
   .zaid-app .construction-profile-name-panel { padding:20px; background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
   .zaid-app .zaid-team > .overflow-hidden:has(.team-member-row) { border:1px solid var(--z-line); border-radius:6px; }
-  .zaid-app .zaid-team > .overflow-hidden > .team-member-row { padding:20px; }
+  .zaid-app .zaid-team > .overflow-hidden > .team-member-row { padding:12px 20px; grid-template-columns:minmax(220px,.8fr) minmax(350px,1.3fr) auto 148px 60px; }
+  .zaid-app .team-member-identity { overflow-wrap:anywhere; }
   .zaid-app .team-name-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; }
   .zaid-app .team-name-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
   .zaid-app .team-name-fields label { font-size:12px; color:var(--z-muted); }
   .zaid-app .team-name-fields .input { margin-top:4px; min-width:0; width:100%; }
   .zaid-app .team-name-form > p { grid-column:1 / -1; grid-row:2; margin:0; }
   .zaid-app .team-name-save { white-space:nowrap; }
-  @media (max-width:1100px) {
-    .zaid-app .team-member-identity { grid-column:1 / -1; }
+  @media (max-width:1399px) {
+    .zaid-app .zaid-team > .overflow-hidden > .team-member-row { grid-template-columns:minmax(0,1fr) auto; }
+    .zaid-app .team-member-identity,.zaid-app .team-member-row > .team-name-form,.zaid-app .team-member-row > .team-role-options { grid-column:1 / -1; }
   }
   @media (max-width:480px) {
     .zaid-app .team-name-form { grid-template-columns:minmax(0,1fr); }
