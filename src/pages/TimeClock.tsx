@@ -1,14 +1,18 @@
 import LoadError from '../components/LoadError'
 import { requireLoaded, errorMessage } from '../lib/loadResults'
 import { profileName } from '../lib/profileName'
+import { timeEntryName } from '../lib/timeEntryName'
 import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
-import type { Bid } from '../lib/types'
+import type { Bid, Profile } from '../lib/types'
 import ShopTimeClock from './ShopTimeClock'
+import type { ShopWorker } from '../components/ShopWorkers'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { timeCategories, timeCategoryLabel, type TimeCategory } from '../lib/timeCategories'
 
 interface TimeEntry {
   id: string
@@ -20,9 +24,10 @@ interface TimeEntry {
   kind: string
   night: boolean
   created_by: string | null
+  shop_worker_id?: string | null
 }
 
-const kindLabel = (k: string) => (k === 'field' ? 'install' : k)
+const kindLabel = timeCategoryLabel
 
 const fmtDay = (iso: string) =>
   new Date(`${iso}T12:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -41,7 +46,14 @@ function PersonalTimeClock() {
   const [editing, setEditing] = useState<(Omit<TimeEntry, 'hours'> & { hours: number | string }) | null>(null)
   const [editBusy, setEditBusy] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
-  const worker = session?.user.email?.split('@')[0] ?? 'unknown'
+  const [deleting, setDeleting] = useState<TimeEntry | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const worker = profile ? profileName(profile) : session?.user.email ?? 'unknown'
+  const [people, setPeople] = useState<Pick<Profile, 'email' | 'first_name' | 'last_name'>[]>([])
+  const [shopWorkers, setShopWorkers] = useState<ShopWorker[]>([])
+  const [logWorkerId, setLogWorkerId] = useState('')
+  const [savedMessage, setSavedMessage] = useState('')
+  const personName = (entry: Pick<TimeEntry, 'worker' | 'created_by' | 'shop_worker_id'>) => timeEntryName(entry, people)
   const seesEveryone = canSchedule || isOffice
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -55,7 +67,7 @@ function PersonalTimeClock() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [hours, setHours] = useState('')
   const [note, setNote] = useState('')
-  const [kind, setKind] = useState<'shop' | 'field'>('shop')
+  const [kind, setKind] = useState<TimeCategory>('shop')
   const [night, setNight] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +87,7 @@ function PersonalTimeClock() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [jobRes, allRes, mineRes] = await Promise.all([
+      const [jobRes, allRes, mineRes, peopleRes, workersRes] = await Promise.all([
         supabase!.from('bids').select('*').eq('status', 'won').is('completed_at', null).order('job_number'),
         supabase!.from('bids').select('id, job_number, name'),
         supabase!
@@ -84,8 +96,12 @@ function PersonalTimeClock() {
           .eq('created_by', session?.user.email ?? '')
           .order('work_date', { ascending: false })
           .limit(30),
+        supabase!.from('profiles').select('email, first_name, last_name'),
+        isAdmin ? supabase!.from('shop_workers').select('*').eq('active', true).order('first_name').order('last_name') : Promise.resolve({ data: [], error: null }),
       ])
-      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes })
+      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes, people: peopleRes, workers: workersRes })
+      setPeople(peopleRes.data ?? [])
+      setShopWorkers(workersRes.data ?? [])
       {
         const rows = jobRes.data as Bid[]
         setJobs(rows)
@@ -125,11 +141,17 @@ function PersonalTimeClock() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!jobId || !hours) return
+    if (!jobId || !hours || busy) return
+    const selectedWorker = isAdmin && logWorkerId ? shopWorkers.find(w => w.id === logWorkerId) : null
+    if (isAdmin && logWorkerId && !selectedWorker) { setError('Choose an active Shop worker.'); return }
+    const loggedName = selectedWorker ? `${selectedWorker.first_name} ${selectedWorker.last_name}` : worker
     setBusy(true)
+    setError(null)
+    setSavedMessage('')
     const { error } = await supabase!.from('time_entries').insert({
       bid_id: jobId,
-      worker,
+      worker: loggedName,
+      shop_worker_id: selectedWorker?.id ?? null,
       work_date: date,
       hours: Number(hours),
       note: note.trim() || null,
@@ -138,8 +160,10 @@ function PersonalTimeClock() {
       created_by: session?.user.email ?? null,
     })
     setBusy(false)
-    if (error) setError(error.message)
+    if (error) setError(selectedWorker && error.code === '42501' ? 'Logging for Shop workers needs the pending database update. Your entry has not been saved.' : error.message)
     else {
+      setSavedMessage(`Time logged for ${loggedName}.`)
+      setReportReload(n => n + 1)
       setHours('')
       setNote('')
       setNight(false)
@@ -148,11 +172,18 @@ function PersonalTimeClock() {
   }
 
   async function remove(t: TimeEntry) {
-    if (!isAdmin) return
-    const { error } = await supabase!.from('time_entries').delete().eq('id', t.id).select('id').single()
-    if (error) { setError(error.message); return }
-    void load()
-    setReportReload(n => n + 1)
+    if (!isAdmin || deleteBusy) return
+    setDeleting(null)
+    setDeleteBusy(true)
+    setError(null)
+    try {
+      const { error } = await supabase!.from('time_entries').delete().eq('id', t.id).select('id').single()
+      if (error) throw error
+      setMine(rows => rows.filter(row => row.id !== t.id))
+      setReport(rows => rows.filter(row => row.id !== t.id))
+      setEditing(current => current?.id === t.id ? null : current)
+      setReportReload(n => n + 1)
+    } catch (e) { setError(errorMessage(e)) } finally { setDeleteBusy(false) }
   }
 
   function edit(t: TimeEntry) {
@@ -190,19 +221,20 @@ function PersonalTimeClock() {
   if (loading) return <p role="status">Loading time entries…</p>
 
   // filters: empty picks mean "all"
-  const allWorkers = [...new Set(report.map((t) => t.worker))].sort()
+  const allWorkers = [...new Set(report.map(personName))].sort()
   const allJobIds = [...new Set(report.map((t) => t.bid_id))]
   const filtered = report.filter(
     (t) =>
-      (pickedWorkers.length === 0 || pickedWorkers.includes(t.worker)) &&
+      (pickedWorkers.length === 0 || pickedWorkers.includes(personName(t))) &&
       (pickedJobs.length === 0 || pickedJobs.includes(t.bid_id)),
   )
 
   // report grouped per worker
   const byWorker = new Map<string, TimeEntry[]>()
   for (const t of filtered) {
-    if (!byWorker.has(t.worker)) byWorker.set(t.worker, [])
-    byWorker.get(t.worker)!.push(t)
+    const name = personName(t)
+    if (!byWorker.has(name)) byWorker.set(name, [])
+    byWorker.get(name)!.push(t)
   }
   const workers = [...byWorker.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   const grandTotal = filtered.reduce((s, t) => s + Number(t.hours), 0)
@@ -215,20 +247,19 @@ function PersonalTimeClock() {
         <div>
         <h1 className="text-lg font-semibold tracking-tight">Time</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Log your shop hours against the job you worked on. Logging as{' '}
-          <span className="font-semibold">{profile ? profileName(profile) : worker}</span>.
+          {isAdmin ? 'Log time for yourself or select a Shop worker below.' : <>Log your hours against the job you worked on. Logging as <span className="font-semibold">{worker}</span>.</>}
         </p>
         </div>
       </div>
 
       <div className={`construction-time-workspace ${seesEveryone ? '' : 'construction-time-personal'}`}>
       {isAdmin && editing && <form onSubmit={saveEdit} className="construction-time-editor print:hidden">
-        <h2>Edit time for {editing.worker}</h2>
+        <h2>Edit time for {personName(editing)}</h2>
         <fieldset disabled={editBusy} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label>Job<select className="input" value={editing.bid_id} onChange={e => setEditing({ ...editing, bid_id: e.target.value })}>{allBids.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
           <label>Day<input className="input" type="date" required value={editing.work_date} onChange={e => setEditing({ ...editing, work_date: e.target.value })} /></label>
           <label>Hours<input className="input" type="number" required min="0.01" max="24" step="any" value={editing.hours} onChange={e => setEditing({ ...editing, hours: e.target.value })} /></label>
-          <label>Category<select className="input" value={editing.kind} onChange={e => setEditing({ ...editing, kind: e.target.value })}><option value="shop">Shop time</option><option value="field">Install time</option></select></label>
+          <label>Category<select className="input" value={editing.kind} onChange={e => setEditing({ ...editing, kind: e.target.value })}>{timeCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}</select></label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={editing.night} onChange={e => setEditing({ ...editing, night: e.target.checked })} />Night work</label>
           <label>Notes<input className="input" value={editing.note ?? ''} onChange={e => setEditing({ ...editing, note: e.target.value })} /></label>
         </fieldset>
@@ -243,6 +274,13 @@ function PersonalTimeClock() {
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="construction-time-form space-y-3 print:hidden">
+          {isAdmin && <label className="block">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Person</span>
+            <select className="input" value={logWorkerId} onChange={e => { setLogWorkerId(e.target.value); setSavedMessage(''); setError(null) }}>
+              <option value="">{worker} (me)</option>
+              {shopWorkers.map(w => <option key={w.id} value={w.id}>{w.first_name} {w.last_name}</option>)}
+            </select>
+          </label>}
           <label className="block">
             <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Job</span>
             <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="input">
@@ -270,26 +308,12 @@ function PersonalTimeClock() {
             </label>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="block">
+            <label className="block">
               <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Category</span>
-              <div className="mt-1 flex gap-1.5">
-                {(['shop', 'field'] as const).map((k) => (
-                  <button
-                    type="button"
-                    key={k}
-                    onClick={() => setKind(k)}
-                    aria-pressed={kind === k}
-                    className={`rounded-md border px-4 py-2 text-sm font-medium ${
-                      kind === k
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
-                    }`}
-                  >
-                    {k === 'shop' ? 'Shop time' : 'Install time'}
-                  </button>
-                ))}
-              </div>
-            </div>
+              <select className="input" value={kind} onChange={e => setKind(e.target.value as TimeCategory)}>
+                {timeCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}
+              </select>
+            </label>
             <label className="flex cursor-pointer items-center gap-2 pb-2">
               <input
                 type="checkbox"
@@ -311,6 +335,7 @@ function PersonalTimeClock() {
           >
             {busy ? 'Logging…' : 'Log time'}
           </button>
+          {savedMessage && <p role="status" className="text-sm text-green-700">{savedMessage}</p>}
         </form>
       )}
       </div>
@@ -323,13 +348,14 @@ function PersonalTimeClock() {
             {mine.map((t, i) => (
               <div key={t.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
                 <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
+                {t.shop_worker_id && <span className="font-medium">{personName(t)}</span>}
                 <span className="min-w-0 flex-1 basis-40 truncate font-medium">{jobName(t.bid_id)}</span>
                 <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">
                   {kindLabel(t.kind)}{t.night ? ' night' : ''}
                 </span>
                 {t.note && <span className="hidden min-w-0 truncate text-xs text-slate-500 sm:block">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
-                {isAdmin && <><button className="index-secondary" onClick={() => edit(t)}>Edit</button><button aria-label="Delete time entry" onClick={() => void remove(t)} className="index-secondary">Delete</button></>}
+                {isAdmin && <><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button aria-label="Delete time entry" disabled={deleteBusy} onClick={() => setDeleting(t)} className="index-secondary">Delete</button></>}
               </div>
             ))}
           </div>
@@ -465,12 +491,12 @@ function PersonalTimeClock() {
                     {filtered.map((t) => (
                       <tr key={t.id}>
                         <td data-label="Day">{fmtDay(t.work_date)}</td>
-                        <td data-label="Person">{t.worker}</td>
+                        <td data-label="Person">{personName(t)}</td>
                         <td data-label="Job">{jobName(t.bid_id)}</td>
                         <td data-label="Category">{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
                         <td data-label="Notes">{t.note || '—'}</td>
                         <td data-label="Hours" className="construction-money">{Number(t.hours).toFixed(1)}</td>
-                        {isAdmin && <td data-label="Actions"><button className="index-secondary" onClick={() => edit(t)}>Edit</button></td>}
+                        {isAdmin && <td data-label="Actions"><div className="flex justify-end gap-2"><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button className="index-secondary" disabled={deleteBusy} aria-label={`Delete time entry for ${personName(t)} on ${fmtDay(t.work_date)}`} onClick={() => setDeleting(t)}>Delete</button></div></td>}
                       </tr>
                     ))}
                     {filtered.length === 0 && <tr><td colSpan={isAdmin ? 7 : 6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
@@ -541,6 +567,12 @@ function PersonalTimeClock() {
       )}
 
       </div>
+      {isAdmin && deleting && <ConfirmDialog
+        title="Delete time entry?"
+        message={`Delete ${Number(deleting.hours).toLocaleString(undefined, { maximumFractionDigits: 2 })} hours for ${personName(deleting)} on ${fmtDay(deleting.work_date)} (${jobName(deleting.bid_id)})? This cannot be undone.`}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => void remove(deleting)}
+      />}
     </div>
   )
 }
