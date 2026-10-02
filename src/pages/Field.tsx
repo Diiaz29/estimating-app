@@ -49,7 +49,7 @@ const fmtDay = (iso: string) =>
 /** Field tab: installers drop photos and hours here; PMs turn them into client reports. */
 export default function Field() {
   const { id } = useParams<{ id: string }>()
-  const { session, canSchedule } = useAuth()
+  const { session, canSchedule, isAdmin } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [photos, setPhotos] = useState<FieldPhoto[]>([])
   const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map())
@@ -229,14 +229,14 @@ export default function Field() {
                 </span>
                 {t.note && <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
-                <button
+                {isAdmin && <button
                   onClick={() => {
                     void supabase!.from('time_entries').delete().eq('id', t.id).then(() => void load())
                   }}
                   className="text-slate-300 hover:text-red-600"
                 >
                   ×
-                </button>
+                </button>}
               </div>
             ))}
           </div>

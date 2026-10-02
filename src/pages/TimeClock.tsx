@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
 import type { Bid } from '../lib/types'
+import ShopTimeClock from './ShopTimeClock'
 
 interface TimeEntry {
   id: string
@@ -31,7 +32,15 @@ const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).to
 /** Shop time clock: pick the job you worked on, log the hours.
  *  Office/PM/admin also get a printable team time report. */
 export default function TimeClock() {
-  const { session, profile, canSchedule, isOffice } = useAuth()
+  const { realRole, viewAs } = useAuth()
+  return (viewAs ?? realRole) === 'shop' ? <ShopTimeClock /> : <PersonalTimeClock />
+}
+
+function PersonalTimeClock() {
+  const { session, profile, canSchedule, isOffice, isAdmin } = useAuth()
+  const [editing, setEditing] = useState<(Omit<TimeEntry, 'hours'> & { hours: number | string }) | null>(null)
+  const [editBusy, setEditBusy] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
   const worker = session?.user.email?.split('@')[0] ?? 'unknown'
   const seesEveryone = canSchedule || isOffice
   const [loading, setLoading] = useState(true)
@@ -139,8 +148,37 @@ export default function TimeClock() {
   }
 
   async function remove(t: TimeEntry) {
-    await supabase!.from('time_entries').delete().eq('id', t.id)
+    if (!isAdmin) return
+    const { error } = await supabase!.from('time_entries').delete().eq('id', t.id).select('id').single()
+    if (error) { setError(error.message); return }
     void load()
+    setReportReload(n => n + 1)
+  }
+
+  function edit(t: TimeEntry) {
+    setEditing({ ...t })
+    setEditError(null)
+  }
+
+  async function saveEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!isAdmin || !editing || editBusy) return
+    if (!editing.bid_id || !editing.work_date || !Number.isFinite(Number(editing.hours)) || Number(editing.hours) <= 0 || Number(editing.hours) > 24) {
+      setEditError('Choose a job and date, and enter hours greater than 0 and no more than 24.')
+      return
+    }
+    setEditBusy(true)
+    setEditError(null)
+    try {
+      const { error } = await supabase!.from('time_entries').update({
+        bid_id: editing.bid_id, work_date: editing.work_date, hours: Number(editing.hours),
+        kind: editing.kind, night: editing.night, note: editing.note?.trim() || null,
+      }).eq('id', editing.id).select('id').single()
+      if (error) throw error
+      setEditing(null)
+      setReportReload(n => n + 1)
+      void load()
+    } catch (e) { setEditError(errorMessage(e)) } finally { setEditBusy(false) }
   }
 
   const jobName = (bidId: string) => {
@@ -184,6 +222,19 @@ export default function TimeClock() {
       </div>
 
       <div className={`construction-time-workspace ${seesEveryone ? '' : 'construction-time-personal'}`}>
+      {isAdmin && editing && <form onSubmit={saveEdit} className="construction-time-editor print:hidden">
+        <h2>Edit time for {editing.worker}</h2>
+        <fieldset disabled={editBusy} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label>Job<select className="input" value={editing.bid_id} onChange={e => setEditing({ ...editing, bid_id: e.target.value })}>{allBids.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
+          <label>Day<input className="input" type="date" required value={editing.work_date} onChange={e => setEditing({ ...editing, work_date: e.target.value })} /></label>
+          <label>Hours<input className="input" type="number" required min="0.01" max="24" step="any" value={editing.hours} onChange={e => setEditing({ ...editing, hours: e.target.value })} /></label>
+          <label>Category<select className="input" value={editing.kind} onChange={e => setEditing({ ...editing, kind: e.target.value })}><option value="shop">Shop time</option><option value="field">Install time</option></select></label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={editing.night} onChange={e => setEditing({ ...editing, night: e.target.checked })} />Night work</label>
+          <label>Notes<input className="input" value={editing.note ?? ''} onChange={e => setEditing({ ...editing, note: e.target.value })} /></label>
+        </fieldset>
+        {editError && <p role="alert" className="save-feedback save-failed">{editError} Your changes are still here.</p>}
+        <div className="flex gap-2"><button className="index-primary" disabled={editBusy}>{editBusy ? 'Saving…' : 'Save changes'}</button><button type="button" className="index-secondary" disabled={editBusy} onClick={() => setEditing(null)}>Cancel</button></div>
+      </form>}
       <div className="construction-time-entry print:hidden">
       <h2 className="construction-time-section-heading">Log time</h2>
       {jobs.length === 0 ? (
@@ -278,7 +329,7 @@ export default function TimeClock() {
                 </span>
                 {t.note && <span className="hidden min-w-0 truncate text-xs text-slate-500 sm:block">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
-                <button onClick={() => void remove(t)} className="px-1 text-lg leading-none text-slate-300 hover:text-red-600">×</button>
+                {isAdmin && <><button className="index-secondary" onClick={() => edit(t)}>Edit</button><button aria-label="Delete time entry" onClick={() => void remove(t)} className="index-secondary">Delete</button></>}
               </div>
             ))}
           </div>
@@ -409,7 +460,7 @@ export default function TimeClock() {
               </div>
               <div className="construction-table-scroll">
                 <table className="responsive-record-table construction-register-table construction-time-table">
-                  <thead><tr><th>Day</th><th>Person</th><th>Job</th><th>Category</th><th>Notes</th><th>Hours</th></tr></thead>
+                  <thead><tr><th>Day</th><th>Person</th><th>Job</th><th>Category</th><th>Notes</th><th>Hours</th>{isAdmin && <th>Actions</th>}</tr></thead>
                   <tbody>
                     {filtered.map((t) => (
                       <tr key={t.id}>
@@ -419,9 +470,10 @@ export default function TimeClock() {
                         <td data-label="Category">{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
                         <td data-label="Notes">{t.note || '—'}</td>
                         <td data-label="Hours" className="construction-money">{Number(t.hours).toFixed(1)}</td>
+                        {isAdmin && <td data-label="Actions"><button className="index-secondary" onClick={() => edit(t)}>Edit</button></td>}
                       </tr>
                     ))}
-                    {filtered.length === 0 && <tr><td colSpan={6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
+                    {filtered.length === 0 && <tr><td colSpan={isAdmin ? 7 : 6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
                   </tbody>
                 </table>
               </div>

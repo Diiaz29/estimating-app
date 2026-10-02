@@ -194,6 +194,7 @@ export default function Layout() {
                   <option value="pm">pm</option>
                   <option value="office">office</option>
                   <option value="viewer">viewer</option>
+                  <option value="shop">shop</option>
                 </select>
               </label>
             )}
