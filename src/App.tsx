@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth'
 import { supabaseConfigured } from './lib/supabase'
 import Layout from './components/Layout'
@@ -38,7 +38,7 @@ import Assemblies from './pages/libraries/Assemblies'
 import AssemblyDetail from './pages/libraries/AssemblyDetail'
 
 function Gate() {
-  const { session, loading } = useAuth()
+  const { session, loading, realRole, viewAs } = useAuth()
 
   if (!supabaseConfigured) {
     return (
@@ -57,6 +57,7 @@ function Gate() {
     )
   }
   if (!session) return <Login />
+  if ((viewAs ?? realRole) === 'shop') return <Routes><Route element={<Layout />}><Route path="/time" element={<TimeClock />} /><Route path="*" element={<Navigate to="/time" replace />} /></Route></Routes>
 
   return (
     <Routes>

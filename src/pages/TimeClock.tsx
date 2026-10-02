@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
 import type { Bid } from '../lib/types'
+import ShopTimeClock from './ShopTimeClock'
 
 interface TimeEntry {
   id: string
@@ -31,6 +32,11 @@ const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).to
 /** Shop time clock: pick the job you worked on, log the hours.
  *  Office/PM/admin also get a printable team time report. */
 export default function TimeClock() {
+  const { realRole, viewAs } = useAuth()
+  return (viewAs ?? realRole) === 'shop' ? <ShopTimeClock /> : <PersonalTimeClock />
+}
+
+function PersonalTimeClock() {
   const { session, profile, canSchedule, isOffice, isAdmin } = useAuth()
   const [editing, setEditing] = useState<(Omit<TimeEntry, 'hours'> & { hours: number | string }) | null>(null)
   const [editBusy, setEditBusy] = useState(false)

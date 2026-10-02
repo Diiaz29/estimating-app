@@ -45,7 +45,8 @@ const pageTitles: Record<string, string> = {
 export default function Layout() {
   const { session, profile, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
-  const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
+  const isShop = (viewAs ?? realRole) === 'shop'
+  const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => isShop ? t.to === '/time' : !(isOffice && t.to === '/libraries'))
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -194,6 +195,7 @@ export default function Layout() {
                   <option value="pm">pm</option>
                   <option value="office">office</option>
                   <option value="viewer">viewer</option>
+                  <option value="shop">shop</option>
                 </select>
               </label>
             )}

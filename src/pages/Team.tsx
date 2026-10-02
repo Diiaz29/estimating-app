@@ -8,6 +8,7 @@ import SignaturePad from '../components/SignaturePad'
 import ProfileNameForm from '../components/ProfileNameForm'
 import { profileName } from '../lib/profileName'
 import type { Profile, Role } from '../lib/types'
+import ShopWorkers from '../components/ShopWorkers'
 
 export default function Team() {
   const { isAdmin, profile: me, refreshProfile } = useAuth()
@@ -76,7 +77,7 @@ export default function Team() {
           contractors; no deleting. <span className="font-medium">PM</span> — manage schedules,
           order checkboxes, and receipts; everything else view-only.{' '}
           <span className="font-medium">Office</span> — set up bids and jobs, reconcile receipts, and review team time. <span className="font-medium">Viewer</span> — look, don't touch. New people start as
-          estimators.
+          estimators. <span className="font-medium">Shop</span> — shared time clock with a separate name and timer for each worker.
         </p>
       </div>
 
@@ -85,6 +86,7 @@ export default function Team() {
 
       {me && <MySignatureCard me={profiles.find((p) => p.id === me.id) ?? me} onSaved={() => void load()} />}
       <CardsSection profiles={profiles} />
+      <ShopWorkers profiles={profiles} />
 
       <div className="overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
         {profiles.map((p, i) => {
@@ -101,7 +103,7 @@ export default function Team() {
               </div>
               <ProfileNameForm profile={p} inline onSaved={async () => { await load(); if (p.id === me?.id) await refreshProfile() }} />
               <div className="team-role-options flex gap-1.5" role="group" aria-label={`Role for ${p.email}`}>
-                {(['viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
+                {(['shop', 'viewer', 'office', 'pm', 'estimator', 'admin'] as Role[]).map((r) => (
                   <button
                     key={r}
                     aria-pressed={p.role === r}
