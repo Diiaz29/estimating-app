@@ -1,4 +1,5 @@
 import UiIcon from '../components/UiIcon'
+import { timeCategories, timeCategoryLabel, type TimeCategory } from '../lib/timeCategories'
 import Modal from '../components/Modal'
 import { profileName } from '../lib/profileName'
 import { useEffect, useState } from 'react'
@@ -225,7 +226,7 @@ export default function Field() {
                 <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
                 <span className="font-medium">{t.worker}</span>
                 <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">
-                  {t.kind === 'field' ? 'install' : t.kind}{t.night ? ' night' : ''}
+                  {timeCategoryLabel(t.kind)}{t.night ? ' night' : ''}
                 </span>
                 {t.note && <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
@@ -329,7 +330,7 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [hours, setHours] = useState('')
   const [note, setNote] = useState('')
-  const [kind, setKind] = useState<'field' | 'shop'>('field')
+  const [kind, setKind] = useState<TimeCategory>('field')
   const [night, setNight] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -372,8 +373,8 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
       </label>
       <div className="block">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Category</span>
-        <div className="field-time-category mt-0.5 flex gap-1">
-          {(['field', 'shop'] as const).map((k) => (
+        <div className="field-time-category mt-0.5 flex flex-wrap gap-1">
+          {timeCategories.map(({ value: k, label }) => (
             <button
               type="button"
               key={k}
@@ -385,7 +386,7 @@ function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void 
                   : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
               }`}
             >
-              {k === 'field' ? 'Install' : 'Shop'}
+              {label}
             </button>
           ))}
         </div>

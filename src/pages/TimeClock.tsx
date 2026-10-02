@@ -11,6 +11,7 @@ import { LOGO_URL } from '../lib/branding'
 import type { Bid, Profile } from '../lib/types'
 import ShopTimeClock from './ShopTimeClock'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { timeCategories, timeCategoryLabel, type TimeCategory } from '../lib/timeCategories'
 
 interface TimeEntry {
   id: string
@@ -25,7 +26,7 @@ interface TimeEntry {
   shop_worker_id?: string | null
 }
 
-const kindLabel = (k: string) => (k === 'field' ? 'install' : k)
+const kindLabel = timeCategoryLabel
 
 const fmtDay = (iso: string) =>
   new Date(`${iso}T12:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -62,7 +63,7 @@ function PersonalTimeClock() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [hours, setHours] = useState('')
   const [note, setNote] = useState('')
-  const [kind, setKind] = useState<'shop' | 'field'>('shop')
+  const [kind, setKind] = useState<TimeCategory>('shop')
   const [night, setNight] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -245,7 +246,7 @@ function PersonalTimeClock() {
           <label>Job<select className="input" value={editing.bid_id} onChange={e => setEditing({ ...editing, bid_id: e.target.value })}>{allBids.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
           <label>Day<input className="input" type="date" required value={editing.work_date} onChange={e => setEditing({ ...editing, work_date: e.target.value })} /></label>
           <label>Hours<input className="input" type="number" required min="0.01" max="24" step="any" value={editing.hours} onChange={e => setEditing({ ...editing, hours: e.target.value })} /></label>
-          <label>Category<select className="input" value={editing.kind} onChange={e => setEditing({ ...editing, kind: e.target.value })}><option value="shop">Shop time</option><option value="field">Install time</option></select></label>
+          <label>Category<select className="input" value={editing.kind} onChange={e => setEditing({ ...editing, kind: e.target.value })}>{timeCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}</select></label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={editing.night} onChange={e => setEditing({ ...editing, night: e.target.checked })} />Night work</label>
           <label>Notes<input className="input" value={editing.note ?? ''} onChange={e => setEditing({ ...editing, note: e.target.value })} /></label>
         </fieldset>
@@ -289,8 +290,8 @@ function PersonalTimeClock() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="block">
               <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Category</span>
-              <div className="mt-1 flex gap-1.5">
-                {(['shop', 'field'] as const).map((k) => (
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {timeCategories.map(({ value: k, label }) => (
                   <button
                     type="button"
                     key={k}
@@ -302,7 +303,7 @@ function PersonalTimeClock() {
                         : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
                     }`}
                   >
-                    {k === 'shop' ? 'Shop time' : 'Install time'}
+                    {label}
                   </button>
                 ))}
               </div>

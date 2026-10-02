@@ -1,4 +1,6 @@
-alter table public.shop_shifts add column kind text not null default 'shop' check (kind in ('shop','field'));
+alter table public.time_entries drop constraint time_entries_kind_check;
+alter table public.time_entries add constraint time_entries_kind_check check (kind in ('shop','field','site_visit','punch_list'));
+alter table public.shop_shifts add column kind text not null default 'shop' check (kind in ('shop','field','site_visit','punch_list'));
 alter table public.shop_shifts add column night boolean not null default false;
 
 -- Defaults keep existing clients and shifts compatible during rollout.
@@ -8,7 +10,7 @@ returns uuid language plpgsql security definer set search_path=public as $$
 declare shift_id uuid;
 begin
   if auth.uid() is null or public.role_of() is distinct from 'shop' then raise exception 'Shop login required'; end if;
-  if p_kind is null or p_kind not in ('shop','field') or p_night is null then raise exception 'Choose Shop or Install time and a night work setting'; end if;
+  if p_kind is null or p_kind not in ('shop','field','site_visit','punch_list') or p_night is null then raise exception 'Choose a valid time category and night work setting'; end if;
   if not exists(select 1 from public.shop_workers where id=p_worker_id and login_id=auth.uid() and active) then raise exception 'Choose an active worker assigned to this login'; end if;
   if not exists(select 1 from public.bids where id=p_bid_id and status='won' and completed_at is null) then raise exception 'Choose an active job'; end if;
   insert into public.shop_shifts(worker_id,bid_id,note,kind,night) values(p_worker_id,p_bid_id,nullif(trim(p_note),''),p_kind,p_night) returning id into shift_id;

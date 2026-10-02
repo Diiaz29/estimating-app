@@ -1,7 +1,7 @@
 -- Run after migrations; all fixture changes are rolled back.
 begin;
 do $test$
-declare login_a uuid; login_b uuid; worker_a uuid; worker_b uuid; project uuid; shift_a uuid; shift_b uuid; entry uuid; amount numeric; denied boolean; affected int;
+declare login_a uuid; login_b uuid; worker_a uuid; worker_b uuid; project uuid; shift_a uuid; shift_b uuid; entry uuid; amount numeric; denied boolean; affected int; category text;
 begin
  select id into login_a from public.profiles order by created_at limit 1;
  select id into login_b from public.profiles where id<>login_a limit 1;
@@ -50,5 +50,12 @@ begin
  begin perform public.start_shop_shift(worker_b,project,null); exception when raise_exception then denied:=true; end;
  if not denied then raise exception 'Inactive worker can start shift'; end if;
  execute 'reset role';
+ foreach category in array array['site_visit','punch_list'] loop
+   execute 'set local role authenticated';
+   shift_a := public.start_shop_shift(worker_a,project,'Category test',category,false);
+   entry := public.stop_shop_shift(shift_a);
+   execute 'reset role';
+   if not exists(select 1 from public.time_entries where id=entry and kind=category and night=false) then raise exception 'Category % was not saved',category; end if;
+ end loop;
 end $test$;
 rollback;
