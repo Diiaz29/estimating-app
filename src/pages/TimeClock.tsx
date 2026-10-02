@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
 import type { Bid, Profile } from '../lib/types'
 import ShopTimeClock from './ShopTimeClock'
+import type { ShopWorker } from '../components/ShopWorkers'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { timeCategories, timeCategoryLabel, type TimeCategory } from '../lib/timeCategories'
 
@@ -49,6 +50,9 @@ function PersonalTimeClock() {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const worker = profile ? profileName(profile) : session?.user.email ?? 'unknown'
   const [people, setPeople] = useState<Pick<Profile, 'email' | 'first_name' | 'last_name'>[]>([])
+  const [shopWorkers, setShopWorkers] = useState<ShopWorker[]>([])
+  const [logWorkerId, setLogWorkerId] = useState('')
+  const [savedMessage, setSavedMessage] = useState('')
   const personName = (entry: Pick<TimeEntry, 'worker' | 'created_by' | 'shop_worker_id'>) => timeEntryName(entry, people)
   const seesEveryone = canSchedule || isOffice
   const [loading, setLoading] = useState(true)
@@ -83,7 +87,7 @@ function PersonalTimeClock() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [jobRes, allRes, mineRes, peopleRes] = await Promise.all([
+      const [jobRes, allRes, mineRes, peopleRes, workersRes] = await Promise.all([
         supabase!.from('bids').select('*').eq('status', 'won').is('completed_at', null).order('job_number'),
         supabase!.from('bids').select('id, job_number, name'),
         supabase!
@@ -93,9 +97,11 @@ function PersonalTimeClock() {
           .order('work_date', { ascending: false })
           .limit(30),
         supabase!.from('profiles').select('email, first_name, last_name'),
+        isAdmin ? supabase!.from('shop_workers').select('*').eq('active', true).order('first_name').order('last_name') : Promise.resolve({ data: [], error: null }),
       ])
-      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes, people: peopleRes })
+      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes, people: peopleRes, workers: workersRes })
       setPeople(peopleRes.data ?? [])
+      setShopWorkers(workersRes.data ?? [])
       {
         const rows = jobRes.data as Bid[]
         setJobs(rows)
@@ -135,11 +141,17 @@ function PersonalTimeClock() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!jobId || !hours) return
+    if (!jobId || !hours || busy) return
+    const selectedWorker = isAdmin && logWorkerId ? shopWorkers.find(w => w.id === logWorkerId) : null
+    if (isAdmin && logWorkerId && !selectedWorker) { setError('Choose an active Shop worker.'); return }
+    const loggedName = selectedWorker ? `${selectedWorker.first_name} ${selectedWorker.last_name}` : worker
     setBusy(true)
+    setError(null)
+    setSavedMessage('')
     const { error } = await supabase!.from('time_entries').insert({
       bid_id: jobId,
-      worker,
+      worker: loggedName,
+      shop_worker_id: selectedWorker?.id ?? null,
       work_date: date,
       hours: Number(hours),
       note: note.trim() || null,
@@ -148,8 +160,10 @@ function PersonalTimeClock() {
       created_by: session?.user.email ?? null,
     })
     setBusy(false)
-    if (error) setError(error.message)
+    if (error) setError(selectedWorker && error.code === '42501' ? 'Logging for Shop workers needs the pending database update. Your entry has not been saved.' : error.message)
     else {
+      setSavedMessage(`Time logged for ${loggedName}.`)
+      setReportReload(n => n + 1)
       setHours('')
       setNote('')
       setNight(false)
@@ -233,8 +247,7 @@ function PersonalTimeClock() {
         <div>
         <h1 className="text-lg font-semibold tracking-tight">Time</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Log your shop hours against the job you worked on. Logging as{' '}
-          <span className="font-semibold">{profile ? profileName(profile) : worker}</span>.
+          {isAdmin ? 'Log time for yourself or select a Shop worker below.' : <>Log your hours against the job you worked on. Logging as <span className="font-semibold">{worker}</span>.</>}
         </p>
         </div>
       </div>
@@ -261,6 +274,13 @@ function PersonalTimeClock() {
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="construction-time-form space-y-3 print:hidden">
+          {isAdmin && <label className="block">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Person</span>
+            <select className="input" value={logWorkerId} onChange={e => { setLogWorkerId(e.target.value); setSavedMessage(''); setError(null) }}>
+              <option value="">{worker} (me)</option>
+              {shopWorkers.map(w => <option key={w.id} value={w.id}>{w.first_name} {w.last_name}</option>)}
+            </select>
+          </label>}
           <label className="block">
             <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Job</span>
             <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="input">
@@ -315,6 +335,7 @@ function PersonalTimeClock() {
           >
             {busy ? 'Logging…' : 'Log time'}
           </button>
+          {savedMessage && <p role="status" className="text-sm text-green-700">{savedMessage}</p>}
         </form>
       )}
       </div>
@@ -327,6 +348,7 @@ function PersonalTimeClock() {
             {mine.map((t, i) => (
               <div key={t.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm ${i > 0 ? 'border-t border-slate-100' : ''}`}>
                 <span className="w-24 font-mono text-xs text-slate-500">{fmtDay(t.work_date)}</span>
+                {t.shop_worker_id && <span className="font-medium">{personName(t)}</span>}
                 <span className="min-w-0 flex-1 basis-40 truncate font-medium">{jobName(t.bid_id)}</span>
                 <span className="rounded border border-slate-200 px-1 font-mono text-[9px] uppercase text-slate-400">
                   {kindLabel(t.kind)}{t.night ? ' night' : ''}
