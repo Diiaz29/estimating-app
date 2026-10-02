@@ -1,13 +1,14 @@
 import LoadError from '../components/LoadError'
 import { requireLoaded, errorMessage } from '../lib/loadResults'
 import { profileName } from '../lib/profileName'
+import { timeEntryName } from '../lib/timeEntryName'
 import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
-import type { Bid } from '../lib/types'
+import type { Bid, Profile } from '../lib/types'
 import ShopTimeClock from './ShopTimeClock'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -21,6 +22,7 @@ interface TimeEntry {
   kind: string
   night: boolean
   created_by: string | null
+  shop_worker_id?: string | null
 }
 
 const kindLabel = (k: string) => (k === 'field' ? 'install' : k)
@@ -44,7 +46,9 @@ function PersonalTimeClock() {
   const [editError, setEditError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<TimeEntry | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
-  const worker = session?.user.email?.split('@')[0] ?? 'unknown'
+  const worker = profile ? profileName(profile) : session?.user.email ?? 'unknown'
+  const [people, setPeople] = useState<Pick<Profile, 'email' | 'first_name' | 'last_name'>[]>([])
+  const personName = (entry: Pick<TimeEntry, 'worker' | 'created_by' | 'shop_worker_id'>) => timeEntryName(entry, people)
   const seesEveryone = canSchedule || isOffice
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -78,7 +82,7 @@ function PersonalTimeClock() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [jobRes, allRes, mineRes] = await Promise.all([
+      const [jobRes, allRes, mineRes, peopleRes] = await Promise.all([
         supabase!.from('bids').select('*').eq('status', 'won').is('completed_at', null).order('job_number'),
         supabase!.from('bids').select('id, job_number, name'),
         supabase!
@@ -87,8 +91,10 @@ function PersonalTimeClock() {
           .eq('created_by', session?.user.email ?? '')
           .order('work_date', { ascending: false })
           .limit(30),
+        supabase!.from('profiles').select('email, first_name, last_name'),
       ])
-      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes })
+      requireLoaded({ jobs: jobRes, projects: allRes, time: mineRes, people: peopleRes })
+      setPeople(peopleRes.data ?? [])
       {
         const rows = jobRes.data as Bid[]
         setJobs(rows)
@@ -200,19 +206,20 @@ function PersonalTimeClock() {
   if (loading) return <p role="status">Loading time entries…</p>
 
   // filters: empty picks mean "all"
-  const allWorkers = [...new Set(report.map((t) => t.worker))].sort()
+  const allWorkers = [...new Set(report.map(personName))].sort()
   const allJobIds = [...new Set(report.map((t) => t.bid_id))]
   const filtered = report.filter(
     (t) =>
-      (pickedWorkers.length === 0 || pickedWorkers.includes(t.worker)) &&
+      (pickedWorkers.length === 0 || pickedWorkers.includes(personName(t))) &&
       (pickedJobs.length === 0 || pickedJobs.includes(t.bid_id)),
   )
 
   // report grouped per worker
   const byWorker = new Map<string, TimeEntry[]>()
   for (const t of filtered) {
-    if (!byWorker.has(t.worker)) byWorker.set(t.worker, [])
-    byWorker.get(t.worker)!.push(t)
+    const name = personName(t)
+    if (!byWorker.has(name)) byWorker.set(name, [])
+    byWorker.get(name)!.push(t)
   }
   const workers = [...byWorker.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   const grandTotal = filtered.reduce((s, t) => s + Number(t.hours), 0)
@@ -233,7 +240,7 @@ function PersonalTimeClock() {
 
       <div className={`construction-time-workspace ${seesEveryone ? '' : 'construction-time-personal'}`}>
       {isAdmin && editing && <form onSubmit={saveEdit} className="construction-time-editor print:hidden">
-        <h2>Edit time for {editing.worker}</h2>
+        <h2>Edit time for {personName(editing)}</h2>
         <fieldset disabled={editBusy} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label>Job<select className="input" value={editing.bid_id} onChange={e => setEditing({ ...editing, bid_id: e.target.value })}>{allBids.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
           <label>Day<input className="input" type="date" required value={editing.work_date} onChange={e => setEditing({ ...editing, work_date: e.target.value })} /></label>
@@ -475,12 +482,12 @@ function PersonalTimeClock() {
                     {filtered.map((t) => (
                       <tr key={t.id}>
                         <td data-label="Day">{fmtDay(t.work_date)}</td>
-                        <td data-label="Person">{t.worker}</td>
+                        <td data-label="Person">{personName(t)}</td>
                         <td data-label="Job">{jobName(t.bid_id)}</td>
                         <td data-label="Category">{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
                         <td data-label="Notes">{t.note || '—'}</td>
                         <td data-label="Hours" className="construction-money">{Number(t.hours).toFixed(1)}</td>
-                        {isAdmin && <td data-label="Actions"><div className="flex justify-end gap-2"><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button className="index-secondary" disabled={deleteBusy} aria-label={`Delete time entry for ${t.worker} on ${fmtDay(t.work_date)}`} onClick={() => setDeleting(t)}>Delete</button></div></td>}
+                        {isAdmin && <td data-label="Actions"><div className="flex justify-end gap-2"><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button className="index-secondary" disabled={deleteBusy} aria-label={`Delete time entry for ${personName(t)} on ${fmtDay(t.work_date)}`} onClick={() => setDeleting(t)}>Delete</button></div></td>}
                       </tr>
                     ))}
                     {filtered.length === 0 && <tr><td colSpan={isAdmin ? 7 : 6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
@@ -553,7 +560,7 @@ function PersonalTimeClock() {
       </div>
       {isAdmin && deleting && <ConfirmDialog
         title="Delete time entry?"
-        message={`Delete ${Number(deleting.hours).toLocaleString(undefined, { maximumFractionDigits: 2 })} hours for ${deleting.worker} on ${fmtDay(deleting.work_date)} (${jobName(deleting.bid_id)})? This cannot be undone.`}
+        message={`Delete ${Number(deleting.hours).toLocaleString(undefined, { maximumFractionDigits: 2 })} hours for ${personName(deleting)} on ${fmtDay(deleting.work_date)} (${jobName(deleting.bid_id)})? This cannot be undone.`}
         onCancel={() => setDeleting(null)}
         onConfirm={() => void remove(deleting)}
       />}

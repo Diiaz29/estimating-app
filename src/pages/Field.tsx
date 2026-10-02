@@ -325,7 +325,7 @@ export default function Field() {
 function TimeEntryForm({ bidId, onAdded }: { bidId: string; onAdded: () => void }) {
   const { session, profile } = useAuth()
   // time always logs against the signed-in account — no typing someone else's name
-  const worker = session?.user.email?.split('@')[0] ?? 'unknown'
+  const worker = profile ? profileName(profile) : session?.user.email ?? 'unknown'
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [hours, setHours] = useState('')
   const [note, setNote] = useState('')
