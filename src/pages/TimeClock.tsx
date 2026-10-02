@@ -480,7 +480,7 @@ function PersonalTimeClock() {
                         <td data-label="Category">{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
                         <td data-label="Notes">{t.note || '—'}</td>
                         <td data-label="Hours" className="construction-money">{Number(t.hours).toFixed(1)}</td>
-                        {isAdmin && <td data-label="Actions"><div className="flex gap-2"><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button className="index-secondary" disabled={deleteBusy} aria-label={`Delete time entry for ${t.worker} on ${fmtDay(t.work_date)}`} onClick={() => setDeleting(t)}>Delete</button></div></td>}
+                        {isAdmin && <td data-label="Actions"><div className="flex justify-end gap-2"><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button className="index-secondary" disabled={deleteBusy} aria-label={`Delete time entry for ${t.worker} on ${fmtDay(t.work_date)}`} onClick={() => setDeleting(t)}>Delete</button></div></td>}
                       </tr>
                     ))}
                     {filtered.length === 0 && <tr><td colSpan={isAdmin ? 7 : 6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
