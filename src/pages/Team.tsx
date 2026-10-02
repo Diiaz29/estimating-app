@@ -77,7 +77,7 @@ export default function Team() {
           contractors; no deleting. <span className="font-medium">PM</span> — manage schedules,
           order checkboxes, and receipts; everything else view-only.{' '}
           <span className="font-medium">Office</span> — set up bids and jobs, reconcile receipts, and review team time. <span className="font-medium">Viewer</span> — look, don't touch. New people start as
-          estimators. <span className="font-medium">Shop</span> — shared time clock with a separate name and timer for each worker.
+          estimators. <span className="font-medium">Shop</span> — Viewer access plus a shared time clock with a separate name and timer for each worker.
         </p>
       </div>
 

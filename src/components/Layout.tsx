@@ -45,8 +45,7 @@ const pageTitles: Record<string, string> = {
 export default function Layout() {
   const { session, profile, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
-  const isShop = (viewAs ?? realRole) === 'shop'
-  const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => isShop ? t.to === '/time' : !(isOffice && t.to === '/libraries'))
+  const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
