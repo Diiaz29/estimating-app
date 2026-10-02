@@ -12,7 +12,10 @@ begin
  insert into public.shop_workers(login_id,first_name,last_name) values(login_a,'Second','Worker') returning id into worker_b;
  perform set_config('request.jwt.claim.sub',login_a::text,true);
  execute 'set local role authenticated';
- shift_a := public.start_shop_shift(worker_a,project,'Test');
+ denied:=false;
+ begin perform public.start_shop_shift(worker_a,project,'Test','invalid',false); exception when raise_exception then denied:=true; end;
+ if not denied then raise exception 'Invalid category accepted'; end if;
+ shift_a := public.start_shop_shift(worker_a,project,'Test','field',true);
  shift_b := public.start_shop_shift(worker_b,project,null);
  denied:=false;
  begin perform public.start_shop_shift(worker_a,project,null); exception when raise_exception then denied:=true; end;
@@ -36,6 +39,8 @@ begin
  execute 'reset role';
  select hours into amount from public.time_entries where id=entry;
  if amount<>1.5 then raise exception 'Incorrect elapsed hours: %',amount; end if;
+ if not exists(select 1 from public.time_entries where id=entry and kind='field' and night=true) then raise exception 'Install/night settings were not saved'; end if;
+ if not exists(select 1 from public.shop_shifts where id=shift_b and kind='shop' and night=false) then raise exception 'Legacy clock defaults changed'; end if;
  if not exists(select 1 from public.shop_shifts where id=shift_b and ended_at is null) then raise exception 'Switching worker stopped other shift'; end if;
  update public.shop_workers set active=false where id=worker_b;
  perform set_config('request.jwt.claim.sub',login_a::text,true);

@@ -5,7 +5,7 @@ import type { ShopWorker } from '../components/ShopWorkers'
 import { errorMessage, requireLoaded } from '../lib/loadResults'
 import LoadError from '../components/LoadError'
 
-interface Shift { id: string; worker_id: string; bid_id: string; started_at: string }
+interface Shift { id: string; worker_id: string; bid_id: string; started_at: string; kind?: 'shop' | 'field'; night?: boolean }
 interface Job { id: string; job_number: string; name: string }
 
 export default function ShopTimeClock() {
@@ -20,6 +20,8 @@ export default function ShopTimeClock() {
   const [workerId,setWorkerId] = useState('')
   const [jobId,setJobId] = useState('')
   const [note,setNote] = useState('')
+  const [kind,setKind] = useState<'shop' | 'field'>('shop')
+  const [night,setNight] = useState(false)
   const [loading,setLoading] = useState(true)
   const [loadError,setLoadError] = useState<string | null>(null)
   const [error,setError] = useState<string | null>(null)
@@ -56,12 +58,18 @@ export default function ShopTimeClock() {
     if (!selected || busy || preview) return
     setBusy(true); setError(null); setMessage('')
     try {
-      const {error} = activeShift
+      let {error} = activeShift
         ? await supabase!.rpc('stop_shop_shift',{p_shift_id:activeShift.id})
-        : await supabase!.rpc('start_shop_shift',{p_worker_id:workerId,p_bid_id:jobId,p_note:note.trim() || null})
+        : await supabase!.rpc('start_shop_shift',{p_worker_id:workerId,p_bid_id:jobId,p_note:note.trim() || null,p_kind:kind,p_night:night})
+      if (!activeShift && error?.code === 'PGRST202') {
+        if (kind !== 'shop' || night) throw new Error('Install and night work clocking needs the pending database update. Ask an admin to publish it before clocking in.')
+        // Keep ordinary Shop clocking usable while the database update rolls out.
+        const legacy = await supabase!.rpc('start_shop_shift',{p_worker_id:workerId,p_bid_id:jobId,p_note:note.trim() || null})
+        error = legacy.error
+      }
       if(error) throw error
       setMessage(`${selected.first_name} ${selected.last_name} clocked ${activeShift ? 'out. Hours saved.' : 'in.'}`)
-      setWorkerId(''); setNote(''); await load()
+      setWorkerId(''); setNote(''); setKind('shop'); setNight(false); await load()
     } catch(e) { setError(errorMessage(e)); await load() } finally { setBusy(false) }
   }
   if (loading) return <p role="status">Loading shop clock…</p>
@@ -78,21 +86,21 @@ export default function ShopTimeClock() {
     {message && <p role="status" className="save-feedback save-saved">{message}</p>}
     {error && <p role="alert" className="save-feedback save-failed">{error}</p>}
     <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
-      <h2 className="font-semibold">Who is logging time?</h2>
       {visibleWorkers.length===0 && <p>Ask an admin to add your names to this shared login on the Team page.</p>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{visibleWorkers.map(w => {
-        const shift=shifts.find(s=>s.worker_id===w.id)
-        return <button type="button" key={w.id} className={workerId===w.id ? 'index-primary' : 'index-secondary'} aria-pressed={workerId===w.id} disabled={busy} onClick={()=>{setWorkerId(w.id);setError(null);setMessage('');setNote('')}}>
-          {w.first_name} {w.last_name}{shift ? ` · Clocked in · ${Math.max(0,(now-new Date(shift.started_at).getTime())/3600000).toFixed(1)} hrs` : ' · Clocked out'}
-        </button>
-      })}</div>
+      <label className="block">Worker<select className="input" value={selected?.id ?? ''} disabled={busy || !visibleWorkers.length} onChange={e => { setWorkerId(e.target.value); setError(null); setMessage(''); setNote(''); setKind('shop'); setNight(false) }}>
+        <option value="">Select your name</option>
+        {visibleWorkers.map(w => <option key={w.id} value={w.id}>{w.first_name} {w.last_name}{shifts.some(s => s.worker_id === w.id) ? ' — Clocked in' : ''}</option>)}
+      </select></label>
       {selected && <div className="space-y-4 border-t border-slate-200 pt-4">
-        <h2 className="font-semibold">{selected.first_name} {selected.last_name}</h2>
-        {activeShift ? <p>Clocked in at {new Date(activeShift.started_at).toLocaleString()} · {jobs.find(j=>j.id===activeShift.bid_id)?.name ?? 'Assigned job'}</p> : <>
+        {activeShift ? <p>Clocked in at {new Date(activeShift.started_at).toLocaleString()} · {jobs.find(j=>j.id===activeShift.bid_id)?.name ?? 'Assigned job'} · {Math.max(0,(now-new Date(activeShift.started_at).getTime())/3600000).toFixed(1)} hrs</p> : <>
           <label className="block">Job<select className="input" disabled={busy} value={jobId} onChange={e=>setJobId(e.target.value)}>{jobs.map(j=><option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
-          <label className="block">What you’re working on (optional)<input className="input" disabled={busy} value={note} onChange={e=>setNote(e.target.value)} /></label>
           {!jobs.length && <p>No active jobs are available. Ask an admin to add one.</p>}
         </>}
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="block">Category<select className="input" disabled={busy || !!activeShift} value={activeShift?.kind ?? kind} onChange={e=>setKind(e.target.value as 'shop' | 'field')}><option value="shop">Shop time</option><option value="field">Install time</option></select></label>
+          <label className="flex items-center gap-2 py-2"><input type="checkbox" disabled={busy || !!activeShift} checked={activeShift ? !!activeShift.night : night} onChange={e=>setNight(e.target.checked)} />Night work</label>
+        </div>
+        {!activeShift && <label className="block">What you’re working on (optional)<input className="input" disabled={busy} value={note} onChange={e=>setNote(e.target.value)} /></label>}
         <button className="index-primary" disabled={preview || busy || (!activeShift && (!jobId || !selected.active))} onClick={()=>void clock()}>{busy ? 'Saving…' : activeShift ? 'Clock out' : 'Clock in'}</button>
       </div>}
     </section>
