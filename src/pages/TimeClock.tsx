@@ -288,26 +288,12 @@ function PersonalTimeClock() {
             </label>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="block">
+            <label className="block">
               <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">Category</span>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {timeCategories.map(({ value: k, label }) => (
-                  <button
-                    type="button"
-                    key={k}
-                    onClick={() => setKind(k)}
-                    aria-pressed={kind === k}
-                    className={`rounded-md border px-4 py-2 text-sm font-medium ${
-                      kind === k
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+              <select className="input" value={kind} onChange={e => setKind(e.target.value as TimeCategory)}>
+                {timeCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}
+              </select>
+            </label>
             <label className="flex cursor-pointer items-center gap-2 pb-2">
               <input
                 type="checkbox"
