@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
 import type { Bid } from '../lib/types'
 import ShopTimeClock from './ShopTimeClock'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface TimeEntry {
   id: string
@@ -41,6 +42,8 @@ function PersonalTimeClock() {
   const [editing, setEditing] = useState<(Omit<TimeEntry, 'hours'> & { hours: number | string }) | null>(null)
   const [editBusy, setEditBusy] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<TimeEntry | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const worker = session?.user.email?.split('@')[0] ?? 'unknown'
   const seesEveryone = canSchedule || isOffice
   const [loading, setLoading] = useState(true)
@@ -148,11 +151,18 @@ function PersonalTimeClock() {
   }
 
   async function remove(t: TimeEntry) {
-    if (!isAdmin) return
-    const { error } = await supabase!.from('time_entries').delete().eq('id', t.id).select('id').single()
-    if (error) { setError(error.message); return }
-    void load()
-    setReportReload(n => n + 1)
+    if (!isAdmin || deleteBusy) return
+    setDeleting(null)
+    setDeleteBusy(true)
+    setError(null)
+    try {
+      const { error } = await supabase!.from('time_entries').delete().eq('id', t.id).select('id').single()
+      if (error) throw error
+      setMine(rows => rows.filter(row => row.id !== t.id))
+      setReport(rows => rows.filter(row => row.id !== t.id))
+      setEditing(current => current?.id === t.id ? null : current)
+      setReportReload(n => n + 1)
+    } catch (e) { setError(errorMessage(e)) } finally { setDeleteBusy(false) }
   }
 
   function edit(t: TimeEntry) {
@@ -329,7 +339,7 @@ function PersonalTimeClock() {
                 </span>
                 {t.note && <span className="hidden min-w-0 truncate text-xs text-slate-500 sm:block">{t.note}</span>}
                 <span className="ml-auto font-semibold tabular-nums">{Number(t.hours).toFixed(1)} hrs</span>
-                {isAdmin && <><button className="index-secondary" onClick={() => edit(t)}>Edit</button><button aria-label="Delete time entry" onClick={() => void remove(t)} className="index-secondary">Delete</button></>}
+                {isAdmin && <><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button aria-label="Delete time entry" disabled={deleteBusy} onClick={() => setDeleting(t)} className="index-secondary">Delete</button></>}
               </div>
             ))}
           </div>
@@ -470,7 +480,7 @@ function PersonalTimeClock() {
                         <td data-label="Category">{kindLabel(t.kind)}{t.night ? ' night' : ''}</td>
                         <td data-label="Notes">{t.note || '—'}</td>
                         <td data-label="Hours" className="construction-money">{Number(t.hours).toFixed(1)}</td>
-                        {isAdmin && <td data-label="Actions"><button className="index-secondary" onClick={() => edit(t)}>Edit</button></td>}
+                        {isAdmin && <td data-label="Actions"><div className="flex gap-2"><button className="index-secondary" disabled={deleteBusy} onClick={() => edit(t)}>Edit</button><button className="index-secondary" disabled={deleteBusy} aria-label={`Delete time entry for ${t.worker} on ${fmtDay(t.work_date)}`} onClick={() => setDeleting(t)}>Delete</button></div></td>}
                       </tr>
                     ))}
                     {filtered.length === 0 && <tr><td colSpan={isAdmin ? 7 : 6} className="construction-time-table-empty">No hours logged in this range.</td></tr>}
@@ -541,6 +551,12 @@ function PersonalTimeClock() {
       )}
 
       </div>
+      {isAdmin && deleting && <ConfirmDialog
+        title="Delete time entry?"
+        message={`Delete ${Number(deleting.hours).toLocaleString(undefined, { maximumFractionDigits: 2 })} hours for ${deleting.worker} on ${fmtDay(deleting.work_date)} (${jobName(deleting.bid_id)})? This cannot be undone.`}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => void remove(deleting)}
+      />}
     </div>
   )
 }
