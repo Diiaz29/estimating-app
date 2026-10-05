@@ -15,6 +15,7 @@ import SaveFeedback from '../components/SaveFeedback'
 import { requireLoaded, errorMessage } from '../lib/loadResults'
 import { useSaveQueue } from '../lib/useSaveQueue'
 import { writeActualsFields, type ActualsEdit } from '../lib/actualsWrite'
+import ActualsPrintSheet from '../components/ActualsPrintSheet'
 
 interface Receipt {
   id: string
@@ -71,6 +72,7 @@ export default function Actuals() {
   const [receiptRefreshError, setReceiptRefreshError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [reload, setReload] = useState(0)
+  const [showPrintPreview, setShowPrintPreview] = useState(false)
   const saves = useSaveQueue()
 
   async function loadReceipts() {
@@ -221,17 +223,24 @@ export default function Actuals() {
   const actProfit = contractAmount - actTotal
 
   return (
-    <div className="zaid-page zaid-actuals max-w-3xl space-y-5">
+    <div className="zaid-page zaid-actuals max-w-3xl space-y-5 print:max-w-none print:space-y-0">
+      <div className="space-y-5 print:hidden">
       <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" />
       {error && <div className="save-feedback save-failed" role="alert"><div><strong>The receipt action did not complete.</strong><p>Check the receipt and try again. Your edits are still here.</p><details><summary>Error details</summary>{error}</details></div><button className="index-secondary" onClick={() => setError(null)}>Dismiss</button></div>}
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
           <UiIcon name="left" /> {bid.job_number}
         </Link>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+        <h1 className="min-w-0 flex-1 basis-[calc(100%-90px)] truncate text-lg font-semibold tracking-tight sm:basis-0">
           {bid.name} — estimated vs actual
         </h1>
+        <button type="button" className="index-secondary" aria-expanded={showPrintPreview} aria-controls="actuals-print-preview" onClick={() => setShowPrintPreview(value => !value)}>{showPrintPreview ? 'Back to actuals' : 'Show print preview'}</button>
+        <button type="button" className="index-primary" disabled={saves.pending > 0 || !!saves.error || !!receiptRefreshError} onClick={() => { if (saves.queue.getSnapshot().pending === 0 && !saves.queue.getSnapshot().error) window.print() }}>Print / Save PDF</button>
       </div>
+      {(saves.pending > 0 || saves.error) && <p className="text-sm text-slate-500">Printing is available once your changes are saved.</p>}
+      </div>
+
+      <div className={showPrintPreview ? 'hidden' : 'space-y-5 print:hidden'}>
 
       <p className="text-sm text-slate-500">
         Dollar amounts come <b>only from receipts</b> below — upload the paper and the table fills
@@ -332,6 +341,24 @@ export default function Actuals() {
           className="input"
         />
       </label>
+      </div>
+      <div id="actuals-print-preview" className={showPrintPreview ? 'block' : 'hidden print:block'}>
+        <ActualsPrintSheet jobNumber={bid.job_number ?? ''} jobName={bid.name}
+          rows={[
+            { label: 'Materials', estimated: cb.materials, actual: rMaterials },
+            { label: 'Shop labor', estimated: cb.shopLabor, actual: a.shop_hours == null ? null : actShopLabor },
+            { label: 'Install labor', estimated: estInstallLabor, actual: a.install_hours == null ? null : actInstallLabor },
+            { label: 'Delivery', estimated: cb.delivery, actual: rDelivery },
+            { label: 'Travel — fuel, per diem, hotel', estimated: estTravel, actual: rTravel },
+            { label: 'Subcontractors', estimated: cb.subs, actual: rSubs },
+            { label: 'Other — one-offs, punch, GC, insurance', estimated: cb.other, actual: rOther },
+          ]}
+          estimatedTotal={estTotal} actualTotal={anyEntered ? actTotal : null}
+          shopHours={a.shop_hours} installHours={a.install_hours} laborRate={shopRate}
+          estimatedShopHours={cb.shopHours} estimatedInstallHours={pricing.installHours}
+          contract={contractAmount} showProfit={isAdminRole} liveContract={contract == null}
+          receiptCount={receipts.length} missingAmounts={missingAmounts} notes={a.notes} />
+      </div>
     </div>
   )
 }
