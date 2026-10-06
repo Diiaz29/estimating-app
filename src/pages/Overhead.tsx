@@ -116,6 +116,7 @@ export default function Overhead({ embedded = false, onRateApplied }: {
         <p className="mt-1 text-sm text-slate-500">
           Separate production payroll from company overhead. Both remain included in one combined cost rate for building and installing.
         </p>
+        <p className="mt-1 text-sm text-slate-500">To set hourly rates manually, open Settings → Labor. The calculator below offers rates based on your annual expenses.</p>
       </div>
 
       {/* Step 1: cost list */}
@@ -241,7 +242,7 @@ export default function Overhead({ embedded = false, onRateApplied }: {
           </div>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Saving the breakdown changes how costs are displayed. Using the calculated combined rate changes estimated costs and profit. Customer prices do not change.
+          Saving the breakdown replaces the applied labor/overhead proportions. Using the calculated combined rate replaces manually entered rates and changes costs and profit. Customer prices do not change.
         </p>
       </section>
 
