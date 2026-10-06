@@ -342,7 +342,7 @@ export function priceBid(
 
   // V9 charges install fuel for two trips (delivery run + install run)
   const installPrice = installHours * (s.install_rate ?? 0) + 2 * fuelTrip
-  const installCost = installHours * (s.install_rate ?? 0) + 2 * fuelTripCost
+  const installCost = installHours * (s.cost_shop_rate ?? 0) + 2 * fuelTripCost
 
   const deliveryRate = distance >= (s.delivery_distance_threshold ?? Infinity)
     ? (s.delivery_rate_out_of_town ?? 0)

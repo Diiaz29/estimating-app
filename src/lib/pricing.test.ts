@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildContext, priceBid, priceLine, resolveMaterialId } from './pricing'
+import { actualsLaborCosts } from './actuals'
 import type {
   AreaFinishOverride,
   Area,
@@ -306,7 +307,21 @@ describe('priceBid — totals and adders', () => {
     const r = priceBid(bid, areas, lines, ctxWith())
     const install = r.adders.find((a) => a.key === 'install')!
     expect(install.price).toBeCloseTo(0.5 * 45 + 2 * 10, 6)
-    expect(install.cost).toBeCloseTo(0.5 * 45 + 2 * 5, 6) // fuel cost 0.5/mi
+    expect(install.cost).toBeCloseTo(0.5 * 30 + 2 * 5, 6) // labor at cost; fuel cost 0.5/mi
+    expect(r.trueCost).toBeCloseTo(ONE_CAB.cost + 25, 6)
+    expect(r.profit).toBeCloseTo(r.contractAmount - ONE_CAB.cost - 25, 6)
+  })
+
+  it('keeps Actuals estimated costs and profit consistent with Budget, including install fuel', () => {
+    const ctx = ctxWith()
+    const r = priceBid(makeBid({ distance_miles: 60, adders: ALL_ADDERS }), areas, lines, ctx)
+    const cb = r.costBreakdown
+    const labor = actualsLaborCosts(ctx.settings, null, null, r.installHours, cb.install, true)
+    const estimatedTotal = cb.materials + cb.shopLabor + labor.estimatedInstallCost +
+      cb.delivery + cb.travel + cb.subs + cb.other
+    expect(labor.estimatedFuel).toBeCloseTo(2 * 60 * 0.5, 6)
+    expect(estimatedTotal).toBeCloseTo(r.trueCost, 6)
+    expect(r.contractAmount - estimatedTotal).toBeCloseTo(r.profit, 6)
   })
 
   it('delivery uses in-town rate under threshold and skips the kicker below LF threshold', () => {

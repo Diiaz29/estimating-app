@@ -9,9 +9,9 @@ export function actualsLaborCosts(
 ) {
   const rate = settings.cost_shop_rate ?? 0
   const estimatedInstallLabor = installEnabled ? estimatedInstallHours * rate : 0
-  // The pricing engine's install bucket includes labor at the billing rate plus fuel.
+  // The pricing engine's install cost bucket includes labor at cost plus fuel.
   const estimatedFuel = installEnabled
-    ? estimatedInstallBucket - estimatedInstallHours * (settings.install_rate ?? 0)
+    ? estimatedInstallBucket - estimatedInstallLabor
     : 0
   return {
     rate,
