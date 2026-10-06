@@ -8,7 +8,7 @@ import type {
 } from '../lib/types'
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
-import LaborOverheadBreakdown from '../components/LaborOverheadBreakdown'
+import { costRateBreakdown, jobLaborCostRows } from '../lib/costAllocation'
 
 /** Printable internal budget sheet — the V9 BUDGET page, computed live.
  *  Price side, cost side, and the bottom line. Admin eyes only. */
@@ -104,6 +104,9 @@ export default function Budget() {
   const enabledAdders = pricing.adders.filter((a) => a.enabled)
   const today = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
   const totalWithTax = pricing.contractAmount + pricing.tax
+  const rates = costRateBreakdown(ctx.settings)
+  const installCost = bid.adders.install ? pricing.installHours * (ctx.settings.cost_shop_rate ?? 0) : 0
+  const laborRows = jobLaborCostRows(ctx.settings, cb.shopLabor, installCost)
 
   return (
     <div className="zaid-page zaid-budget max-w-3xl space-y-4 pb-10 print:max-w-none print:pb-0">
@@ -191,8 +194,8 @@ export default function Budget() {
             <table className="w-full text-sm">
               <tbody>
                 <Row label="Materials at cost" value={cb.materials} />
-                <Row label={`Shop labor + overhead (${cb.shopHours.toFixed(1)} hrs)`} value={cb.shopLabor} />
-                <Row label="Install + fuel" value={cb.install} />
+                {laborRows.map(row => <Row key={row.label} label={row.label} value={row.estimated} />)}
+                <Row label="Install fuel" value={cb.install - installCost} />
                 <Row label="Delivery" value={cb.delivery} />
                 <Row label="Travel (per diem + lodging)" value={cb.travel} />
                 <Row label="Subcontractors" value={cb.subs} />
@@ -222,9 +225,8 @@ export default function Budget() {
               </div>
             </div>
             <p className="mt-2 text-[10px] leading-snug text-slate-500">
-              Labor and overhead are included in the combined hourly cost rate.
+              {rates ? `Labor ${fmtMoney(rates.labor)}/hr · Overhead ${fmtMoney(rates.overhead)}/hr. Both are included in total cost.` : 'Labor and overhead use the combined hourly cost rate. Set their split in Settings → Overhead.'}
             </p>
-            <LaborOverheadBreakdown settings={ctx.settings} estimated={cb.shopLabor + (bid.adders.install ? pricing.installHours * (ctx.settings.cost_shop_rate ?? 0) : 0)} />
           </section>
         </div>
       </div>

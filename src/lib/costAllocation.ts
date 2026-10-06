@@ -22,3 +22,25 @@ export function costRateBreakdown(settings: Record<string, number>) {
   const share = settings.cost_labor_share
   return share == null ? null : { combined, share, ...splitCost(combined, share) }
 }
+
+/** Display rows that reconcile to the existing shop/install cost buckets. */
+export function jobLaborCostRows(
+  settings: Record<string, number>, estimatedShop: number, estimatedInstall: number,
+  actualShop: number | null = null, actualInstall: number | null = null,
+) {
+  const rates = costRateBreakdown(settings)
+  if (!rates) return [
+    { label: 'Shop labor + overhead', estimated: estimatedShop, actual: actualShop },
+    { label: 'Install labor + overhead', estimated: estimatedInstall, actual: actualInstall },
+  ]
+  const shop = splitCost(estimatedShop, rates.share)
+  const install = splitCost(estimatedInstall, rates.share)
+  const shopActual = actualShop == null ? null : splitCost(actualShop, rates.share)
+  const installActual = actualInstall == null ? null : splitCost(actualInstall, rates.share)
+  return [
+    { label: 'Shop labor', estimated: shop.labor, actual: shopActual?.labor ?? null },
+    { label: 'Install labor', estimated: install.labor, actual: installActual?.labor ?? null },
+    { label: 'Overhead (shop + install)', estimated: shop.overhead + install.overhead,
+      actual: shopActual == null && installActual == null ? null : (shopActual?.overhead ?? 0) + (installActual?.overhead ?? 0) },
+  ]
+}

@@ -9,7 +9,7 @@ import type {
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
 import { actualsLaborCosts } from '../lib/actuals'
-import LaborOverheadBreakdown from '../components/LaborOverheadBreakdown'
+import { costRateBreakdown, jobLaborCostRows } from '../lib/costAllocation'
 import ConfirmDialog from '../components/ConfirmDialog'
 import LoadError from '../components/LoadError'
 import SaveFeedback from '../components/SaveFeedback'
@@ -184,7 +184,6 @@ export default function Actuals() {
   const labor = actualsLaborCosts(s, actuals.shop_hours, actuals.install_hours,
     pricing.installHours, cb.install, bid.adders.install)
   const shopRate = labor.rate
-  const installRate = labor.rate
   const estInstallLabor = labor.estimatedInstallLabor
   const estFuel = labor.estimatedFuel
   const estTravel = cb.travel + estFuel
@@ -214,6 +213,9 @@ export default function Actuals() {
 
   const actShopLabor = labor.shopLabor
   const actInstallLabor = labor.installLabor
+  const rates = costRateBreakdown(s)
+  const laborRows = jobLaborCostRows(s, cb.shopLabor, estInstallLabor,
+    a.shop_hours == null ? null : actShopLabor, a.install_hours == null ? null : actInstallLabor)
   const actTotal =
     (rMaterials ?? 0) + actShopLabor + actInstallLabor +
     (rDelivery ?? 0) + (rTravel ?? 0) + (rSubs ?? 0) + (rOther ?? 0)
@@ -244,8 +246,8 @@ export default function Actuals() {
       <div className={showPrintPreview ? 'hidden' : 'space-y-5 print:hidden'}>
 
       <p className="text-sm text-slate-500">
-        Dollar amounts come <b>only from receipts</b> below — upload the paper and the table fills
-        itself. Hours are the two things you type. Differences show where the estimate was off.
+        Materials and other expenses come from receipts below. Enter shop and install hours;
+        labor and overhead costs calculate automatically.
         {contract == null && ' (No snapshot found — contract uses live pricing.)'}
       </p>
 
@@ -255,6 +257,15 @@ export default function Actuals() {
           count as $0 until you fill them in below.
         </p>
       )}
+
+      <section className="rounded-lg border border-slate-300 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold">Hours worked</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <HoursField label="Shop hours" estimated={cb.shopHours} actual={a.shop_hours} onSave={v => void save({ shop_hours: v })} />
+          <HoursField label="Install hours" estimated={pricing.installHours} actual={a.install_hours} onSave={v => void save({ install_hours: v })} />
+        </div>
+        <p className="mt-3 text-xs text-slate-500">{rates ? `Each recorded hour includes ${fmtMoney(rates.labor)} labor and ${fmtMoney(rates.overhead)} overhead.` : `Each recorded hour uses ${fmtMoney(shopRate)} for labor and overhead. Set their split in Settings → Overhead.`}</p>
+      </section>
 
       <div className="overflow-x-auto rounded-lg border-2 border-slate-800 bg-white">
         <table className="w-full text-sm">
@@ -268,12 +279,7 @@ export default function Actuals() {
           </thead>
           <tbody>
             <Row label="Materials ($)" est={cb.materials} actual={rMaterials} money fromReceipts />
-            <Row label={`Shop hours (× ${fmtMoney(shopRate)}/hr)`} est={cb.shopHours} actual={a.shop_hours}
-              estMoney={cb.shopLabor} actualMoney={a.shop_hours == null ? null : actShopLabor}
-              onSave={(v) => void save({ shop_hours: v })} />
-            <Row label={`Install hours (× ${fmtMoney(installRate)}/hr)`} est={pricing.installHours} actual={a.install_hours}
-              estMoney={estInstallLabor} actualMoney={a.install_hours == null ? null : actInstallLabor}
-              onSave={(v) => void save({ install_hours: v })} />
+            {laborRows.map(row => <Row key={row.label} label={row.label} est={row.estimated} actual={row.actual} money calculated />)}
             <Row label="Delivery ($)" est={cb.delivery} actual={rDelivery} money fromReceipts />
             <Row label="Travel — fuel, per diem, hotel ($)" est={estTravel} actual={rTravel} money fromReceipts />
             <Row label="Sub-contractors ($)" est={cb.subs} actual={rSubs} money fromReceipts />
@@ -322,7 +328,6 @@ export default function Actuals() {
         </table>
       </div>
 
-      <LaborOverheadBreakdown settings={s} estimated={cb.shopLabor + estInstallLabor} actual={a.shop_hours == null && a.install_hours == null ? null : actShopLabor + actInstallLabor} />
       <ReceiptsSection
         bidId={bid.id}
         receipts={receipts}
@@ -348,8 +353,7 @@ export default function Actuals() {
         <ActualsPrintSheet jobNumber={bid.job_number ?? ''} jobName={bid.name}
           rows={[
             { label: 'Materials', estimated: cb.materials, actual: rMaterials },
-            { label: 'Shop labor', estimated: cb.shopLabor, actual: a.shop_hours == null ? null : actShopLabor },
-            { label: 'Install labor', estimated: estInstallLabor, actual: a.install_hours == null ? null : actInstallLabor },
+            ...laborRows,
             { label: 'Delivery', estimated: cb.delivery, actual: rDelivery },
             { label: 'Travel — fuel, per diem, hotel', estimated: estTravel, actual: rTravel },
             { label: 'Subcontractors', estimated: cb.subs, actual: rSubs },
@@ -358,7 +362,7 @@ export default function Actuals() {
           estimatedTotal={estTotal} actualTotal={anyEntered ? actTotal : null}
           shopHours={a.shop_hours} installHours={a.install_hours} laborRate={shopRate}
           estimatedShopHours={cb.shopHours} estimatedInstallHours={pricing.installHours}
-          costSettings={s} estimatedLaborCost={cb.shopLabor + estInstallLabor}
+          costSettings={s}
           contract={contractAmount} showProfit={isAdminRole} liveContract={contract == null}
           receiptCount={receipts.length} missingAmounts={missingAmounts} notes={a.notes} />
       </div>
@@ -562,8 +566,28 @@ function ReceiptsSection({
   )
 }
 
+function HoursField({ label, estimated, actual, onSave }: {
+  label: string; estimated: number; actual: number | null; onSave: (value: number | null) => void
+}) {
+  const [draft, setDraft] = useState(actual == null ? '' : String(actual))
+  useEffect(() => setDraft(actual == null ? '' : String(actual)), [actual])
+  return <label className="block text-sm">
+    <span className="font-medium">{label}</span>
+    <input type="number" step="any" min="0" value={draft} placeholder="Not recorded"
+      onChange={event => setDraft(event.target.value)}
+      onBlur={event => {
+        if (!event.currentTarget.reportValidity()) return
+        const value = draft === '' ? null : Number(draft)
+        if (value !== actual) onSave(value)
+      }}
+      onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()}
+      className="input mt-1" />
+    <span className="mt-1 block text-xs text-slate-500">Estimated: {estimated.toFixed(1)} hrs</span>
+  </label>
+}
+
 function Row({
-  label, est, actual, money, estMoney, actualMoney, fromReceipts, onSave,
+  label, est, actual, money, estMoney, actualMoney, fromReceipts, calculated, onSave,
 }: {
   label: string
   est: number
@@ -572,6 +596,7 @@ function Row({
   estMoney?: number
   actualMoney?: number | null
   fromReceipts?: boolean
+  calculated?: boolean
   onSave?: (v: number | null) => void
 }) {
   const [draft, setDraft] = useState(actual == null ? '' : String(actual))
@@ -587,7 +612,7 @@ function Row({
         {estMoney != null && <div className="text-xs text-slate-400">{fmtMoney(estMoney)}</div>}
       </td>
       <td className="px-2 py-2 text-right">
-        {fromReceipts ? (
+        {calculated ? <span className="tabular-nums">{actual == null ? '—' : fmt(actual)}</span> : fromReceipts ? (
           <span className="tabular-nums" title="Summed from receipts below">
             {actual == null ? <span className="text-slate-300">no receipts</span> : fmt(actual)}
             {actual != null && <span className="ml-1 text-[10px] text-slate-400">▤</span>}
