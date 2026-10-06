@@ -3,7 +3,7 @@ import { actualsLaborCosts } from './actuals'
 
 describe('actuals labor costs', () => {
   it('uses the cost rate for shop and install while keeping estimated fuel separate', () => {
-    const costs = actualsLaborCosts({ cost_shop_rate: 30, install_rate: 70 }, 8, 10, 12, 900, true)
+    const costs = actualsLaborCosts({ cost_shop_rate: 30, install_rate: 70 }, 8, 10, 12, 420, true)
     expect(costs).toEqual({ rate: 30, shopLabor: 240, installLabor: 300,
       estimatedInstallLabor: 360, estimatedFuel: 60, estimatedInstallCost: 420 })
   })
