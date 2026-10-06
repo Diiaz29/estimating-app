@@ -1,4 +1,5 @@
 import { fmtMoney } from '../lib/format'
+import LaborOverheadBreakdown from './LaborOverheadBreakdown'
 
 interface CostRow { label: string; estimated: number; actual: number | null }
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
   estimatedShopHours: number; estimatedInstallHours: number
   contract: number; showProfit: boolean; liveContract: boolean
   receiptCount: number; missingAmounts: number; notes: string | null
+  costSettings?: Record<string, number>
+  estimatedLaborCost?: number
 }
 
 /** Internal job-cost document. Values come from the Actuals page's existing calculations. */
@@ -47,7 +50,8 @@ export default function ActualsPrintSheet(p: Props) {
       <div className="overflow-x-auto print:overflow-visible"><table className="w-full min-w-[520px] text-sm sm:min-w-0 print:min-w-0"><thead><tr className="border-b border-slate-900 text-left text-[11px]"><th scope="col" className="py-1">Labor</th><th scope="col" className="text-right">Estimated hours</th><th scope="col" className="text-right">Actual hours</th></tr></thead>
         <tbody>{[['Shop', p.estimatedShopHours, p.shopHours], ['Install', p.estimatedInstallHours, p.installHours]].map(([label, estimated, actual]) => <tr key={String(label)} className="border-b border-slate-100"><th scope="row" className="py-1 text-left font-normal">{label}</th><td className="text-right tabular-nums">{Number(estimated).toFixed(1)}</td><td className="text-right tabular-nums">{actual == null ? '—' : Number(actual).toFixed(1)}</td></tr>)}</tbody>
       </table></div>
-      <p className="mt-2 text-[10px] text-slate-500">Labor uses the burdened cost rate of {fmtMoney(p.laborRate)}/hr. Overhead is included in labor; no separate overhead subtraction.</p>
+      <p className="mt-2 text-[10px] text-slate-500">Labor and overhead use the combined cost rate of {fmtMoney(p.laborRate)}/hr.</p>
+      {p.costSettings && <LaborOverheadBreakdown settings={p.costSettings} estimated={p.estimatedLaborCost ?? 0} actual={p.shopHours == null && p.installHours == null ? null : ((p.shopHours ?? 0) + (p.installHours ?? 0)) * p.laborRate} />}
     </section>
     {p.showProfit && <section className="mt-5 break-inside-avoid">
       <h3 className="mb-2 text-sm font-semibold">Contract & profit</h3>

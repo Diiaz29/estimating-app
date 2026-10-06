@@ -1029,7 +1029,7 @@ export default function Estimate() {
                 value={pricing.marginPct == null ? '—' : `${(pricing.marginPct * 100).toFixed(1)}%`}
                 strong
                 tone={pricing.marginPct != null && pricing.marginPct < 0 ? 'bad' : pricing.marginPct != null && pricing.marginPct < 0.1 ? 'warn' : 'good'}
-                title={`Projected profit ${fmtMoney(pricing.profit)} (overhead allocation ${fmtMoney(pricing.overhead)} is carried by salaried labor in the cost lines)`}
+                title={`Projected profit ${fmtMoney(pricing.profit)}. Labor and overhead are included in the combined hourly cost rate.`}
               />
             </>
           )}

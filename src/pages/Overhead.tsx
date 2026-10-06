@@ -6,10 +6,11 @@ import { useAuth } from '../lib/auth'
 import type { OverheadItem, Setting } from '../lib/types'
 import { fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { annualCostAllocation, costRateBreakdown } from '../lib/costAllocation'
 
 export default function Overhead({ embedded = false, onRateApplied }: {
   embedded?: boolean
-  onRateApplied?: (rate: number) => void
+  onRateApplied?: (rate: number, share: number) => void
 } = {}) {
   const { isAdmin } = useAuth()
   const [items, setItems] = useState<OverheadItem[] | null>(null)
@@ -17,6 +18,7 @@ export default function Overhead({ embedded = false, onRateApplied }: {
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<OverheadItem | null>(null)
   const [applied, setApplied] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   async function load() {
     const [itemRes, setRes] = await Promise.all([
@@ -25,6 +27,7 @@ export default function Overhead({ embedded = false, onRateApplied }: {
     ])
     if (itemRes.error) setError(itemRes.error.message)
     else setItems(itemRes.data as OverheadItem[])
+    if (setRes.error) setError(setRes.error.message)
     if (setRes.data) {
       setSettings(Object.fromEntries((setRes.data as Setting[]).map((s) => [s.key, Number(s.value)])))
     }
@@ -45,16 +48,15 @@ export default function Overhead({ embedded = false, onRateApplied }: {
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
   if (!items) return <p className="text-sm text-slate-500">Loading…</p>
 
-  const annualTotal = items.reduce(
-    (sum, i) => sum + Number(i.amount) * (i.period === 'monthly' ? 12 : 1),
-    0,
-  )
+  const allocation = annualCostAllocation(items)
+  const annualTotal = allocation.total
   const heads = settings.overhead_heads ?? 4
   const paidHours = settings.overhead_paid_hours ?? 2080
   const utilization = settings.overhead_utilization ?? 0.7
   const billableHours = heads * paidHours * utilization
   const rate = billableHours > 0 ? annualTotal / billableHours : 0
   const currentRate = settings.cost_shop_rate ?? 0
+  const currentSplit = costRateBreakdown(settings)
 
   async function addItem() {
     const { data, error } = await supabase!
@@ -67,9 +69,11 @@ export default function Overhead({ embedded = false, onRateApplied }: {
   }
 
   async function patchItem(item: OverheadItem, fields: Partial<OverheadItem>) {
-    setItems((prev) => prev!.map((i) => (i.id === item.id ? { ...i, ...fields } : i)))
+    setBusy(true)
     const { error } = await supabase!.from('overhead_items').update(fields).eq('id', item.id)
     if (error) setError(error.message)
+    else setItems((prev) => prev!.map((i) => (i.id === item.id ? { ...i, ...fields } : i)))
+    setBusy(false)
   }
 
   async function removeItem(item: OverheadItem) {
@@ -84,11 +88,17 @@ export default function Overhead({ embedded = false, onRateApplied }: {
     if (error) setError(error.message)
   }
 
-  async function applyRate() {
-    const rounded = Math.round(rate * 100) / 100
-    await patchSetting('cost_shop_rate', rounded)
-    onRateApplied?.(rounded)
+  async function applyRate(updateCombined = false) {
+    setBusy(true)
+    const rounded = updateCombined ? Math.round(rate * 100) / 100 : currentRate
+    const rows = [{ key: 'cost_labor_share', label: 'Labor share of combined cost', group_name: 'Overhead', value: allocation.share, format: 'factor', sort_order: 40 }]
+    if (updateCombined) rows.push({ key: 'cost_shop_rate', label: 'Labor + overhead cost ($/hr)', group_name: 'Labor', value: rounded, format: 'money', sort_order: 20 })
+    const { error } = await supabase!.from('settings').upsert(rows, { onConflict: 'key' })
+    if (error) { setError(error.message); setBusy(false); return }
+    setSettings(previous => ({ ...previous, cost_shop_rate: rounded, cost_labor_share: allocation.share }))
+    onRateApplied?.(rounded, allocation.share)
     setApplied(true)
+    setBusy(false)
     setTimeout(() => setApplied(false), 3000)
   }
 
@@ -101,11 +111,10 @@ export default function Overhead({ embedded = false, onRateApplied }: {
           </Link>
         </div>}
         {embedded
-          ? <h2 className="text-lg font-semibold tracking-tight">Overhead → true cost rate</h2>
-          : <h1 className="mt-2 text-lg font-semibold tracking-tight">Overhead → true cost rate</h1>}
+          ? <h2 className="text-lg font-semibold tracking-tight">Labor and overhead</h2>
+          : <h1 className="mt-2 text-lg font-semibold tracking-tight">Labor and overhead</h1>}
         <p className="mt-1 text-sm text-slate-500">
-          List what the company really pays for a year. The app turns it into an honest cost rate
-          per shop hour.
+          Separate production payroll from company overhead. Both remain included in one combined cost rate for building and installing.
         </p>
       </div>
 
@@ -134,6 +143,7 @@ export default function Overhead({ embedded = false, onRateApplied }: {
                 key={item.id}
                 item={item}
                 first={idx === 0}
+                disabled={busy}
                 onPatch={(f) => void patchItem(item, f)}
                 onRemove={() => setRemoving(item)}
               />
@@ -144,6 +154,7 @@ export default function Overhead({ embedded = false, onRateApplied }: {
               </span>
               <span className="text-lg font-semibold tabular-nums">{fmtMoney(annualTotal)}</span>
             </div>
+            <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 px-4 py-2 text-sm"><span>Labor per year: <b>{fmtMoney(allocation.labor)}</b></span><span>Overhead per year: <b>{fmtMoney(allocation.overhead)}</b></span></div>
           </div>
         )}
       </section>
@@ -189,9 +200,16 @@ export default function Overhead({ embedded = false, onRateApplied }: {
       {/* Step 3: the rate */}
       <section>
         <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-          3 · Your true cost per shop hour
+          3 · Hourly cost breakdown
         </h2>
         <div className="rounded-lg border-2 border-slate-800 bg-white p-4">
+          <dl className="mb-4 space-y-2 text-sm">
+            <div className="flex justify-between"><dt>Applied labor rate</dt><dd className="tabular-nums">{currentSplit ? fmtMoney(currentSplit.labor) + '/hr' : 'Not allocated'}</dd></div>
+            <div className="flex justify-between"><dt>Applied overhead rate</dt><dd className="tabular-nums">{currentSplit ? fmtMoney(currentSplit.overhead) + '/hr' : 'Not allocated'}</dd></div>
+            <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold"><dt>Combined cost used by jobs</dt><dd className="tabular-nums">{fmtMoney(currentRate)}/hr</dd></div>
+          </dl>
+          <p className="mb-3 text-xs text-slate-500">Expense categories suggest {(allocation.share * 100).toFixed(1)}% labor and {((1 - allocation.share) * 100).toFixed(1)}% overhead. Save the breakdown to apply those proportions without changing the combined rate.</p>
+          <button type="button" className="index-secondary mb-4" disabled={busy || annualTotal <= 0} onClick={() => void applyRate()}>Save breakdown only</button>
           <div className="flex flex-wrap items-center gap-4">
             <div>
               <div className="text-3xl font-semibold tabular-nums">
@@ -204,26 +222,26 @@ export default function Overhead({ embedded = false, onRateApplied }: {
             </div>
             <div className="ml-auto text-right">
               <div className="text-xs text-slate-500">
-                Settings currently uses <span className="font-semibold">{fmtMoney(currentRate)}/hr</span>
+                Calculated from annual expenses and productive hours
               </div>
               {applied ? (
                 <span className="mt-1 inline-block text-sm font-medium text-emerald-600">
-                  Updated ✓ — every new estimate now uses it
+                  Saved — labor and overhead breakdown applied
                 </span>
               ) : (
                 <button
-                  onClick={() => void applyRate()}
-                  disabled={annualTotal <= 0}
+                  onClick={() => void applyRate(true)}
+                  disabled={busy || annualTotal <= 0 || billableHours <= 0}
                   className="mt-1 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
                 >
-                  Use {annualTotal > 0 ? fmtMoney(rate) : 'this'} as the shop cost rate
+                  Use calculated combined rate
                 </button>
               )}
             </div>
           </div>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          This changes the cost side (true cost, profit, margin) only. Customer prices don't move.
+          Saving the breakdown changes how costs are displayed. Using the calculated combined rate changes estimated costs and profit. Customer prices do not change.
         </p>
       </section>
 
@@ -245,11 +263,13 @@ function ItemRow({
   first,
   onPatch,
   onRemove,
+  disabled,
 }: {
   item: OverheadItem
   first: boolean
   onPatch: (fields: Partial<OverheadItem>) => void
   onRemove: () => void
+  disabled: boolean
 }) {
   const [name, setName] = useState(item.name)
   const [amount, setAmount] = useState(item.amount === 0 ? '' : String(Number(item.amount)))
@@ -257,6 +277,8 @@ function ItemRow({
   return (
     <div className={`flex flex-wrap items-center gap-2 px-4 py-2 ${first ? '' : 'border-t border-slate-100'}`}>
       <input
+        disabled={disabled}
+        aria-label={`Expense name: ${item.name || 'new cost'}`}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onBlur={() => name !== item.name && onPatch({ name })}
@@ -267,6 +289,8 @@ function ItemRow({
       <div className="flex items-center gap-1">
         <span className="text-xs text-slate-400">$</span>
         <input
+          disabled={disabled}
+          aria-label={`Amount for ${item.name || 'new cost'}`}
           type="number"
           step="any"
           min="0"
@@ -279,6 +303,7 @@ function ItemRow({
       <div className="flex gap-1">
         {(['monthly', 'yearly'] as const).map((p) => (
           <button
+            disabled={disabled}
             key={p}
             onClick={() => onPatch({ period: p })}
             className={`rounded-md border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider ${
@@ -291,10 +316,17 @@ function ItemRow({
           </button>
         ))}
       </div>
+      <label className="flex items-center gap-1 text-xs">
+        <span className="sr-only">Allocation for {item.name || 'new cost'}</span>
+        <select disabled={disabled} className="rounded border border-slate-300 px-2 py-1.5 text-sm" value={Number(item.labor_pct) === 100 ? 'labor' : !Number(item.labor_pct) ? 'overhead' : 'mixed'} onChange={e => onPatch({ labor_pct: e.target.value === 'labor' ? 100 : e.target.value === 'overhead' ? 0 : 50 })}>
+          <option value="labor">Labor</option><option value="overhead">Overhead</option><option value="mixed">Split</option>
+        </select>
+      </label>
+      {Number(item.labor_pct) > 0 && Number(item.labor_pct) < 100 && <label className="flex items-center gap-1 text-xs"><input aria-label={`Labor percentage for ${item.name}`} className="w-16 rounded border border-slate-300 px-2 py-1.5" type="number" min="0" max="100" defaultValue={item.labor_pct} onBlur={e => { const value = Number(e.target.value); if (Number.isFinite(value) && value >= 0 && value <= 100) onPatch({ labor_pct: value }) }} />% labor</label>}
       <span className="w-24 text-right text-xs text-slate-500 tabular-nums">
         {fmtMoney(Number(item.amount) * (item.period === 'monthly' ? 12 : 1))}/yr
       </span>
-      <button onClick={onRemove} className="text-slate-300 hover:text-red-600">×</button>
+      <button disabled={disabled} aria-label={`Remove ${item.name || 'cost'}`} onClick={onRemove} className="text-slate-300 hover:text-red-600">×</button>
     </div>
   )
 }

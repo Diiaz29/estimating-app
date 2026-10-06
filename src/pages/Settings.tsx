@@ -205,8 +205,9 @@ export default function Settings() {
 
   const grouped = useMemo(() => {
     const map = new Map<string, Setting[]>()
+    map.set('Company', []) // Branding remains available without the legacy percentage.
     for (const s of settings ?? []) {
-      if (s.group_name === 'Overhead') continue // lives on the Overhead page
+      if (s.group_name === 'Overhead' || s.key === 'overhead_pct') continue
       if (!map.has(s.group_name)) map.set(s.group_name, [])
       map.get(s.group_name)!.push(s)
     }
@@ -304,9 +305,9 @@ export default function Settings() {
 
         {/* Selected category */}
         <div className="min-w-0 max-w-2xl flex-1 space-y-5">
-          {active === 'Overhead' && <Overhead embedded onRateApplied={(rate) => {
-            setSettings((previous) => previous!.map((setting) => setting.key === 'cost_shop_rate' ? { ...setting, value: rate } : setting))
-            setDrafts((previous) => ({ ...previous, cost_shop_rate: String(rate) }))
+          {active === 'Overhead' && <Overhead embedded onRateApplied={(rate, share) => {
+            setSettings((previous) => previous!.map((setting) => setting.key === 'cost_shop_rate' ? { ...setting, value: rate } : setting.key === 'cost_labor_share' ? { ...setting, value: share } : setting))
+            setDrafts((previous) => ({ ...previous, cost_shop_rate: String(rate), cost_labor_share: String(share) }))
           }} />}
           {active === 'Company' && (
             <>
@@ -331,7 +332,7 @@ export default function Settings() {
               multiline={true}
             />
           )}
-          <div className={`overflow-hidden rounded-lg border-2 border-slate-800 bg-white ${active === 'Terms' || active === 'Overhead' ? 'hidden' : ''}`}>
+          <div className={`overflow-hidden rounded-lg border-2 border-slate-800 bg-white ${active === 'Terms' || active === 'Overhead' || activeItems.length === 0 ? 'hidden' : ''}`}>
             {activeItems.map((s, i) => {
               const suffix = settingSuffix(s.format)
               const isDirty = drafts[s.key]?.trim() === '' || Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format)

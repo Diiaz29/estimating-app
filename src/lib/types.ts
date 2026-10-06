@@ -234,6 +234,7 @@ export interface AreaFinishOverride {
 }
 
 export interface OverheadItem {
+  labor_pct?: number
   id: string
   name: string
   amount: number
