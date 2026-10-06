@@ -3,6 +3,8 @@ import { useUnsavedWarning } from '../lib/useSaveQueue'
 import LoadError from '../components/LoadError'
 import { validateSettingDraft } from '../lib/settingValidation'
 import Overhead from './Overhead'
+import HourlyCostRates from '../components/HourlyCostRates'
+import { writeHourlyCostRates } from '../lib/hourlyCostRates'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -183,6 +185,7 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [ratesDirty, setRatesDirty] = useState(false)
 
   useUnsavedWarning(busy || !!settings?.some(s => drafts[s.key] !== undefined && (drafts[s.key].trim() === '' || Number(drafts[s.key]) !== settingToDisplay(Number(s.value), s.format))))
 
@@ -207,7 +210,7 @@ export default function Settings() {
     const map = new Map<string, Setting[]>()
     map.set('Company', []) // Branding remains available without the legacy percentage.
     for (const s of settings ?? []) {
-      if (s.group_name === 'Overhead' || s.key === 'overhead_pct') continue
+      if (s.group_name === 'Overhead' || s.key === 'overhead_pct' || s.key === 'cost_shop_rate') continue
       if (!map.has(s.group_name)) map.set(s.group_name, [])
       map.get(s.group_name)!.push(s)
     }
@@ -255,6 +258,7 @@ export default function Settings() {
 
   const activeItems = grouped.find(([g]) => g === active)?.[1] ?? grouped[0]?.[1] ?? []
   const dirtyGroups = new Set(changed.map((s) => s.group_name))
+  if (ratesDirty) dirtyGroups.add('Labor')
 
   return (
     <div className="zaid-page zaid-settings space-y-5">
@@ -305,6 +309,17 @@ export default function Settings() {
 
         {/* Selected category */}
         <div className="min-w-0 max-w-2xl flex-1 space-y-5">
+          <div className={active === 'Labor' ? '' : 'hidden'}><HourlyCostRates
+            settings={Object.fromEntries(settings.map(row => [row.key, Number(row.value)]))} disabled={busy}
+            onDirtyChange={setRatesDirty}
+            onSave={async (labor, overhead) => {
+              setBusy(true)
+              try {
+                const { combined, share } = await writeHourlyCostRates(supabase!, labor, overhead)
+                setSettings(previous => previous!.map(row => row.key === 'cost_shop_rate' ? { ...row, value: combined } : row.key === 'cost_labor_share' ? { ...row, value: share } : row))
+                setDrafts(previous => ({ ...previous, cost_shop_rate: String(combined), cost_labor_share: String(share) }))
+              } finally { setBusy(false) }
+            }} /></div>
           {active === 'Overhead' && <Overhead embedded onRateApplied={(rate, share) => {
             setSettings((previous) => previous!.map((setting) => setting.key === 'cost_shop_rate' ? { ...setting, value: rate } : setting.key === 'cost_labor_share' ? { ...setting, value: share } : setting))
             setDrafts((previous) => ({ ...previous, cost_shop_rate: String(rate), cost_labor_share: String(share) }))

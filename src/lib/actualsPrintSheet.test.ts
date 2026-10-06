@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import ActualsPrintSheet from '../components/ActualsPrintSheet'
+import { jobLaborCostRows } from './costAllocation'
 
 const props = {
   jobNumber: 'TEST', jobName: 'Print fixture',
@@ -15,12 +16,14 @@ const props = {
 describe('actual job cost print sheet', () => {
   it('shows allocation without changing totals or inventing disabled install cost', () => {
     const report = renderToStaticMarkup(createElement(ActualsPrintSheet, {
-      ...props, costSettings: { cost_shop_rate: 30, cost_labor_share: 0.4 }, estimatedLaborCost: 60,
+      ...props, costSettings: { cost_shop_rate: 30, cost_labor_share: 0.4 },
+      rows: jobLaborCostRows({ cost_shop_rate: 30, cost_labor_share: 0.4 }, 60, 0, 0, null),
     }))
-    expect(report).toContain('Labor and overhead breakdown')
+    expect(report).toContain('Shop labor')
+    expect(report).toContain('Overhead (shop + install)')
     expect(report).toContain('$24.00')
     expect(report).toContain('$36.00')
-    expect(report).toContain('These amounts are not added again')
+    expect(report).toContain('Both are included in total cost')
   })
   it('keeps zero actuals distinct from unrecorded values', () => {
     const recorded = renderToStaticMarkup(createElement(ActualsPrintSheet, props))
