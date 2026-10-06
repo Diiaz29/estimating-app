@@ -13,6 +13,15 @@ const props = {
   receiptCount: 1, missingAmounts: 0, notes: null,
 }
 describe('actual job cost print sheet', () => {
+  it('shows allocation without changing totals or inventing disabled install cost', () => {
+    const report = renderToStaticMarkup(createElement(ActualsPrintSheet, {
+      ...props, costSettings: { cost_shop_rate: 30, cost_labor_share: 0.4 }, estimatedLaborCost: 60,
+    }))
+    expect(report).toContain('Labor and overhead breakdown')
+    expect(report).toContain('$24.00')
+    expect(report).toContain('$36.00')
+    expect(report).toContain('These amounts are not added again')
+  })
   it('keeps zero actuals distinct from unrecorded values', () => {
     const recorded = renderToStaticMarkup(createElement(ActualsPrintSheet, props))
     expect(recorded).toContain('$0.00')

@@ -9,6 +9,7 @@ import type {
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
 import { actualsLaborCosts } from '../lib/actuals'
+import LaborOverheadBreakdown from '../components/LaborOverheadBreakdown'
 import ConfirmDialog from '../components/ConfirmDialog'
 import LoadError from '../components/LoadError'
 import SaveFeedback from '../components/SaveFeedback'
@@ -321,6 +322,7 @@ export default function Actuals() {
         </table>
       </div>
 
+      <LaborOverheadBreakdown settings={s} estimated={cb.shopLabor + estInstallLabor} actual={a.shop_hours == null && a.install_hours == null ? null : actShopLabor + actInstallLabor} />
       <ReceiptsSection
         bidId={bid.id}
         receipts={receipts}
@@ -356,6 +358,7 @@ export default function Actuals() {
           estimatedTotal={estTotal} actualTotal={anyEntered ? actTotal : null}
           shopHours={a.shop_hours} installHours={a.install_hours} laborRate={shopRate}
           estimatedShopHours={cb.shopHours} estimatedInstallHours={pricing.installHours}
+          costSettings={s} estimatedLaborCost={cb.shopLabor + estInstallLabor}
           contract={contractAmount} showProfit={isAdminRole} liveContract={contract == null}
           receiptCount={receipts.length} missingAmounts={missingAmounts} notes={a.notes} />
       </div>
