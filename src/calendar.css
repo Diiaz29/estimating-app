@@ -50,8 +50,8 @@
   .team-calendar-event-body { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; padding:8px; text-align:left; color:#fff; }
   .team-calendar-event-body span,.team-calendar-event-body small { font-size:11px; line-height:1.4; }
   .team-calendar-event-body strong { font-size:13px; line-height:1.4; font-weight:600; overflow-wrap:anywhere; }
-  .team-calendar-drag { display:flex; align-items:center; justify-content:center; width:28px; flex:none; touch-action:none; cursor:grab; color:#fff; }
-  .team-calendar-drag:hover,.team-calendar-event-body:hover { background:#0002; }
+  .team-calendar-edit { display:flex; align-items:center; justify-content:center; width:28px; flex:none; cursor:pointer; color:#fff; }
+  .team-calendar-edit:hover,.team-calendar-event-body:hover { background:#0002; }
   .team-calendar :is(button,a):focus-visible { outline:2px solid var(--z-accent); outline-offset:3px; }
   .team-calendar-event button:focus-visible { outline:2px solid white; outline-offset:-3px; }
   .team-calendar-agenda { border-top:1px solid var(--z-line); }
@@ -137,8 +137,8 @@
   .team-calendar-event { background:color-mix(in srgb,var(--event-color) 48%,white); color:#172126; margin-bottom:3px; }
   .team-calendar-event-body { padding:4px 6px; color:#172126; min-height:25px; justify-content:center; }
   .team-calendar-event-body strong { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12px; font-weight:500; line-height:17px; }
-  .team-calendar-drag { color:#172126; width:20px; }
-  .team-calendar-drag svg { width:12px; height:16px; }
+  .team-calendar-edit { color:#172126; width:20px; }
+  .team-calendar-edit svg { width:12px; height:16px; }
   .team-calendar-agenda .team-calendar-event-body { min-height:44px; }
   .team-calendar-agenda .team-calendar-event-body strong { white-space:normal; }
   .team-calendar-details { margin-top:12px; }
@@ -185,4 +185,9 @@
  .team-calendar-create-actions .team-calendar-create { min-height:44px !important; margin:0; padding-inline:10px; font-size:12px; gap:6px; border-radius:8px; }
  .team-calendar-create-actions > .index-secondary { padding:8px; font-size:12px; border-radius:8px; }
  .team-calendar-form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+}
+
+@media screen {
+ .team-calendar-event-body[data-movable="true"] { touch-action:none; cursor:grab; user-select:none; }
+ .team-calendar-event-body[data-movable="true"]:active { cursor:grabbing; }
 }

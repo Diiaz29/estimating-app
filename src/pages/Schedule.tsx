@@ -146,18 +146,16 @@ export default function Schedule() {
   function eventCard(event: CalendarEvent, draggable = false) {
     const job = jobs.find(row => row.id === event.bid_id)
     return <div key={event.id} className="team-calendar-event" style={{ '--event-color': colorFor(event.bid_id) } as CSSProperties}
-      draggable={draggable && canSchedule && !busy} onDragStart={e => { e.dataTransfer.setData('text/calendar-event', event.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => setDropDay(null)}>
-      <button className="team-calendar-event-body" title={`${event.title}${job ? ` · ${job.name}` : ''}`} onClick={() => open(event)} aria-label={`${event.title}${job ? `, ${job.name}` : ''}, ${dayLabel(event.event_date)}`}>
-        <strong>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{event.kind === 'custom' ? event.title : `${EVENT_KINDS[event.kind]} · ${job?.name ?? event.title}`}</strong>
-      </button>
-      {draggable && canSchedule && <button type="button" className="team-calendar-drag" title="Drag to another day, or click to edit the date" aria-label={`Move ${event.title}`} disabled={busy}
-        onClick={() => { if (!suppressClick.current) open(event); suppressClick.current = false }}
-        onPointerDown={e => { if (e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); suppressClick.current = false; pointerDrag.current = { event, x: e.clientX, y: e.clientY, moved: false } }}
+      >
+      <button className="team-calendar-event-body" title={`${event.title}${job ? ` · ${job.name}` : ''}`} data-movable={draggable && canSchedule && !busy} onClick={e => { if (!draggable || !canSchedule || e.detail === 0) open(event) }}
+        onPointerDown={e => { if (!draggable || !canSchedule || busy || e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); suppressClick.current = false; pointerDrag.current = { event, x: e.clientX, y: e.clientY, moved: false } }}
         onPointerMove={e => { const drag = pointerDrag.current; if (!drag) return; if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; if (drag.moved) setDropDay(document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay ?? null) }}
         onPointerUp={e => { const drag = pointerDrag.current; pointerDrag.current = null; setDropDay(null); suppressClick.current = !!drag?.moved; const day = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay; if (drag?.moved && day) move(drag.event, day) }}
-        onPointerCancel={() => { pointerDrag.current = null; setDropDay(null) }}>
-        <svg width="16" height="20" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true"><circle cx="5" cy="5" r="1.5"/><circle cx="11" cy="5" r="1.5"/><circle cx="5" cy="10" r="1.5"/><circle cx="11" cy="10" r="1.5"/><circle cx="5" cy="15" r="1.5"/><circle cx="11" cy="15" r="1.5"/></svg>
-      </button>}
+        onPointerCancel={() => { pointerDrag.current = null; setDropDay(null) }}
+        aria-label={`${event.title}${job ? `, ${job.name}` : ''}, ${dayLabel(event.event_date)}`}>
+        <strong>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{event.kind === 'custom' ? event.title : `${EVENT_KINDS[event.kind]} · ${job?.name ?? event.title}`}</strong>
+      </button>
+      {draggable && canSchedule && <button type="button" className="team-calendar-edit" title="Edit event" aria-label={"Edit " + event.title + (job ? " for " + job.name : "")} disabled={busy} onClick={() => open(event)}><UiIcon name="pen" /></button>}
     </div>
   }
 
