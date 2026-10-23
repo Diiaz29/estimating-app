@@ -1,6 +1,6 @@
 import { parseDay, toDay } from './schedule'
 
-export const EVENT_KINDS = { custom: 'Event', build: 'Cabinets ready by', install: 'Install' } as const
+export const EVENT_KINDS = { custom: 'Event', build: 'Ready to ship', install: 'Install' } as const
 export type EventKind = keyof typeof EVENT_KINDS
 export interface CalendarEvent {
   id: string
