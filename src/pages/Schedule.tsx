@@ -30,6 +30,8 @@ export default function Schedule() {
   const [includeGeneral, setIncludeGeneral] = useState(true)
   const [selectedKinds, setSelectedKinds] = useState<EventKind[]>(['custom', 'build', 'install'])
   const [jobSearch, setJobSearch] = useState('')
+  const [selectedDay, setSelectedDay] = useState(() => toDay(new Date()))
+  const [filtersOpen, setFiltersOpen] = useState(() => !window.matchMedia('(max-width: 700px)').matches)
   const [editor, setEditor] = useState<CalendarEvent | null>(null)
   const [removing, setRemoving] = useState<CalendarEvent | null>(null)
   const [busy, setBusy] = useState(false)
@@ -111,10 +113,8 @@ export default function Schedule() {
     const job = jobs.find(row => row.id === event.bid_id)
     return <div key={event.id} className="team-calendar-event" style={{ '--event-color': colorFor(event.bid_id) } as CSSProperties}
       draggable={draggable && canSchedule && !busy} onDragStart={e => { e.dataTransfer.setData('text/calendar-event', event.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => setDropDay(null)}>
-      <button className="team-calendar-event-body" onClick={() => open(event)} aria-label={`${event.title}${job ? `, ${job.name}` : ''}, ${dayLabel(event.event_date)}`}>
-        <span>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{EVENT_KINDS[event.kind]}</span>
-        <strong>{event.kind === 'custom' ? event.title : job?.name ?? event.title}</strong>
-        {job && <small>{job.job_number}{event.kind === 'custom' ? ` · ${job.name}` : ''}</small>}
+      <button className="team-calendar-event-body" title={`${event.title}${job ? ` · ${job.name}` : ''}`} onClick={() => open(event)} aria-label={`${event.title}${job ? `, ${job.name}` : ''}, ${dayLabel(event.event_date)}`}>
+        <strong>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{event.kind === 'custom' ? event.title : `${EVENT_KINDS[event.kind]} · ${job?.name ?? event.title}`}</strong>
       </button>
       {draggable && canSchedule && <button type="button" className="team-calendar-drag" title="Drag to another day, or click to edit the date" aria-label={`Move ${event.title}`} disabled={busy}
         onClick={() => { if (!suppressClick.current) open(event); suppressClick.current = false }}
@@ -130,15 +130,19 @@ export default function Schedule() {
   if (loadError) return <LoadError subject="team calendar" error={loadError} retry={() => setReload(n => n + 1)} />
   if (loading) return <p>Loading calendar…</p>
   return <div className="team-calendar">
-    <header className="team-calendar-heading"><div><h1>Team calendar</h1><p>Events, ready-to-ship dates, and installation dates.</p></div>{canSchedule && <button className="index-primary" onClick={() => open(blank(toDay(new Date())))}>Add event</button>}</header>
     {preview && <p className="team-calendar-preview" role="status">Preview: try events using your real job list. Events entered here are saved only in this browser until the shared calendar is published.</p>}
     <div className="team-calendar-toolbar">
       <div className="team-calendar-month"><button className="index-secondary" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><h2>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2><button className="index-secondary" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button><button className="index-secondary" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Today</button></div>
       <div className="team-calendar-views" aria-label="Calendar view"><button className="index-secondary" aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Month</button><button className="index-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>
     </div>
     <div className="team-calendar-filter-bar">
-      <details className="team-calendar-filters" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() } }}>
-        <summary>Filter calendar{filtered && <span>Filtered</span>}<UiIcon name="down" /></summary>
+      {canSchedule && <button className="index-primary team-calendar-create" onClick={() => open(blank(selectedDay))}><span aria-hidden="true">+</span> Create event</button>}
+      <nav className="team-calendar-mini" aria-label="Choose a calendar date">
+        <div className="team-calendar-mini-heading"><strong>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</strong><button aria-label="Previous month in mini calendar" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><button aria-label="Next month in mini calendar" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button></div>
+        <div className="team-calendar-mini-grid">{['S','M','T','W','T','F','S'].map((label,index) => <span key={index}>{label}</span>)}{calendarDays(month).map(day => <button key={day} aria-label={`Choose ${dayLabel(day)}`} aria-pressed={selectedDay === day} className={`${day === toDay(new Date()) ? 'mini-today' : ''} ${day.slice(0,7) !== toDay(month).slice(0,7) ? 'mini-outside' : ''}`} onClick={() => { setSelectedDay(day); setMonth(new Date(parseDay(day).getFullYear(),parseDay(day).getMonth(),1)) }}>{parseDay(day).getDate()}</button>)}</div>
+      </nav>
+      <details open={filtersOpen} onToggle={e => setFiltersOpen(e.currentTarget.open)} className="team-calendar-filters" onKeyDown={e => { if (e.key === 'Escape') { setFiltersOpen(false); e.currentTarget.querySelector('summary')?.focus() } }}>
+        <summary>My jobs{filtered && <span>Filtered</span>}<UiIcon name="down" /></summary>
         <div className="team-calendar-filter-panel">
           <fieldset className="team-calendar-job-filter"><legend>Jobs</legend>
             <input type="search" aria-label="Search jobs to show" placeholder="Search job name or number" value={jobSearch} onChange={e => setJobSearch(e.target.value)} />
@@ -151,7 +155,6 @@ export default function Schedule() {
           <div className="team-calendar-event-filters"><fieldset><legend>Event types</legend>{(Object.keys(EVENT_KINDS) as EventKind[]).map(kind => <label key={kind}><input type="checkbox" checked={selectedKinds.includes(kind)} onChange={e => { const checked = e.target.checked; setSelectedKinds(previous => checked ? [...previous, kind] : previous.filter(value => value !== kind)) }} />{kind === 'custom' ? 'Custom events' : EVENT_KINDS[kind]}</label>)}</fieldset>
             <fieldset><legend>General events</legend><label><input type="checkbox" checked={includeGeneral} onChange={e => setIncludeGeneral(e.target.checked)} />Include events without a job</label></fieldset>
           </div>
-          <div className="team-calendar-filter-footer"><span>Changes apply immediately.</span><button className="index-secondary" type="button" onClick={e => { const details = e.currentTarget.closest('details'); if (details) { details.open = false; details.querySelector('summary')?.focus() } }}>Done</button></div>
         </div>
       </details>
       <div className="team-calendar-filter-summary"><span>{filterSummary}</span>{filtered && <button type="button" onClick={resetFilters}>Reset filters</button>}</div>
@@ -162,7 +165,7 @@ export default function Schedule() {
     <p className="sr-only" role="status">{notice}</p>
     {view === 'calendar' ? <div className="team-calendar-scroll"><div className="team-calendar-grid">
       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div className="team-calendar-weekday" key={day}>{day}</div>)}
-      {calendarDays(month).map(day => <section key={day} aria-label={dayLabel(day)} data-calendar-day={day} className={`team-calendar-day${day.slice(0, 7) !== toDay(month).slice(0, 7) ? ' outside-month' : ''}${day === toDay(new Date()) ? ' is-today' : ''}${dropDay === day ? ' is-drop-target' : ''}`}
+      {calendarDays(month).map(day => <section key={day} aria-label={dayLabel(day)} data-calendar-day={day} className={`team-calendar-day${day.slice(0, 7) !== toDay(month).slice(0, 7) ? ' outside-month' : ''}${day === toDay(new Date()) ? ' is-today' : ''}${day === selectedDay ? ' is-selected-day' : ''}${dropDay === day ? ' is-drop-target' : ''}`}
         onDragOver={e => { if (canSchedule && !busy && e.dataTransfer.types.includes('text/calendar-event')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropDay(day) } }}
         onDrop={e => { e.preventDefault(); const event = events.find(row => row.id === e.dataTransfer.getData('text/calendar-event')); if (event && canSchedule && !busy) move(event, day) }}>
         <button className="team-calendar-day-number" disabled={!canSchedule || busy} aria-label={`Add event on ${dayLabel(day)}`} onClick={() => open(blank(day))}><time dateTime={day}>{parseDay(day).getDate()}</time><span aria-hidden="true">+</span></button>

@@ -28,7 +28,7 @@ const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/bids': 'Your bids',
   '/jobs': 'Jobs',
-  '/schedule': 'Production schedule',
+  '/schedule': 'Calendar',
   '/time': 'Time',
   '/receipts': 'Receipts',
   '/contractors': 'Contractors & clients',
@@ -90,7 +90,7 @@ export default function Layout() {
     }
   }
   // the plan room wants every pixel of a big monitor
-  const fullWidth = pathname.endsWith('/plans/room')
+  const fullWidth = pathname.endsWith('/plans/room') || pathname === '/schedule'
 
   // phone tab strip: keep the active tab in view
   const tabStrip = useRef<HTMLElement>(null)
