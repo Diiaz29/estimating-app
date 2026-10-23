@@ -28,3 +28,21 @@ describe('team calendar', () => {
     expect(rows[0].id).toBe('late')
   })
 })
+
+import { eventOnDay, moveEventRange } from './calendar'
+describe('multi-day events', () => {
+  const range = { ...event, event_date: '2026-10-30', end_date: '2026-11-03' }
+  it('includes both endpoints and spans months without creating separate records', () => {
+    expect(['2026-10-29','2026-10-30','2026-11-01','2026-11-03','2026-11-04'].map(day => eventOnDay(range, day))).toEqual([false,true,true,true,false])
+    expect(eventOnDay(event, event.event_date)).toBe(true)
+    expect(eventValidation({...range,end_date:'2026-10-29'})).not.toBeNull()
+  })
+  it('moves the entire range relative to the occurrence dragged, preserving its identity', () => {
+    const moved = moveEventRange(range, '2026-11-01', '2026-11-05')
+    expect(moved).toMatchObject({id:range.id,event_date:'2026-11-03',end_date:'2026-11-07'})
+    expect(range.event_date).toBe('2026-10-30')
+  })
+  it('preserves calendar duration across daylight saving boundaries', () => {
+    expect(moveEventRange({...event,event_date:'2026-03-07',end_date:'2026-03-10'}, '2026-03-08','2026-03-09')).toMatchObject({event_date:'2026-03-08',end_date:'2026-03-11'})
+  })
+})

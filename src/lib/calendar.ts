@@ -7,6 +7,7 @@ export interface CalendarEvent {
   bid_id: string | null
   kind: EventKind
   title: string
+  end_date?: string
   event_date: string
   event_time: string | null
   notes: string
@@ -26,6 +27,9 @@ export function calendarDays(month: Date): string[] {
 export function eventValidation(event: CalendarEvent): string | null {
   if (!event.title.trim()) return 'Enter an event name.'
   if (!/^\d{4}-\d{2}-\d{2}$/.test(event.event_date) || toDay(parseDay(event.event_date)) !== event.event_date) return 'Choose a valid date.'
+  const end = event.end_date ?? event.event_date
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || toDay(parseDay(end)) !== end) return 'Choose a valid end date.'
+  if (end < event.event_date) return 'End date must be on or after the start date.'
   if (event.kind !== 'custom' && !event.bid_id) return 'Choose a job for this date.'
   if (event.event_time && !/^([01]\d|2[0-3]):[0-5]\d(:00)?$/.test(event.event_time)) return 'Choose a valid time.'
   return null
@@ -33,4 +37,15 @@ export function eventValidation(event: CalendarEvent): string | null {
 
 export function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
   return [...events].sort((a, b) => a.event_date.localeCompare(b.event_date) || (a.event_time ?? '').localeCompare(b.event_time ?? '') || a.title.localeCompare(b.title))
+}
+
+export function eventOnDay(event: CalendarEvent, day: string): boolean {
+  return event.event_date <= day && (event.end_date ?? event.event_date) >= day
+}
+
+export function moveEventRange(event: CalendarEvent, fromDay: string, to: string): CalendarEvent {
+  const ordinal = (day: string) => { const [y,m,d] = day.split('-').map(Number); return Date.UTC(y,m-1,d) / 86400000 }
+  const delta = ordinal(to) - ordinal(fromDay)
+  const shift = (day: string) => { const date = parseDay(day); date.setDate(date.getDate() + delta); return toDay(date) }
+  return { ...event, event_date: shift(event.event_date), end_date: shift(event.end_date ?? event.event_date) }
 }
