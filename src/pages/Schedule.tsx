@@ -157,7 +157,7 @@ export default function Schedule() {
         onPointerUp={e => { const drag = pointerDrag.current; pointerDrag.current = null; setDropDay(null); suppressClick.current = !!drag?.moved; const day = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay; if (drag?.moved && day) move(drag.event, day, drag.day) }}
         onPointerCancel={() => { pointerDrag.current = null; setDropDay(null) }}
         aria-label={`${event.title}${job ? `, ${job.name}` : ''}, ${dayLabel(occurrenceDay)}`}>
-        <strong>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{event.kind === 'custom' ? event.title : `${EVENT_KINDS[event.kind]} · ${job?.name ?? event.title}`}</strong>
+        <strong>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{event.kind === 'custom' ? event.title + (job ? ' - ' + job.name : '') : `${EVENT_KINDS[event.kind]} · ${job?.name ?? event.title}`}</strong>
       </button>
       {draggable && canSchedule && <button type="button" className="team-calendar-edit" title="Edit event" aria-label={"Edit " + event.title + (job ? " for " + job.name : "")} disabled={busy} onClick={() => open(event)}><UiIcon name="pen" /></button>}
     </div>
