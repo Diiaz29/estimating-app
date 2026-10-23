@@ -19,7 +19,7 @@
   .team-calendar-filter-panel legend { font-size:14px; font-weight:600; margin-bottom:8px; }
   .team-calendar-job-filter > input { width:100%; min-height:44px; border:1px solid var(--z-control); border-radius:4px; padding:10px; font-size:16px; background:var(--z-paper); color:var(--z-ink); }
   .team-calendar-filter-actions { display:flex; gap:20px; }
-  .team-calendar-filter-actions button,.team-calendar-filter-summary button { min-height:44px; font-size:13px; text-decoration:underline; text-underline-offset:3px; }
+  .team-calendar-filter-summary button { min-height:44px; font-size:13px; text-decoration:underline; text-underline-offset:3px; }
   .team-calendar-job-options { max-height:264px; overflow-y:auto; overscroll-behavior:contain; }
   .team-calendar-filter-panel label { display:flex; align-items:center; gap:10px; min-height:44px; padding:8px 4px; cursor:pointer; font-size:14px; }
   .team-calendar-filter-panel input[type="checkbox"] { flex:none; width:18px; height:18px; accent-color:var(--z-accent); }
@@ -111,7 +111,8 @@
   .team-calendar-filter-panel { display:block; padding:0; border:0; background:transparent; margin-top:8px; }
   .team-calendar-job-filter > legend { display:none; }
   .team-calendar-job-filter > input { background:var(--z-soft); font-size:13px; }
-  .team-calendar-filter-actions { gap:16px; }
+  .team-calendar-filter-actions { margin-top:8px; }
+  .team-calendar-filter-actions .index-secondary { width:100%; white-space:nowrap; }
   .team-calendar-job-options { max-height:320px; }
   .team-calendar-filter-panel label { gap:8px; min-height:40px; padding-block:6px; font-size:13px; }
   .team-calendar-job-options strong { font-size:12px; font-weight:400; }

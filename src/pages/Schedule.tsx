@@ -146,11 +146,11 @@ export default function Schedule() {
         <div className="team-calendar-filter-panel">
           <fieldset className="team-calendar-job-filter"><legend>Jobs</legend>
             <input type="search" aria-label="Search jobs to show" placeholder="Search job name or number" value={jobSearch} onChange={e => setJobSearch(e.target.value)} />
-            <div className="team-calendar-filter-actions"><span>No jobs checked shows all events.</span><button type="button" onClick={() => setSelectedJobs([])} disabled={selectedJobs.length === 0}>Clear selection</button></div>
             <div className="team-calendar-job-options">
               {matchingJobs.map(job => <label key={job.id}><input type="checkbox" checked={selectedJobs.includes(job.id)} onChange={e => { const checked = e.target.checked; setSelectedJobs(previous => { const ids = previous; return checked ? [...new Set([...ids, job.id])] : ids.filter(id => id !== job.id) }) }} /><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" /><span><strong>{job.name}</strong><small>{job.job_number}{job.completed_at ? ' · Completed' : ''}</small></span></label>)}
               {!matchingJobs.length && <p>No jobs match “{jobSearch}”.</p>}
             </div>
+            <div className="team-calendar-filter-actions"><button className="index-secondary" type="button" onClick={() => setSelectedJobs([])} disabled={selectedJobs.length === 0}>Clear selection</button></div>
           </fieldset>
           <div className="team-calendar-event-filters"><fieldset><legend>Event types</legend>{(Object.keys(EVENT_KINDS) as EventKind[]).map(kind => <label key={kind}><input type="checkbox" checked={selectedKinds.includes(kind)} onChange={e => { const checked = e.target.checked; setSelectedKinds(previous => checked ? [...previous, kind] : previous.filter(value => value !== kind)) }} />{kind === 'custom' ? 'Custom events' : EVENT_KINDS[kind]}</label>)}</fieldset>
             <fieldset><legend>General events</legend><label><input type="checkbox" checked={includeGeneral} onChange={e => setIncludeGeneral(e.target.checked)} />Include events without a job</label></fieldset>
