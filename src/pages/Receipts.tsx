@@ -541,12 +541,11 @@ export default function Receipts() {
     if (!reconciles) return null
     const saving = quickBooks.pending.has(r.id)
     return (
-      <label className="order-6 flex min-h-11 cursor-pointer items-center gap-2 text-xs print:hidden" title="Personal to your account; does not send anything to QuickBooks">
+      <label className="order-6 flex min-h-11 min-w-8 cursor-pointer items-center justify-center print:hidden" title={saving ? 'Saving…' : 'Recorded in QuickBooks — personal to your account'}>
         <input type="checkbox" className="h-4 w-4 accent-slate-900"
           aria-label={`Recorded in QuickBooks: ${r.note || r.receipt_date || r.id}`}
           checked={quickBooks.marks.has(r.id)} disabled={quickBooks.loading || saving || !!quickBooks.error}
           onChange={event => void quickBooks.toggle(r.id, event.target.checked)} />
-        <span>{saving ? 'Saving…' : 'Recorded in QuickBooks'}</span>
       </label>
     )
   }
