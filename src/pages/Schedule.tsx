@@ -1,242 +1,162 @@
-import UiIcon from '../components/UiIcon'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import type { Bid } from '../lib/types'
-import type { JobTask } from '../lib/schedule'
-import { completionDate, isWorkday, parseDay, toDay } from '../lib/schedule'
+import { parseDay, toDay } from '../lib/schedule'
+import { calendarDays, EVENT_KINDS, eventValidation, JOB_COLORS, sortEvents } from '../lib/calendar'
+import type { CalendarEvent, EventKind } from '../lib/calendar'
+import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import LoadError from '../components/LoadError'
-import { requireLoaded, errorMessage } from '../lib/loadResults'
+import UiIcon from '../components/UiIcon'
+import '../calendar.css'
 
-// one color per job, cycled
-const JOB_COLORS = [
-  'bg-blue-600', 'bg-emerald-600', 'bg-amber-500', 'bg-violet-600',
-  'bg-rose-600', 'bg-cyan-600', 'bg-lime-600', 'bg-fuchsia-600',
-]
-
-interface Span {
-  task: JobTask
-  job: Bid
-  color: string
-  start: Date
-  finish: Date
-}
+const blank = (day: string): CalendarEvent => ({ id: crypto.randomUUID(), bid_id: null, kind: 'custom', title: '', event_date: day, event_time: null, notes: '' })
+const dayLabel = (day: string) => parseDay(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
 export default function Schedule() {
-  const [jobs, setJobs] = useState<Bid[] | null>(null)
-  const [tasks, setTasks] = useState<JobTask[]>([])
-  const [holidays, setHolidays] = useState<Map<string, string | null>>(new Map())
-  const [month, setMonth] = useState(() => {
-    const d = new Date()
-    return new Date(d.getFullYear(), d.getMonth(), 1)
-  })
-  const [error, setError] = useState<string | null>(null)
+  const { canSchedule, session } = useAuth()
+  const [jobs, setJobs] = useState<Bid[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
+  const [preview, setPreview] = useState(false)
+  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  const [view, setView] = useState<'calendar' | 'list'>(() => window.matchMedia('(max-width: 640px)').matches ? 'list' : 'calendar')
+  const [filter, setFilter] = useState('')
+  const [editor, setEditor] = useState<CalendarEvent | null>(null)
+  const [removing, setRemoving] = useState<CalendarEvent | null>(null)
+  const [busy, setBusy] = useState(false)
+  const saving = useRef(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
+  const [dropDay, setDropDay] = useState<string | null>(null)
+  const pointerDrag = useRef<{ event: CalendarEvent; x: number; y: number; moved: boolean } | null>(null)
+  const suppressClick = useRef(false)
+  const previewKey = `spoton-calendar-preview:${session?.user.id ?? 'signed-out'}`
 
   useEffect(() => {
     let cancelled = false
-    setError(null)
-    setJobs(null)
-    ;(async () => {
+    setLoading(true)
+    setLoadError(null)
+    void (async () => {
       try {
-        const [jobRes, holRes] = await Promise.all([
+        const [jobRes, eventRes] = await Promise.all([
           supabase!.from('bids').select('*').eq('status', 'won').order('created_at'),
-          supabase!.from('holidays').select('day, name'),
+          supabase!.from('calendar_events').select('id,bid_id,kind,title,event_date,event_time,notes').is('deleted_at', null).order('event_date'),
         ])
-        requireLoaded({ Jobs: jobRes, Holidays: holRes })
+        if (jobRes.error) throw jobRes.error
+        const localPreview = import.meta.env.DEV && ['PGRST205', '42P01'].includes(eventRes.error?.code ?? '')
+        if (eventRes.error && !localPreview) throw eventRes.error
+        let rows = (eventRes.data ?? []) as CalendarEvent[]
+        if (localPreview) {
+          const stored = localStorage.getItem(previewKey)
+          rows = stored ? JSON.parse(stored) as CalendarEvent[] : []
+        }
         if (cancelled) return
-        const jobRows = jobRes.data as Bid[]
-        setHolidays(new Map(((holRes.data ?? []) as { day: string; name: string | null }[]).map((h) => [h.day, h.name])))
-        if (jobRows.length > 0) {
-          const { data, error } = await supabase!
-            .from('job_tasks')
-            .select('*')
-            .in('bid_id', jobRows.map((j) => j.id))
-            .order('sort_order')
-          requireLoaded({ Tasks: { error } })
-          if (cancelled) return
-          setTasks((data ?? []) as JobTask[])
-        } else { setTasks([]) }
-        setJobs(jobRows)
-      } catch (error) { if (!cancelled) setError(errorMessage(error)) }
+        setJobs(jobRes.data as Bid[])
+        setPreview(localPreview)
+        setEvents(rows)
+      } catch (e) { if (!cancelled) setLoadError((e as { message?: string }).message ?? 'Could not load the calendar.') }
+      finally { if (!cancelled) setLoading(false) }
     })()
     return () => { cancelled = true }
-  }, [reload])
+  }, [reload, previewKey])
 
-  const spans: Span[] = useMemo(() => {
-    if (!jobs) return []
-    const holidaySet = new Set(holidays.keys())
-    const colorFor = new Map(jobs.map((j, i) => [j.id, JOB_COLORS[i % JOB_COLORS.length]]))
-    const jobById = new Map(jobs.map((j) => [j.id, j]))
-    return tasks
-      .filter((t) => t.start_date)
-      .map((t) => {
-        const start = parseDay(t.start_date!)
-        return {
-          task: t,
-          job: jobById.get(t.bid_id)!,
-          color: colorFor.get(t.bid_id)!,
-          start,
-          finish: completionDate(start, Number(t.business_days), holidaySet),
-        }
-      })
-  }, [jobs, tasks, holidays])
+  const colorFor = (id: string | null) => id && jobs.some(job => job.id === id) ? JOB_COLORS[jobs.findIndex(job => job.id === id) % JOB_COLORS.length] : '#534741'
+  const visible = sortEvents(events.filter(event => !filter || event.bid_id === filter))
+  const monthEvents = visible.filter(event => event.event_date.slice(0, 7) === toDay(month).slice(0, 7))
 
-  if (error)
-    return <LoadError subject="production schedule" error={error} retry={() => setReload(n => n + 1)} />
-  if (!jobs) return <p className="text-sm text-slate-500">Loading…</p>
+  async function persist(event: CalendarEvent, remove = false) {
+    if (!canSchedule || saving.current) return
+    const validation = !remove && eventValidation(event)
+    if (validation) { setError(validation); return }
+    saving.current = true
+    setBusy(true)
+    setError(null)
+    const clean = { ...event, title: event.title.trim(), notes: event.notes.trim() }
+    try {
+      if (!preview) {
+        const result = remove
+          ? await supabase!.from('calendar_events').update({ deleted_at: new Date().toISOString() }).eq('id', event.id).select('id').single()
+          : await supabase!.from('calendar_events').upsert(clean).select('id').single()
+        if (result.error) throw result.error
+      }
+      const next = remove ? events.filter(row => row.id !== event.id) : [...events.filter(row => row.id !== event.id), clean]
+      if (preview) localStorage.setItem(previewKey, JSON.stringify(next))
+      setEvents(next)
+      setEditor(null)
+      setRemoving(null)
+      setNotice(remove ? 'Event removed.' : `${clean.title} saved for ${dayLabel(clean.event_date)}.`)
+    } catch (e) { setError((e as { message?: string }).message ?? 'Could not save. Please try again.') }
+    finally { saving.current = false; setBusy(false) }
+  }
 
-  // calendar grid: weeks covering this month, Sunday-first
-  const gridStart = new Date(month)
-  gridStart.setDate(1 - gridStart.getDay())
-  const cells: Date[] = []
-  const d = new Date(gridStart)
-  do {
-    for (let i = 0; i < 7; i++) {
-      cells.push(new Date(d))
-      d.setDate(d.getDate() + 1)
-    }
-  } while (d.getMonth() === month.getMonth())
-
-  const todayKey = toDay(new Date())
-  const activeJobs = jobs.filter((j) => spans.some((s) => s.job.id === j.id))
-  const jobsWithout = jobs.filter((j) => !spans.some((s) => s.job.id === j.id))
-  const colorFor = new Map(jobs.map((j, i) => [j.id, JOB_COLORS[i % JOB_COLORS.length]]))
-
-  return (
-    <div className="zaid-page zaid-schedule space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Production schedule</h1>
-          <p className="mt-0.5 text-sm text-slate-500">All jobs together. Click a task to open its job's schedule.</p>
-        </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            aria-label="Previous month"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-          >
-            <UiIcon name="left" />
-          </button>
-          <button
-            onClick={() => {
-              const n = new Date()
-              setMonth(new Date(n.getFullYear(), n.getMonth(), 1))
-            }}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-          >
-            Today
-          </button>
-          <button
-            aria-label="Next month"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-          >
-            <UiIcon name="right" />
-          </button>
-          <span className="ml-2 w-40 text-right text-base font-semibold tabular-nums">
-            {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-          </span>
-        </div>
-      </div>
-
-      {/* legend */}
-      {activeJobs.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {activeJobs.map((j) => (
-            <Link
-              key={j.id}
-              to={`/bids/${j.id}/schedule`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-slate-800"
-            >
-              <span className={`h-2.5 w-2.5 rounded-full ${colorFor.get(j.id)}`} />
-              {j.job_number} · {j.name}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* calendar */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[56rem] overflow-hidden rounded-lg border-2 border-slate-800 bg-white">
-          <div className="grid grid-cols-7 border-b-2 border-slate-800 bg-slate-100 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((w) => (
-              <div key={w} className="px-2 py-1.5">{w}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {cells.map((day, i) => {
-              const key = toDay(day)
-              const inMonth = day.getMonth() === month.getMonth()
-              const weekend = day.getDay() === 0 || day.getDay() === 6
-              const holidayName = holidays.has(key) ? (holidays.get(key) ?? 'Holiday') : null
-              // tasks only occupy working days — no bars on weekends or holidays
-              const workday = isWorkday(day, new Set(holidays.keys()))
-              const dayTasks = workday ? spans.filter((s) => day >= s.start && day <= s.finish) : []
-              const expanded = expandedDays.has(key)
-              const shown = expanded ? dayTasks : dayTasks.slice(0, 4)
-              const dayLabel = day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-              return (
-                <div
-                  key={i}
-                  role="group"
-                  aria-label={`${dayLabel}${holidayName ? ` — ${holidayName}` : ''}`}
-                  className={`min-h-24 border-b border-r border-slate-100 p-1 ${
-                    !inMonth ? 'bg-slate-50 opacity-50' : weekend || holidayName ? 'bg-slate-50' : ''
-                  } ${key === todayKey ? 'ring-2 ring-inset ring-red-400' : ''}`}
-                >
-                  <div className="flex items-baseline justify-between px-0.5">
-                    <span className={`text-xs tabular-nums ${key === todayKey ? 'font-bold text-red-600' : 'text-slate-400'}`}>
-                      {day.getDate()}
-                    </span>
-                    {holidayName && (
-                      <span className="truncate font-mono text-[9px] uppercase text-amber-600">{holidayName}</span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 space-y-0.5">
-                    {shown.map((s) => (
-                      <Link
-                        key={s.task.id}
-                        to={`/bids/${s.job.id}/schedule`}
-                        title={`${s.job.job_number} — ${s.job.name} — ${s.task.name}`}
-                        aria-label={`${s.job.job_number} — ${s.job.name}: ${s.task.name}, ${dayLabel}${s.task.done ? ', completed' : ''}`}
-                        className={`block truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight text-white ${s.color} ${
-                          s.task.done ? 'opacity-40 line-through' : ''
-                        }`}
-                      >
-                        {s.job.job_number} · {s.task.name}
-                      </Link>
-                    ))}
-                    {dayTasks.length > 4 && (
-                      <button className="schedule-day-more" aria-expanded={expanded} aria-label={`${expanded ? 'Show fewer tasks' : `Show all ${dayTasks.length} tasks`} for ${dayLabel}`} onClick={() => setExpandedDays(previous => { const next = new Set(previous); if (expanded) next.delete(key); else next.add(key); return next })}>{expanded ? 'Show fewer' : `+${dayTasks.length - shown.length} more`}</button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {jobsWithout.length > 0 && (
-        <section>
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-widest text-slate-500">
-            Jobs with no schedule yet
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {jobsWithout.map((j) => (
-              <Link
-                key={j.id}
-                to={`/bids/${j.id}/schedule`}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-slate-800"
-              >
-                {j.job_number} · {j.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+  function open(event: CalendarEvent) { if (!busy) { setError(null); setEditor({ ...event }) } }
+  function move(event: CalendarEvent, day: string) {
+    setDropDay(null)
+    if (day !== event.event_date) void persist({ ...event, event_date: day })
+  }
+  function eventCard(event: CalendarEvent, draggable = false) {
+    const job = jobs.find(row => row.id === event.bid_id)
+    return <div key={event.id} className="team-calendar-event" style={{ '--event-color': colorFor(event.bid_id) } as CSSProperties}
+      draggable={draggable && canSchedule && !busy} onDragStart={e => { e.dataTransfer.setData('text/calendar-event', event.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => setDropDay(null)}>
+      <button className="team-calendar-event-body" onClick={() => open(event)} aria-label={`${event.title}${job ? `, ${job.name}` : ''}, ${dayLabel(event.event_date)}`}>
+        <span>{event.event_time ? `${event.event_time.slice(0, 5)} · ` : ''}{EVENT_KINDS[event.kind]}</span>
+        <strong>{event.kind === 'custom' ? event.title : job?.name ?? event.title}</strong>
+        {job && <small>{job.job_number}{event.kind === 'custom' ? ` · ${job.name}` : ''}</small>}
+      </button>
+      {draggable && canSchedule && <button type="button" className="team-calendar-drag" title="Drag to another day, or click to edit the date" aria-label={`Move ${event.title}`} disabled={busy}
+        onClick={() => { if (!suppressClick.current) open(event); suppressClick.current = false }}
+        onPointerDown={e => { if (e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); suppressClick.current = false; pointerDrag.current = { event, x: e.clientX, y: e.clientY, moved: false } }}
+        onPointerMove={e => { const drag = pointerDrag.current; if (!drag) return; if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; if (drag.moved) setDropDay(document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay ?? null) }}
+        onPointerUp={e => { const drag = pointerDrag.current; pointerDrag.current = null; setDropDay(null); suppressClick.current = !!drag?.moved; const day = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay; if (drag?.moved && day) move(drag.event, day) }}
+        onPointerCancel={() => { pointerDrag.current = null; setDropDay(null) }}>
+        <svg width="16" height="20" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true"><circle cx="5" cy="5" r="1.5"/><circle cx="11" cy="5" r="1.5"/><circle cx="5" cy="10" r="1.5"/><circle cx="11" cy="10" r="1.5"/><circle cx="5" cy="15" r="1.5"/><circle cx="11" cy="15" r="1.5"/></svg>
+      </button>}
     </div>
-  )
+  }
+
+  if (loadError) return <LoadError subject="team calendar" error={loadError} retry={() => setReload(n => n + 1)} />
+  if (loading) return <p>Loading calendar…</p>
+  return <div className="team-calendar">
+    <header className="team-calendar-heading"><div><h1>Team calendar</h1><p>Events, cabinet deadlines, and installation dates.</p></div>{canSchedule && <button className="index-primary" onClick={() => open(blank(toDay(new Date())))}>Add event</button>}</header>
+    {preview && <p className="team-calendar-preview" role="status">Preview: try events using your real job list. Events entered here are saved only in this browser until the shared calendar is published.</p>}
+    <div className="team-calendar-toolbar">
+      <div className="team-calendar-month"><button className="index-secondary" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><h2>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2><button className="index-secondary" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button><button className="index-secondary" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Today</button></div>
+      <div className="team-calendar-views" aria-label="Calendar view"><button className="index-secondary" aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Month</button><button className="index-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>
+    </div>
+    <div className="team-calendar-legend" aria-label="Filter by job"><button className="index-secondary" aria-pressed={!filter} onClick={() => setFilter('')}>All events</button>{jobs.filter(job => !job.completed_at || events.some(event => event.bid_id === job.id)).map(job => <button key={job.id} aria-pressed={filter === job.id} onClick={() => setFilter(filter === job.id ? '' : job.id)}><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" />{job.job_number} · {job.name}</button>)}</div>
+    {error && !editor && <p className="team-calendar-error" role="alert">{error}</p>}
+    <p className="team-calendar-hint">{canSchedule ? 'Click a date to add an event. Drag an event to move it, or open it to choose a date.' : 'Open an event to see its details. Your account has view-only access.'}</p>
+    <p className="sr-only" role="status">{notice}</p>
+    {view === 'calendar' ? <div className="team-calendar-scroll"><div className="team-calendar-grid">
+      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div className="team-calendar-weekday" key={day}>{day}</div>)}
+      {calendarDays(month).map(day => <section key={day} aria-label={dayLabel(day)} data-calendar-day={day} className={`team-calendar-day${day.slice(0, 7) !== toDay(month).slice(0, 7) ? ' outside-month' : ''}${day === toDay(new Date()) ? ' is-today' : ''}${dropDay === day ? ' is-drop-target' : ''}`}
+        onDragOver={e => { if (canSchedule && !busy && e.dataTransfer.types.includes('text/calendar-event')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropDay(day) } }}
+        onDrop={e => { e.preventDefault(); const event = events.find(row => row.id === e.dataTransfer.getData('text/calendar-event')); if (event && canSchedule && !busy) move(event, day) }}>
+        <button className="team-calendar-day-number" disabled={!canSchedule || busy} aria-label={`Add event on ${dayLabel(day)}`} onClick={() => open(blank(day))}><time dateTime={day}>{parseDay(day).getDate()}</time><span aria-hidden="true">+</span></button>
+        {visible.filter(event => event.event_date === day).map(event => eventCard(event, true))}
+      </section>)}
+    </div></div> : <div className="team-calendar-agenda">{monthEvents.length ? [...new Set(monthEvents.map(event => event.event_date))].map(day => <section key={day}><h3>{parseDay(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</h3><div>{monthEvents.filter(event => event.event_date === day).map(event => eventCard(event))}</div></section>) : <div className="team-calendar-empty"><h3>No events this month</h3><p>Add a cabinet deadline, an installation, or your own event.</p>{canSchedule && <button className="index-secondary" onClick={() => open(blank(toDay(month)))}>Add event</button>}</div>}</div>}
+    <details className="team-calendar-details"><summary>Detailed job schedules</summary><p>Existing production tasks are kept here, separate from your calendar dates.</p>{jobs.map(job => <Link key={job.id} to={`/bids/${job.id}/schedule`}>{job.job_number} · {job.name}</Link>)}</details>
+    {editor && <Modal title={events.some(event => event.id === editor.id) ? 'Event details' : 'Add event'} onClose={() => { if (!busy) setEditor(null) }} className="team-calendar-modal">
+      <form onSubmit={e => { e.preventDefault(); void persist(editor) }}>
+        <fieldset disabled={busy || !canSchedule}>
+          <label>Type<select value={editor.kind} onChange={e => { const kind = e.target.value as EventKind; setEditor({ ...editor, kind, title: kind === 'custom' ? '' : EVENT_KINDS[kind] }) }}><option value="custom">Custom event</option><option value="build">Cabinets ready by</option><option value="install">Install date</option></select></label>
+          <label>Job {editor.kind === 'custom' && <span>(optional)</span>}<select required={editor.kind !== 'custom'} value={editor.bid_id ?? ''} onChange={e => setEditor({ ...editor, bid_id: e.target.value || null })}><option value="">{editor.kind === 'custom' ? 'No job — general event' : 'Choose a job'}</option>{jobs.map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.name}{job.completed_at ? ' (completed)' : ''}</option>)}</select></label>
+          <label>Event name<input required maxLength={200} value={editor.title} onChange={e => setEditor({ ...editor, title: e.target.value })} placeholder="Delivery, site visit, team meeting…" /></label>
+          <div className="team-calendar-date-fields"><label>Date<input type="date" required value={editor.event_date} onInput={e => setEditor({ ...editor, event_date: e.currentTarget.value })} onChange={e => setEditor({ ...editor, event_date: e.target.value })} /></label><label>Time <span>(optional)</span><input type="time" value={editor.event_time?.slice(0, 5) ?? ''} onInput={e => setEditor({ ...editor, event_time: e.currentTarget.value || null })} onChange={e => setEditor({ ...editor, event_time: e.target.value || null })} /></label></div>
+          <label>Notes <span>(optional)</span><textarea rows={3} maxLength={4000} value={editor.notes} onChange={e => setEditor({ ...editor, notes: e.target.value })} /></label>
+        </fieldset>
+        {editor.bid_id && <p className="team-calendar-job-color"><i style={{ backgroundColor: colorFor(editor.bid_id) }} />Matches this job’s color on the calendar.</p>}
+        {error && <p className="team-calendar-error" role="alert">{error}</p>}
+        <div className="app-modal-actions">{canSchedule && events.some(event => event.id === editor.id) && <button type="button" className="modal-danger" disabled={busy} onClick={() => { setRemoving(editor); setEditor(null) }}>Remove event</button>}<button type="button" className="index-secondary" disabled={busy} onClick={() => setEditor(null)}>{canSchedule ? 'Cancel' : 'Close'}</button>{canSchedule && <button type="submit" className="index-primary" disabled={busy}>{busy ? 'Saving…' : 'Save event'}</button>}</div>
+      </form>
+    </Modal>}
+    {removing && <ConfirmDialog title="Remove event?" message={`Remove “${removing.title}” from the calendar? This does not change the job or its detailed schedule.`} confirmLabel={busy ? 'Removing…' : 'Remove event'} onCancel={() => { if (!busy) setRemoving(null) }} onConfirm={() => void persist(removing, true)} />}
+  </div>
 }
