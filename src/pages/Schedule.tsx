@@ -147,8 +147,10 @@ export default function Schedule() {
     const job = jobs.find(row => row.id === event.bid_id)
     return <div key={event.id} className="team-calendar-event" style={{ '--event-color': colorFor(event.bid_id) } as CSSProperties}
       >
-      <button className="team-calendar-event-body" title={`${event.title}${job ? ` · ${job.name}` : ''}`} data-movable={draggable && canSchedule && !busy} onClick={e => { if (!draggable || !canSchedule || e.detail === 0) open(event) }}
-        onPointerDown={e => { if (!draggable || !canSchedule || busy || e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); suppressClick.current = false; pointerDrag.current = { event, x: e.clientX, y: e.clientY, moved: false } }}
+      <button className="team-calendar-event-body" title={`${event.title}${job ? ` · ${job.name}` : ''}`} data-movable={draggable && canSchedule && !busy} draggable={draggable && canSchedule && !busy}
+        onDragStart={e => { pointerDrag.current = null; e.dataTransfer.setData('text/calendar-event', event.id); e.dataTransfer.effectAllowed = 'move'; const card = e.currentTarget.closest<HTMLElement>('.team-calendar-event'); if (card) { const rect = card.getBoundingClientRect(); e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top) } }}
+        onDragEnd={() => { pointerDrag.current = null; setDropDay(null) }} onClick={e => { if (!draggable || !canSchedule || e.detail === 0) open(event) }}
+        onPointerDown={e => { if (!draggable || !canSchedule || busy || e.button !== 0 || e.pointerType === 'mouse') return; e.currentTarget.setPointerCapture(e.pointerId); suppressClick.current = false; pointerDrag.current = { event, x: e.clientX, y: e.clientY, moved: false } }}
         onPointerMove={e => { const drag = pointerDrag.current; if (!drag) return; if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; if (drag.moved) setDropDay(document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay ?? null) }}
         onPointerUp={e => { const drag = pointerDrag.current; pointerDrag.current = null; setDropDay(null); suppressClick.current = !!drag?.moved; const day = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-calendar-day]')?.dataset.calendarDay; if (drag?.moved && day) move(drag.event, day) }}
         onPointerCancel={() => { pointerDrag.current = null; setDropDay(null) }}
