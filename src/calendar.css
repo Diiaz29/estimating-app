@@ -112,7 +112,7 @@
   .team-calendar-job-filter > legend { display:none; }
   .team-calendar-job-filter > input { background:var(--z-soft); font-size:13px; }
   .team-calendar-filter-actions { margin-top:8px; }
-  .team-calendar-filter-actions .index-secondary { width:100%; white-space:nowrap; }
+  .team-calendar-filter-actions .team-calendar-create { width:100%; justify-content:center; margin-bottom:0; white-space:nowrap; }
   .team-calendar-job-options { max-height:320px; }
   .team-calendar-filter-panel label { gap:8px; min-height:40px; padding-block:6px; font-size:13px; }
   .team-calendar-job-options strong { font-size:12px; font-weight:400; }
