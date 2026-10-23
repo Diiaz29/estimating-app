@@ -130,7 +130,6 @@ export default function Schedule() {
   if (loadError) return <LoadError subject="team calendar" error={loadError} retry={() => setReload(n => n + 1)} />
   if (loading) return <p>Loading calendar…</p>
   return <div className="team-calendar">
-    {preview && <p className="team-calendar-preview" role="status">Preview: try events using your real job list. Events entered here are saved only in this browser until the shared calendar is published.</p>}
     <div className="team-calendar-toolbar">
       <div className="team-calendar-month"><button className="index-secondary" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><h2>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2><button className="index-secondary" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button><button className="index-secondary" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Today</button></div>
       <div className="team-calendar-views" aria-label="Calendar view"><button className="index-secondary" aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Month</button><button className="index-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>
