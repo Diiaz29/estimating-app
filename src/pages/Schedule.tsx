@@ -18,7 +18,8 @@ const blank = (day: string): CalendarEvent => ({ id: crypto.randomUUID(), bid_id
 const dayLabel = (day: string) => parseDay(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
 export default function Schedule() {
-  const { canSchedule, session } = useAuth()
+  const { canSchedule: canManageSchedules, isOffice, session } = useAuth()
+  const canSchedule = canManageSchedules || isOffice
   const [jobs, setJobs] = useState<Bid[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -172,7 +173,7 @@ export default function Schedule() {
       <div className="team-calendar-views" aria-label="Calendar view"><button className="index-secondary" aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Month</button><button className="index-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>
     </div>
     <div className="team-calendar-filter-bar">
-      {canSchedule && <div className="team-calendar-create-actions"><button className="index-primary team-calendar-create" onClick={() => open(blank(selectedDay))}><span aria-hidden="true">+</span> Create event</button><button className="index-secondary" onClick={() => { setDateJob(''); setJobDateError(null); setAddingJobDates(true) }}>Add job dates</button></div>}
+      {canSchedule && <div className="team-calendar-create-actions"><button className="index-primary team-calendar-create" onClick={() => open(blank(selectedDay))}><span aria-hidden="true">+</span> Create event</button><button className="index-primary team-calendar-create" onClick={() => { setDateJob(''); setJobDateError(null); setAddingJobDates(true) }}>Add job dates</button></div>}
       <nav className="team-calendar-mini" aria-label="Choose a calendar date">
         <div className="team-calendar-mini-heading"><strong>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</strong><button aria-label="Previous month in mini calendar" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><button aria-label="Next month in mini calendar" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button></div>
         <div className="team-calendar-mini-grid">{['S','M','T','W','T','F','S'].map((label,index) => <span key={index}>{label}</span>)}{calendarDays(month).map(day => <button key={day} aria-label={`Choose ${dayLabel(day)}`} aria-pressed={selectedDay === day} className={`${day === toDay(new Date()) ? 'mini-today' : ''} ${day.slice(0,7) !== toDay(month).slice(0,7) ? 'mini-outside' : ''}`} onClick={() => { setSelectedDay(day); setMonth(new Date(parseDay(day).getFullYear(),parseDay(day).getMonth(),1)) }}>{parseDay(day).getDate()}</button>)}</div>
