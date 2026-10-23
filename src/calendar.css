@@ -205,3 +205,24 @@
  .team-calendar-modal .app-modal-actions { padding:0; margin-top:24px; gap:12px; flex-wrap:wrap; }
  .team-calendar-modal .app-modal-actions button { min-height:44px; padding:10px 16px; }
 }
+
+@media screen and (max-width:700px) {
+  .team-calendar-create-actions { display:grid; grid-template-columns:1fr 1fr; width:100%; margin-bottom:8px; }
+  .team-calendar-create-actions > button { justify-content:center; min-height:44px; font-size:14px !important; }
+  .team-calendar-views { align-self:flex-start; }
+  .team-calendar-views button { min-width:64px; min-height:44px !important; }
+  .team-calendar-filter-actions .team-calendar-create { min-height:44px !important; }
+  .team-calendar-event-body { min-height:44px; }
+  .team-calendar-edit { width:44px; min-height:44px; }
+  .team-calendar-edit svg { width:16px; height:16px; }
+  .team-calendar-job-options { max-height:220px; }
+  .zaid-app .team-calendar-modal[open] { display:flex; flex-direction:column; width:calc(100vw - 24px); max-height:calc(100dvh - 24px); overflow:hidden; }
+  .team-calendar-modal .app-modal-heading { flex:none; padding:12px 16px; }
+  .team-calendar-modal > form { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:16px; }
+  .team-calendar-modal .app-modal-actions,
+  .team-calendar-modal .team-calendar-form-actions { position:sticky; bottom:-16px; background:var(--z-paper); padding:12px 0 16px; margin-top:20px; gap:8px; border-top:1px solid var(--z-line); }
+  .team-calendar-modal .app-modal-actions > button,
+  .team-calendar-modal .team-calendar-form-actions > button { flex:1; min-width:0; }
+  .team-calendar-modal .app-modal-actions > .modal-danger { flex-basis:100%; }
+  .team-calendar-modal .team-calendar-job-color { flex-wrap:wrap; }
+}
