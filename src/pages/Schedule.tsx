@@ -26,7 +26,7 @@ export default function Schedule() {
   const [preview, setPreview] = useState(false)
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [view, setView] = useState<'calendar' | 'list'>(() => window.matchMedia('(max-width: 640px)').matches ? 'list' : 'calendar')
-  const [selectedJobs, setSelectedJobs] = useState<string[] | null>(null)
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([])
   const [includeGeneral, setIncludeGeneral] = useState(true)
   const [selectedKinds, setSelectedKinds] = useState<EventKind[]>(['custom', 'build', 'install'])
   const [jobSearch, setJobSearch] = useState('')
@@ -72,11 +72,11 @@ export default function Schedule() {
   }, [reload, previewKey])
 
   const colorFor = (id: string | null) => id && jobs.some(job => job.id === id) ? JOB_COLORS[jobs.findIndex(job => job.id === id) % JOB_COLORS.length] : '#534741'
-  const visible = sortEvents(events.filter(event => selectedKinds.includes(event.kind) && (event.bid_id ? jobs.some(job => job.id === event.bid_id && !!job.completed_at) || selectedJobs === null || selectedJobs.includes(event.bid_id) : includeGeneral)))
-  const filtered = selectedJobs !== null || !includeGeneral || selectedKinds.length !== 3
-  const filterSummary = `${selectedJobs === null ? 'All jobs' : `${selectedJobs.length} ${selectedJobs.length === 1 ? 'job' : 'jobs'}`}${includeGeneral ? ' + general events' : ''} · ${selectedKinds.length === 3 ? 'All event types' : selectedKinds.length === 0 ? 'No event types' : selectedKinds.map(kind => EVENT_KINDS[kind]).join(', ')}`
+  const visible = sortEvents(events.filter(event => selectedKinds.includes(event.kind) && (event.bid_id ? selectedJobs.length === 0 || selectedJobs.includes(event.bid_id) : includeGeneral && selectedJobs.length === 0)))
+  const filtered = selectedJobs.length > 0 || !includeGeneral || selectedKinds.length !== 3
+  const filterSummary = `${selectedJobs.length === 0 ? 'All jobs' : `${selectedJobs.length} ${selectedJobs.length === 1 ? 'job' : 'jobs'}`}${includeGeneral && selectedJobs.length === 0 ? ' + general events' : ''} · ${selectedKinds.length === 3 ? 'All event types' : selectedKinds.length === 0 ? 'No event types' : selectedKinds.map(kind => EVENT_KINDS[kind]).join(', ')}`
   const matchingJobs = jobs.filter(job => !job.completed_at && `${job.job_number} ${job.name}`.toLowerCase().includes(jobSearch.trim().toLowerCase()))
-  function resetFilters() { setSelectedJobs(null); setIncludeGeneral(true); setSelectedKinds(['custom', 'build', 'install']); setJobSearch('') }
+  function resetFilters() { setSelectedJobs([]); setIncludeGeneral(true); setSelectedKinds(['custom', 'build', 'install']); setJobSearch('') }
   const monthEvents = visible.filter(event => event.event_date.slice(0, 7) === toDay(month).slice(0, 7))
 
   async function persist(event: CalendarEvent, remove = false) {
@@ -146,9 +146,9 @@ export default function Schedule() {
         <div className="team-calendar-filter-panel">
           <fieldset className="team-calendar-job-filter"><legend>Jobs</legend>
             <input type="search" aria-label="Search jobs to show" placeholder="Search job name or number" value={jobSearch} onChange={e => setJobSearch(e.target.value)} />
-            <div className="team-calendar-filter-actions"><button type="button" onClick={() => setSelectedJobs(null)}>Select all jobs</button><button type="button" onClick={() => setSelectedJobs([])}>Clear jobs</button></div>
+            <div className="team-calendar-filter-actions"><span>No jobs checked shows all events.</span><button type="button" onClick={() => setSelectedJobs([])} disabled={selectedJobs.length === 0}>Clear selection</button></div>
             <div className="team-calendar-job-options">
-              {matchingJobs.map(job => <label key={job.id}><input type="checkbox" checked={selectedJobs === null || selectedJobs.includes(job.id)} onChange={e => { const checked = e.target.checked; setSelectedJobs(previous => { const ids = previous ?? jobs.filter(row => !row.completed_at).map(row => row.id); return checked ? [...new Set([...ids, job.id])] : ids.filter(id => id !== job.id) }) }} /><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" /><span><strong>{job.name}</strong><small>{job.job_number}{job.completed_at ? ' · Completed' : ''}</small></span></label>)}
+              {matchingJobs.map(job => <label key={job.id}><input type="checkbox" checked={selectedJobs.includes(job.id)} onChange={e => { const checked = e.target.checked; setSelectedJobs(previous => { const ids = previous; return checked ? [...new Set([...ids, job.id])] : ids.filter(id => id !== job.id) }) }} /><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" /><span><strong>{job.name}</strong><small>{job.job_number}{job.completed_at ? ' · Completed' : ''}</small></span></label>)}
               {!matchingJobs.length && <p>No jobs match “{jobSearch}”.</p>}
             </div>
           </fieldset>
