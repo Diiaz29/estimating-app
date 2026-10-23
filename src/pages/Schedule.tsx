@@ -26,7 +26,10 @@ export default function Schedule() {
   const [preview, setPreview] = useState(false)
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [view, setView] = useState<'calendar' | 'list'>(() => window.matchMedia('(max-width: 640px)').matches ? 'list' : 'calendar')
-  const [filter, setFilter] = useState('')
+  const [selectedJobs, setSelectedJobs] = useState<string[] | null>(null)
+  const [includeGeneral, setIncludeGeneral] = useState(true)
+  const [selectedKinds, setSelectedKinds] = useState<EventKind[]>(['custom', 'build', 'install'])
+  const [jobSearch, setJobSearch] = useState('')
   const [editor, setEditor] = useState<CalendarEvent | null>(null)
   const [removing, setRemoving] = useState<CalendarEvent | null>(null)
   const [busy, setBusy] = useState(false)
@@ -67,7 +70,11 @@ export default function Schedule() {
   }, [reload, previewKey])
 
   const colorFor = (id: string | null) => id && jobs.some(job => job.id === id) ? JOB_COLORS[jobs.findIndex(job => job.id === id) % JOB_COLORS.length] : '#534741'
-  const visible = sortEvents(events.filter(event => !filter || event.bid_id === filter))
+  const visible = sortEvents(events.filter(event => selectedKinds.includes(event.kind) && (event.bid_id ? selectedJobs === null || selectedJobs.includes(event.bid_id) : includeGeneral)))
+  const filtered = selectedJobs !== null || !includeGeneral || selectedKinds.length !== 3
+  const filterSummary = `${selectedJobs === null ? 'All jobs' : `${selectedJobs.length} ${selectedJobs.length === 1 ? 'job' : 'jobs'}`}${includeGeneral ? ' + general events' : ''} · ${selectedKinds.length === 3 ? 'All event types' : selectedKinds.length === 0 ? 'No event types' : selectedKinds.map(kind => EVENT_KINDS[kind]).join(', ')}`
+  const matchingJobs = jobs.filter(job => `${job.job_number} ${job.name}`.toLowerCase().includes(jobSearch.trim().toLowerCase()))
+  function resetFilters() { setSelectedJobs(null); setIncludeGeneral(true); setSelectedKinds(['custom', 'build', 'install']); setJobSearch('') }
   const monthEvents = visible.filter(event => event.event_date.slice(0, 7) === toDay(month).slice(0, 7))
 
   async function persist(event: CalendarEvent, remove = false) {
@@ -129,7 +136,27 @@ export default function Schedule() {
       <div className="team-calendar-month"><button className="index-secondary" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><h2>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2><button className="index-secondary" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button><button className="index-secondary" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>Today</button></div>
       <div className="team-calendar-views" aria-label="Calendar view"><button className="index-secondary" aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Month</button><button className="index-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>
     </div>
-    <div className="team-calendar-legend" aria-label="Filter by job"><button className="index-secondary" aria-pressed={!filter} onClick={() => setFilter('')}>All events</button>{jobs.filter(job => !job.completed_at || events.some(event => event.bid_id === job.id)).map(job => <button key={job.id} aria-pressed={filter === job.id} onClick={() => setFilter(filter === job.id ? '' : job.id)}><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" />{job.job_number} · {job.name}</button>)}</div>
+    <div className="team-calendar-filter-bar">
+      <details className="team-calendar-filters" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() } }}>
+        <summary>Filter calendar{filtered && <span>Filtered</span>}<UiIcon name="down" /></summary>
+        <div className="team-calendar-filter-panel">
+          <fieldset className="team-calendar-job-filter"><legend>Jobs</legend>
+            <input type="search" aria-label="Search jobs to show" placeholder="Search job name or number" value={jobSearch} onChange={e => setJobSearch(e.target.value)} />
+            <div className="team-calendar-filter-actions"><button type="button" onClick={() => setSelectedJobs(null)}>Select all jobs</button><button type="button" onClick={() => setSelectedJobs([])}>Clear jobs</button></div>
+            <div className="team-calendar-job-options">
+              {matchingJobs.map(job => <label key={job.id}><input type="checkbox" checked={selectedJobs === null || selectedJobs.includes(job.id)} onChange={e => { const checked = e.target.checked; setSelectedJobs(previous => { const ids = previous ?? jobs.map(row => row.id); return checked ? [...new Set([...ids, job.id])] : ids.filter(id => id !== job.id) }) }} /><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" /><span><strong>{job.name}</strong><small>{job.job_number}{job.completed_at ? ' · Completed' : ''}</small></span></label>)}
+              {!matchingJobs.length && <p>No jobs match “{jobSearch}”.</p>}
+            </div>
+          </fieldset>
+          <div className="team-calendar-event-filters"><fieldset><legend>Event types</legend>{(Object.keys(EVENT_KINDS) as EventKind[]).map(kind => <label key={kind}><input type="checkbox" checked={selectedKinds.includes(kind)} onChange={e => { const checked = e.target.checked; setSelectedKinds(previous => checked ? [...previous, kind] : previous.filter(value => value !== kind)) }} />{kind === 'custom' ? 'Custom events' : EVENT_KINDS[kind]}</label>)}</fieldset>
+            <fieldset><legend>General events</legend><label><input type="checkbox" checked={includeGeneral} onChange={e => setIncludeGeneral(e.target.checked)} />Include events without a job</label></fieldset>
+          </div>
+          <div className="team-calendar-filter-footer"><span>Changes apply immediately.</span><button className="index-secondary" type="button" onClick={e => { const details = e.currentTarget.closest('details'); if (details) { details.open = false; details.querySelector('summary')?.focus() } }}>Done</button></div>
+        </div>
+      </details>
+      <div className="team-calendar-filter-summary"><span>{filterSummary}</span>{filtered && <button type="button" onClick={resetFilters}>Reset filters</button>}</div>
+    </div>
+    {filtered && <p className="team-calendar-filter-count" role="status">{monthEvents.length} {monthEvents.length === 1 ? 'event' : 'events'} shown this month{monthEvents.length === 0 ? '. Try selecting more jobs or event types.' : '.'}</p>}
     {error && !editor && <p className="team-calendar-error" role="alert">{error}</p>}
     <p className="team-calendar-hint">{canSchedule ? 'Click a date to add an event. Drag an event to move it, or open it to choose a date.' : 'Open an event to see its details. Your account has view-only access.'}</p>
     <p className="sr-only" role="status">{notice}</p>

@@ -7,10 +7,33 @@
   .team-calendar-month h2 { font-size:18px; font-weight:600; min-width:150px; text-align:center; }
   .team-calendar :is(.index-secondary,.index-primary) { min-height:44px; }
   .team-calendar-preview { padding:12px 16px; background:var(--z-soft); border:1px solid var(--z-line); border-radius:4px; margin-bottom:20px; font-size:14px; }
-  .team-calendar-views [aria-pressed="true"],.team-calendar-legend [aria-pressed="true"] { background:var(--z-soft); outline:1px solid var(--z-accent); }
-  .team-calendar-legend { display:flex; flex-wrap:wrap; align-items:center; gap:4px 16px; margin-bottom:16px; }
-  .team-calendar-legend button { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:6px 8px; border-radius:4px; text-align:left; font-size:13px; }
-  .team-calendar-legend i,.team-calendar-job-color i { display:inline-block; flex:none; width:10px; height:10px; border-radius:50%; }
+  .team-calendar-views [aria-pressed="true"] { background:var(--z-soft); outline:1px solid var(--z-accent); }
+  .team-calendar-job-options i,.team-calendar-job-color i { display:inline-block; flex:none; width:10px; height:10px; border-radius:50%; }
+  .team-calendar-filter-bar { margin-bottom:16px; }
+  .team-calendar-filters > summary { display:flex; align-items:center; gap:12px; width:fit-content; min-height:44px; padding:8px 12px; border:1px solid var(--z-control); border-radius:4px; background:var(--z-paper); cursor:pointer; font-size:14px; font-weight:600; list-style:none; }
+  .team-calendar-filters > summary::-webkit-details-marker { display:none; }
+  .team-calendar-filters > summary > span { font-size:12px; font-weight:400; color:var(--z-muted); }
+  .team-calendar-filters[open] > summary .ui-icon { transform:rotate(180deg); }
+  .team-calendar-filter-panel { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:24px; max-width:760px; padding:20px; margin-top:8px; border:1px solid var(--z-line); border-radius:4px; background:var(--z-paper); }
+  .team-calendar-filter-panel fieldset { min-width:0; }
+  .team-calendar-filter-panel legend { font-size:14px; font-weight:600; margin-bottom:8px; }
+  .team-calendar-job-filter > input { width:100%; min-height:44px; border:1px solid var(--z-control); border-radius:4px; padding:10px; font-size:16px; background:var(--z-paper); color:var(--z-ink); }
+  .team-calendar-filter-actions { display:flex; gap:20px; }
+  .team-calendar-filter-actions button,.team-calendar-filter-summary button { min-height:44px; font-size:13px; text-decoration:underline; text-underline-offset:3px; }
+  .team-calendar-job-options { max-height:264px; overflow-y:auto; overscroll-behavior:contain; }
+  .team-calendar-filter-panel label { display:flex; align-items:center; gap:10px; min-height:44px; padding:8px 4px; cursor:pointer; font-size:14px; }
+  .team-calendar-filter-panel input[type="checkbox"] { flex:none; width:18px; height:18px; accent-color:var(--z-accent); }
+  .team-calendar-job-options label:hover { background:var(--z-soft); }
+  .team-calendar-job-options label span { min-width:0; overflow-wrap:anywhere; }
+  .team-calendar-job-options strong { display:block; font-weight:500; }
+  .team-calendar-job-options small { display:block; font-size:12px; color:var(--z-muted); }
+  .team-calendar-job-options > p { padding:16px 4px; color:var(--z-muted); font-size:14px; }
+  .team-calendar-event-filters fieldset + fieldset { margin-top:24px; }
+  .team-calendar-filter-footer { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:16px; border-top:1px solid var(--z-line); padding-top:12px; }
+  .team-calendar-filter-footer > span,.team-calendar-filter-summary,.team-calendar-filter-count { color:var(--z-muted); font-size:13px; }
+  .team-calendar-filter-summary { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:8px; }
+  .team-calendar-filter-count { margin-bottom:12px; }
+  .team-calendar-filters summary:focus-visible,.team-calendar-filter-panel input:focus-visible { outline:2px solid var(--z-accent); outline-offset:3px; }
   .team-calendar-hint { margin-bottom:12px; }
   .team-calendar-scroll { overflow-x:auto; border:1px solid var(--z-line); border-radius:4px; background:var(--z-paper); }
   .team-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-width:770px; }
@@ -53,8 +76,7 @@
     .team-calendar-heading > div { flex:1; }
     .team-calendar-month { gap:6px; width:100%; }
     .team-calendar-month h2 { min-width:0; flex:1; font-size:16px; }
-    .team-calendar-legend { flex-wrap:nowrap; overflow-x:auto; padding:4px; }
-    .team-calendar-legend button { flex:none; max-width:260px; }
+    .team-calendar-filter-panel { grid-template-columns:1fr; padding:16px; gap:20px; }
     .team-calendar-agenda > section { grid-template-columns:1fr; gap:12px; }
     .team-calendar-date-fields { grid-template-columns:1fr; }
   }
