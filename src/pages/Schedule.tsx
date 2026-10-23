@@ -7,6 +7,7 @@ import type { Bid } from '../lib/types'
 import { parseDay, toDay } from '../lib/schedule'
 import { calendarDays, EVENT_KINDS, eventValidation, JOB_COLORS, sortEvents } from '../lib/calendar'
 import type { CalendarEvent, EventKind } from '../lib/calendar'
+import { estimateJobDates } from '../lib/calendarJobDates'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import LoadError from '../components/LoadError'
@@ -32,6 +33,9 @@ export default function Schedule() {
   const [jobSearch, setJobSearch] = useState('')
   const [selectedDay, setSelectedDay] = useState(() => toDay(new Date()))
   const [filtersOpen, setFiltersOpen] = useState(() => !window.matchMedia('(max-width: 700px)').matches)
+  const [addingJobDates, setAddingJobDates] = useState(false)
+  const [dateJob, setDateJob] = useState('')
+  const [jobDateError, setJobDateError] = useState<string | null>(null)
   const [editor, setEditor] = useState<CalendarEvent | null>(null)
   const [removing, setRemoving] = useState<CalendarEvent | null>(null)
   const [busy, setBusy] = useState(false)
@@ -104,6 +108,36 @@ export default function Schedule() {
     finally { saving.current = false; setBusy(false) }
   }
 
+  async function addJobDates() {
+    const job = jobs.find(row => row.id === dateJob)
+    if (!job || !canSchedule || saving.current) return
+    saving.current = true
+    setBusy(true)
+    setJobDateError(null)
+    try {
+      if (events.some(event => event.bid_id === job.id && (event.kind === 'build' || event.kind === 'install'))) throw new Error('This job already has calendar dates. Move its existing events, or remove them before adding a new pair.')
+      const dates = await estimateJobDates(job, toDay(new Date()))
+      const pair: CalendarEvent[] = [
+        { ...blank(dates.ready), bid_id: job.id, kind: 'build', title: EVENT_KINDS.build },
+        { ...blank(dates.install), bid_id: job.id, kind: 'install', title: EVENT_KINDS.install },
+      ]
+      if (!preview) {
+        const result = await supabase!.from('calendar_events').insert(pair).select('id')
+        if (result.error) throw result.error
+      }
+      const next = [...events, ...pair]
+      if (preview) localStorage.setItem(previewKey, JSON.stringify(next))
+      setEvents(next)
+      setSelectedJobs(previous => previous.length && !previous.includes(job.id) ? [...previous, job.id] : previous)
+      setSelectedKinds(previous => [...new Set([...previous, 'build' as const, 'install' as const])])
+      const ready = parseDay(dates.ready)
+      setMonth(new Date(ready.getFullYear(), ready.getMonth(), 1))
+      setAddingJobDates(false)
+      setNotice(job.name + ': Ready to ship ' + dayLabel(dates.ready) + '; install ' + dayLabel(dates.install) + '.')
+    } catch (e) { setJobDateError((e as { message?: string }).message ?? 'Could not add job dates. Please try again.') }
+    finally { saving.current = false; setBusy(false) }
+  }
+
   function open(event: CalendarEvent) { if (!busy) { setError(null); setEditor({ ...event }) } }
   function move(event: CalendarEvent, day: string) {
     setDropDay(null)
@@ -135,7 +169,7 @@ export default function Schedule() {
       <div className="team-calendar-views" aria-label="Calendar view"><button className="index-secondary" aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Month</button><button className="index-secondary" aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>
     </div>
     <div className="team-calendar-filter-bar">
-      {canSchedule && <button className="index-primary team-calendar-create" onClick={() => open(blank(selectedDay))}><span aria-hidden="true">+</span> Create event</button>}
+      {canSchedule && <div className="team-calendar-create-actions"><button className="index-primary team-calendar-create" onClick={() => open(blank(selectedDay))}><span aria-hidden="true">+</span> Create event</button><button className="index-secondary" onClick={() => { setDateJob(''); setJobDateError(null); setAddingJobDates(true) }}>Add job dates</button></div>}
       <nav className="team-calendar-mini" aria-label="Choose a calendar date">
         <div className="team-calendar-mini-heading"><strong>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</strong><button aria-label="Previous month in mini calendar" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><UiIcon name="left" /></button><button aria-label="Next month in mini calendar" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><UiIcon name="right" /></button></div>
         <div className="team-calendar-mini-grid">{['S','M','T','W','T','F','S'].map((label,index) => <span key={index}>{label}</span>)}{calendarDays(month).map(day => <button key={day} aria-label={`Choose ${dayLabel(day)}`} aria-pressed={selectedDay === day} className={`${day === toDay(new Date()) ? 'mini-today' : ''} ${day.slice(0,7) !== toDay(month).slice(0,7) ? 'mini-outside' : ''}`} onClick={() => { setSelectedDay(day); setMonth(new Date(parseDay(day).getFullYear(),parseDay(day).getMonth(),1)) }}>{parseDay(day).getDate()}</button>)}</div>
@@ -146,7 +180,7 @@ export default function Schedule() {
           <fieldset className="team-calendar-job-filter"><legend>Jobs</legend>
             <input type="search" aria-label="Search jobs to show" placeholder="Search job name or number" value={jobSearch} onChange={e => setJobSearch(e.target.value)} />
             <div className="team-calendar-job-options">
-              {matchingJobs.map(job => <div className="team-calendar-job-row" key={job.id}><label><input type="checkbox" checked={selectedJobs.includes(job.id)} onChange={e => { const checked = e.target.checked; setSelectedJobs(previous => { const ids = previous; return checked ? [...new Set([...ids, job.id])] : ids.filter(id => id !== job.id) }) }} /><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" /><span><strong>{job.name}</strong><small>{job.job_number}{job.completed_at ? ' · Completed' : ''}</small></span></label>{canSchedule && <div className="team-calendar-job-quick">{(['build', 'install'] as const).map(kind => <span className="team-calendar-quick-date" key={kind}><button type="button" className="index-secondary" disabled={busy} aria-label={`Add ${EVENT_KINDS[kind]} for ${job.name}`} onClick={e => { const input = e.currentTarget.nextElementSibling as HTMLInputElement; input.value = ''; try { input.showPicker() } catch { input.classList.add('quick-date-fallback'); input.focus() } }}>{kind === 'build' ? 'Ready to ship' : 'Install date'}</button><input type="date" tabIndex={-1} disabled={busy} aria-label={`${EVENT_KINDS[kind]} date for ${job.name}`} onChange={e => { const day = e.currentTarget.value; if (day && e.currentTarget.validity.valid) { void persist({ ...blank(day), bid_id: job.id, kind, title: EVENT_KINDS[kind] }); e.currentTarget.value = '' } }} /></span>)}</div>}</div>)}
+              {matchingJobs.map(job => <div className="team-calendar-job-row" key={job.id}><label><input type="checkbox" checked={selectedJobs.includes(job.id)} onChange={e => { const checked = e.target.checked; setSelectedJobs(previous => { const ids = previous; return checked ? [...new Set([...ids, job.id])] : ids.filter(id => id !== job.id) }) }} /><i style={{ backgroundColor: colorFor(job.id) }} aria-hidden="true" /><span><strong>{job.name}</strong><small>{job.job_number}{job.completed_at ? ' · Completed' : ''}</small></span></label></div>)}
               {!matchingJobs.length && <p>No jobs match “{jobSearch}”.</p>}
             </div>
             <div className="team-calendar-filter-actions"><button className="index-primary team-calendar-create" type="button" onClick={() => setSelectedJobs([])} disabled={selectedJobs.length === 0}>Clear selection</button></div>
@@ -172,6 +206,16 @@ export default function Schedule() {
       </section>)}
     </div></div> : <div className="team-calendar-agenda">{monthEvents.length ? [...new Set(monthEvents.map(event => event.event_date))].map(day => <section key={day}><h3>{parseDay(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</h3><div>{monthEvents.filter(event => event.event_date === day).map(event => eventCard(event))}</div></section>) : <div className="team-calendar-empty"><h3>No events this month</h3><p>Add a ready-to-ship date, an installation, or your own event.</p>{canSchedule && <button className="index-secondary" onClick={() => open(blank(toDay(month)))}>Add event</button>}</div>}</div>}
     <details className="team-calendar-details"><summary>Detailed job schedules</summary><p>Existing production tasks are kept here, separate from your calendar dates.</p>{jobs.map(job => <Link key={job.id} to={`/bids/${job.id}/schedule`}>{job.job_number} · {job.name}</Link>)}</details>
+    {addingJobDates && <Modal title="Add job dates" onClose={() => { if (!busy) setAddingJobDates(false) }} className="team-calendar-modal">
+      <form onSubmit={e => { e.preventDefault(); void addJobDates() }}>
+        <fieldset disabled={busy}>
+          <label>Job<select required value={dateJob} onChange={e => { setDateJob(e.target.value); setJobDateError(null) }}><option value="">Choose a job</option>{jobs.filter(job => !job.completed_at).map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.name}</option>)}</select></label>
+          <p>Ready to ship is based on estimated build time starting today, using your shop crew size and working days. Install is one week later. Drag either event to adjust it.</p>
+        </fieldset>
+        {jobDateError && <p role="alert">{jobDateError}</p>}
+        <div className="team-calendar-form-actions"><button type="button" className="index-secondary" disabled={busy} onClick={() => setAddingJobDates(false)}>Cancel</button><button className="index-primary" disabled={busy || !dateJob}>{busy ? 'Adding dates…' : 'Add both dates'}</button></div>
+      </form>
+    </Modal>}
     {editor && <Modal title={events.some(event => event.id === editor.id) ? 'Event details' : 'Add event'} onClose={() => { if (!busy) setEditor(null) }} className="team-calendar-modal">
       <form onSubmit={e => { e.preventDefault(); void persist(editor) }}>
         <fieldset disabled={busy || !canSchedule}>

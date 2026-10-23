@@ -179,3 +179,10 @@
   .team-calendar-quick-date > input { position:absolute; bottom:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
   .team-calendar-quick-date > input.quick-date-fallback { position:static; width:100%; height:36px; opacity:1; pointer-events:auto; color:var(--z-ink); background:var(--z-paper); }
 }
+
+@media screen {
+ .team-calendar-create-actions { display:flex; gap:8px; align-items:stretch; margin-bottom:24px; }
+ .team-calendar-create-actions .team-calendar-create { min-height:44px !important; margin:0; padding-inline:10px; font-size:12px; gap:6px; border-radius:8px; }
+ .team-calendar-create-actions > .index-secondary { padding:8px; font-size:12px; border-radius:8px; }
+ .team-calendar-form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+}
