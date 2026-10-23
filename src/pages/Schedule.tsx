@@ -79,6 +79,7 @@ export default function Schedule() {
   const visible = sortEvents(events.filter(event => selectedKinds.includes(event.kind) && (event.bid_id ? selectedJobs.length === 0 || selectedJobs.includes(event.bid_id) : includeGeneral && selectedJobs.length === 0)))
   const filtered = selectedJobs.length > 0 || !includeGeneral || selectedKinds.length !== 3
   const filterSummary = `${selectedJobs.length === 0 ? 'All jobs' : `${selectedJobs.length} ${selectedJobs.length === 1 ? 'job' : 'jobs'}`}${includeGeneral && selectedJobs.length === 0 ? ' + general events' : ''} · ${selectedKinds.length === 3 ? 'All event types' : selectedKinds.length === 0 ? 'No event types' : selectedKinds.map(kind => EVENT_KINDS[kind]).join(', ')}`
+  const jobsWithoutDates = jobs.filter(job => !job.completed_at && !events.some(event => event.bid_id === job.id && (event.kind === 'build' || event.kind === 'install')))
   const matchingJobs = jobs.filter(job => !job.completed_at && `${job.job_number} ${job.name}`.toLowerCase().includes(jobSearch.trim().toLowerCase()))
   function resetFilters() { setSelectedJobs([]); setIncludeGeneral(true); setSelectedKinds(['custom', 'build', 'install']); setJobSearch('') }
   const agendaDays = calendarDays(month).filter(day => day.slice(0, 7) === toDay(month).slice(0, 7) && visible.some(event => eventOnDay(event, day)))
@@ -211,7 +212,7 @@ export default function Schedule() {
     {addingJobDates && <Modal title="Add job dates" onClose={() => { if (!busy) setAddingJobDates(false) }} className="team-calendar-modal team-calendar-job-dates-modal">
       <form onSubmit={e => { e.preventDefault(); void addJobDates() }}>
         <fieldset disabled={busy}>
-          <label>Job<select required value={dateJob} onChange={e => { setDateJob(e.target.value); setJobDateError(null) }}><option value="">Choose a job</option>{jobs.filter(job => !job.completed_at).map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.name}</option>)}</select></label>
+          <label>Job<select required value={dateJob} onChange={e => { setDateJob(e.target.value); setJobDateError(null) }}><option value="">{jobsWithoutDates.length ? 'Choose a job' : 'All jobs already have calendar dates'}</option>{jobsWithoutDates.map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.name}</option>)}</select></label>
           <p>Ready to ship is based on estimated build time starting today, using your shop crew size and working days. Install is one week later. Drag either event to adjust it.</p>
         </fieldset>
         {jobDateError && <p role="alert">{jobDateError}</p>}
