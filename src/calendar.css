@@ -167,3 +167,9 @@
     .team-calendar-grid { min-height:650px; }
   }
 }
+
+@media screen {
+  .team-calendar-job-row { padding-bottom:10px; }
+  .team-calendar-job-quick { display:flex; gap:6px; padding-left:4px; flex-wrap:wrap; }
+  .team-calendar .team-calendar-job-quick .index-secondary { min-height:32px; padding:5px 8px; font-size:11px; border-radius:6px; white-space:nowrap; }
+}
