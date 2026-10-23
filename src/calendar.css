@@ -191,3 +191,12 @@
  .team-calendar-event-body[data-movable="true"] { touch-action:none; cursor:grab; user-select:none; }
  .team-calendar-event-body[data-movable="true"]:active { cursor:grabbing; }
 }
+
+@media screen {
+ .team-calendar-job-dates-modal > form { padding:24px; }
+ .team-calendar-job-dates-modal fieldset { gap:20px; }
+ .team-calendar-job-dates-modal fieldset > p { margin:0; line-height:1.6; color:var(--z-muted); font-size:14px; }
+ .team-calendar-job-dates-modal .team-calendar-form-actions { margin-top:24px; gap:12px; }
+ .team-calendar-job-dates-modal .team-calendar-form-actions button { min-height:44px; padding:10px 16px; }
+ @media (max-width:640px) { .team-calendar-job-dates-modal > form { padding:20px; } }
+}

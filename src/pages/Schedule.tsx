@@ -208,7 +208,7 @@ export default function Schedule() {
       </section>)}
     </div></div> : <div className="team-calendar-agenda">{agendaDays.length ? agendaDays.map(day => <section key={day}><h3>{parseDay(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</h3><div>{visible.filter(event => eventOnDay(event, day)).map(event => eventCard(event, false, day))}</div></section>) : <div className="team-calendar-empty"><h3>No events this month</h3><p>Add a ready-to-ship date, an installation, or your own event.</p>{canSchedule && <button className="index-secondary" onClick={() => open(blank(toDay(month)))}>Add event</button>}</div>}</div>}
     <details className="team-calendar-details"><summary>Detailed job schedules</summary><p>Existing production tasks are kept here, separate from your calendar dates.</p>{jobs.map(job => <Link key={job.id} to={`/bids/${job.id}/schedule`}>{job.job_number} · {job.name}</Link>)}</details>
-    {addingJobDates && <Modal title="Add job dates" onClose={() => { if (!busy) setAddingJobDates(false) }} className="team-calendar-modal">
+    {addingJobDates && <Modal title="Add job dates" onClose={() => { if (!busy) setAddingJobDates(false) }} className="team-calendar-modal team-calendar-job-dates-modal">
       <form onSubmit={e => { e.preventDefault(); void addJobDates() }}>
         <fieldset disabled={busy}>
           <label>Job<select required value={dateJob} onChange={e => { setDateJob(e.target.value); setJobDateError(null) }}><option value="">Choose a job</option>{jobs.filter(job => !job.completed_at).map(job => <option key={job.id} value={job.id}>{job.job_number} · {job.name}</option>)}</select></label>
