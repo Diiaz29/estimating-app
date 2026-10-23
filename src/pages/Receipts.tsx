@@ -1,5 +1,6 @@
 import LoadError from '../components/LoadError'
 import SaveFeedback from '../components/SaveFeedback'
+import { useReceiptQuickBooks } from '../lib/useReceiptQuickBooks'
 import { useSaveQueue, useUnsavedWarning } from '../lib/useSaveQueue'
 import { checkedWrite } from '../lib/saveQueue'
 import { requireLoaded, errorMessage } from '../lib/loadResults'
@@ -109,6 +110,7 @@ export default function Receipts() {
   // anyone signed in can file a receipt (installers buy things too);
   // office/admin see everyone's and reconcile by card
   const reconciles = isOffice || isAdmin
+  const quickBooks = useReceiptQuickBooks(session?.user.id, reconciles)
   const saves = useSaveQueue()
   const rowPending = useRef(new Map<string, number>())
   const [rowSaves, setRowSaves] = useState<Record<string, string>>({})
@@ -535,6 +537,19 @@ export default function Receipts() {
   const reportTotal = report.reduce((s, r) => s + Number(r.amount ?? 0), 0)
   const repRangeLabel = `${fmtDay(repFrom)} — ${fmtDay(repTo)}`
 
+  function quickBooksCheckbox(r: Receipt) {
+    if (!reconciles) return null
+    const saving = quickBooks.pending.has(r.id)
+    return (
+      <label className="order-6 flex min-h-11 min-w-8 cursor-pointer items-center justify-center print:hidden" title={saving ? 'Saving…' : 'Recorded in QuickBooks — personal to your account'}>
+        <input type="checkbox" className="h-4 w-4 accent-slate-900"
+          aria-label={`Recorded in QuickBooks: ${r.note || r.receipt_date || r.id}`}
+          checked={quickBooks.marks.has(r.id)} disabled={quickBooks.loading || saving || !!quickBooks.error}
+          onChange={event => void quickBooks.toggle(r.id, event.target.checked)} />
+      </label>
+    )
+  }
+
   // The two receipt lists: overhead → card → category, jobs → job → card → category.
   function renderLists(
     overheadGrouped: [string, Receipt[]][],
@@ -638,6 +653,7 @@ export default function Receipts() {
                       <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
                         Download
                       </button>
+                      {quickBooksCheckbox(r)}
                       <span className="receipt-row-save order-last w-full text-xs" role="status">{rowSaves[r.id]}</span>
                       <button aria-label={`Remove receipt: ${r.note || r.receipt_date}`} disabled={saves.pending > 0} onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
                     </div>
@@ -774,7 +790,8 @@ export default function Receipts() {
                             <button onClick={() => void download(r)} className="hidden text-xs text-slate-500 underline decoration-dotted hover:text-slate-900 sm:order-6 sm:inline" title="Save the file to your computer">
                               Download
                             </button>
-                            <span className="receipt-row-save order-last w-full text-xs" role="status">{rowSaves[r.id]}</span>
+                            {quickBooksCheckbox(r)}
+                      <span className="receipt-row-save order-last w-full text-xs" role="status">{rowSaves[r.id]}</span>
                       <button aria-label={`Remove receipt: ${r.note || r.receipt_date}`} disabled={saves.pending > 0} onClick={() => setRemoving(r)} className="order-6 ml-auto px-3 py-1 text-2xl leading-none text-slate-300 hover:text-red-600 sm:ml-0 sm:px-1 sm:py-0 sm:text-lg">×</button>
                           </div>
                         ))}
@@ -1312,6 +1329,15 @@ export default function Receipts() {
         </span>
       </div>
 
+      {reconciles && (
+        <div className="text-xs text-slate-500 print:hidden">
+          QuickBooks checkmarks are personal to your account.
+          {quickBooks.preview && <p className="mt-1">Preview: checkmarks save in this browser only until published. Preview checkmarks will not carry over to the live app.</p>}
+          {quickBooks.error && <p role="alert" className="mt-2 text-red-600">{quickBooks.error}{' '}
+            <button type="button" className="underline" onClick={quickBooks.reload}>Retry</button>
+          </p>}
+        </div>
+      )}
       {renderLists(overheadGrouped, grouped, overheadTotal)}
       </div>
 
