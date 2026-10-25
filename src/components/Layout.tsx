@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import type { Role } from '../lib/types'
 import UiIcon from './UiIcon'
 import { profileName } from '../lib/profileName'
+import { canUseChangeList } from '../lib/changeListAccess'
 
 const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -40,12 +41,14 @@ const pageTitles: Record<string, string> = {
   '/settings': 'Settings',
   '/team': 'Team',
   '/account': 'My profile',
+  '/changes': 'Changes & fixes',
 }
 
 export default function Layout() {
   const { session, profile, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
   const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
+  if (canUseChangeList(session?.user.id)) tabs.push({ to: '/changes', label: 'Changes & fixes', icon: '▤' })
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -131,6 +134,7 @@ export default function Layout() {
     { label: 'Estimating', routes: ['/', '/bids'] },
     { label: 'Project delivery', routes: ['/jobs', '/schedule', '/time', '/receipts'] },
     { label: 'Company', routes: ['/contractors', '/libraries', '/reports', '/team', '/settings'] },
+    { label: 'Private', routes: ['/changes'] },
   ]
   const currentPage = tabs.find(t => t.to === '/' ? pathname === '/' : pathname.startsWith(t.to))?.label ?? 'Project workspace'
   const pageTitle = pageTitles[pathname.replace(/\/$/, '') || '/']
