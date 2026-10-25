@@ -2,6 +2,7 @@ create table public.app_change_requests (
   id uuid primary key default gen_random_uuid(),
   title text not null check (length(trim(title)) between 1 and 200),
   notes text not null default '' check (length(notes) <= 10000),
+  section text not null default 'app' check (section in ('app', 'on_business', 'in_business')),
   completed boolean not null default false,
   created_at timestamptz not null default now(),
   created_by uuid not null default auth.uid() references auth.users(id)

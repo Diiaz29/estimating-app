@@ -6,7 +6,13 @@ import { canUseChangeList } from '../lib/changeListAccess'
 import { useUnsavedWarning } from '../lib/useSaveQueue'
 import '../changes.css'
 
-interface ChangeItem { id: string; title: string; notes: string; completed: boolean; created_at: string }
+const sections = {
+  app: { label: 'App changes', description: 'Ideas, fixes, and improvements for SpotOnBid.', placeholder: 'For example: make job search easier' },
+  on_business: { label: 'On the business', description: 'Planning, systems, and improvements to grow the business.', placeholder: 'For example: improve our quoting process' },
+  in_business: { label: 'In the business', description: 'Day-to-day work, follow-ups, and things to get done.', placeholder: 'For example: follow up with a supplier' },
+}
+type Section = keyof typeof sections
+interface ChangeItem { id: string; title: string; notes: string; completed: boolean; created_at: string; section: Section }
 const previewKey = 'spoton-changes-preview-v1'
 
 export default function Changes() {
@@ -21,6 +27,7 @@ export default function Changes() {
   const [notes, setNotes] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
+  const [section, setSection] = useState<Section>('app')
   useUnsavedWarning(busy || !!title || !!notes)
 
   async function load() {
@@ -28,10 +35,10 @@ export default function Changes() {
     setLoading(true)
     setError('')
     try {
-      const result = await supabase!.from('app_change_requests').select('id,title,notes,completed,created_at').order('created_at', { ascending: false })
+      const result = await supabase!.from('app_change_requests').select('id,title,notes,completed,created_at,section').order('created_at', { ascending: false })
       if (import.meta.env.DEV && result.error?.code === 'PGRST205') {
         const saved: unknown = JSON.parse(localStorage.getItem(previewKey) || '[]')
-        setItems(Array.isArray(saved) ? saved.filter((x): x is ChangeItem => x && typeof x.id === 'string' && typeof x.title === 'string' && typeof x.notes === 'string' && typeof x.completed === 'boolean' && typeof x.created_at === 'string') : [])
+        setItems(Array.isArray(saved) ? saved.filter((x): x is ChangeItem => x && typeof x.id === 'string' && typeof x.title === 'string' && typeof x.notes === 'string' && typeof x.completed === 'boolean' && typeof x.created_at === 'string').map(x => ({ ...x, section: Object.hasOwn(sections, x.section) ? x.section : 'app' })) : [])
         setPreview(true)
       } else {
         if (result.error) throw result.error
@@ -50,7 +57,7 @@ export default function Changes() {
     try {
       let saved = item
       if (!preview) {
-        const fields = { title: item.title, notes: item.notes, completed: item.completed }
+        const fields = { title: item.title, notes: item.notes, completed: item.completed, section: item.section }
         const result = isNew
           ? await supabase!.from('app_change_requests').insert(fields).select().single()
           : await supabase!.from('app_change_requests').update(fields).eq('id', item.id).select().single()
@@ -67,30 +74,35 @@ export default function Changes() {
 
   function reset() { setEditing(null); setTitle(''); setNotes('') }
   if (!allowed) return <Navigate to="/" replace />
-  const rows = items.filter(x => x.completed === completed)
+  const sectionItems = items.filter(x => x.section === section)
+  const rows = sectionItems.filter(x => x.completed === completed)
   return <div className="change-list">
-    <p className="change-list-intro">Ideas, fixes, and improvements for SpotOnBid. Only Brandon Diaz and Test ChatGPT can access this list.</p>
+    <p className="change-list-intro">Private notes shared only between Brandon Diaz and Test ChatGPT.</p>
+    <div className="change-list-sections" aria-label="Choose a list">
+      {(Object.keys(sections) as Section[]).map(key => <button key={key} type="button" aria-pressed={key === section} disabled={busy || !!editing || !!title || !!notes} onClick={() => { setSection(key); setCompleted(false) }}>{sections[key].label}</button>)}
+    </div>
+    <p className="change-list-intro">{sections[section].description}</p>
     {preview && <p className="change-list-notice">Local preview: notes save in this browser. They will not transfer automatically when this page is published.</p>}
     {error && <p role="alert">{error} <button className="index-secondary" disabled={busy} onClick={() => void load()}>Reload list</button></p>}
     <form className="change-list-compose" onSubmit={async event => {
       event.preventDefault()
       if (!title.trim() || busy || loading) return
       const old = items.find(x => x.id === editing)
-      if (await save({ id: old?.id || crypto.randomUUID(), title: title.trim(), notes: notes.trim(), completed: old?.completed ?? false, created_at: old?.created_at || new Date().toISOString() }, !editing)) reset()
+      if (await save({ id: old?.id || crypto.randomUUID(), title: title.trim(), notes: notes.trim(), completed: old?.completed ?? false, created_at: old?.created_at || new Date().toISOString(), section: old?.section ?? section }, !editing)) reset()
     }}>
       <h2>{editing ? 'Edit item' : 'Add to the list'}</h2>
-      <label htmlFor="change-title">What needs to change?</label>
-      <input id="change-title" value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required disabled={busy} placeholder="For example: make job search easier" />
+      <label htmlFor="change-title">{section === 'app' ? 'What needs to change?' : 'What would you like to work on?'}</label>
+      <input id="change-title" value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required disabled={busy} placeholder={sections[section].placeholder} />
       <label htmlFor="change-notes">Details <span>(optional)</span></label>
-      <textarea id="change-notes" value={notes} onChange={e => setNotes(e.target.value)} maxLength={10000} rows={3} disabled={busy} placeholder="Which page, what happens now, and what you would like instead." />
+      <textarea id="change-notes" value={notes} onChange={e => setNotes(e.target.value)} maxLength={10000} rows={3} disabled={busy} placeholder={section === 'app' ? 'Which page, what happens now, and what you would like instead.' : 'Add your thoughts, next steps, or anything you want to remember.'} />
       <div className="change-list-actions">
-        {editing && <button type="button" className="index-secondary" onClick={reset} disabled={busy}>Cancel</button>}
+        {(editing || title || notes) && <button type="button" className="index-secondary" onClick={reset} disabled={busy}>{editing ? 'Cancel' : 'Clear draft'}</button>}
         <button className="index-primary" disabled={!title.trim() || busy || loading}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Add item'}</button>
       </div>
     </form>
     <div className="change-list-filters" aria-label="Item status">
-      <button className={completed ? 'index-secondary' : 'index-primary'} aria-pressed={!completed} onClick={() => setCompleted(false)}>Open · {items.filter(x => !x.completed).length}</button>
-      <button className={completed ? 'index-primary' : 'index-secondary'} aria-pressed={completed} onClick={() => setCompleted(true)}>Completed · {items.filter(x => x.completed).length}</button>
+      <button className={completed ? 'index-secondary' : 'index-primary'} aria-pressed={!completed} onClick={() => setCompleted(false)}>Open · {sectionItems.filter(x => !x.completed).length}</button>
+      <button className={completed ? 'index-primary' : 'index-secondary'} aria-pressed={completed} onClick={() => setCompleted(true)}>Completed · {sectionItems.filter(x => x.completed).length}</button>
     </div>
     {loading ? <p role="status">Loading your list…</p> : rows.length === 0 ? <p className="change-list-empty">{error ? 'Your list is unavailable.' : completed ? 'No completed items yet.' : 'Nothing on the list yet. Add your first idea or fix above.'}</p> :
       <ul className="change-list-items">{rows.map(item => <li key={item.id}>

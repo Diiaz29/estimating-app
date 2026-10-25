@@ -41,14 +41,14 @@ const pageTitles: Record<string, string> = {
   '/settings': 'Settings',
   '/team': 'Team',
   '/account': 'My profile',
-  '/changes': 'Changes & fixes',
+  '/changes': 'Notes & plans',
 }
 
 export default function Layout() {
   const { session, profile, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
   const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
-  if (canUseChangeList(session?.user.id)) tabs.push({ to: '/changes', label: 'Changes & fixes', icon: '▤' })
+  if (canUseChangeList(session?.user.id)) tabs.push({ to: '/changes', label: 'Notes & plans', icon: '▤' })
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
