@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { canUseChangeList } from '../lib/changeListAccess'
 import { useUnsavedWarning } from '../lib/useSaveQueue'
+import ConfirmDialog from '../components/ConfirmDialog'
 import '../changes.css'
 
 const sections = {
@@ -28,6 +29,7 @@ export default function Changes() {
   const [editing, setEditing] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
   const [section, setSection] = useState<Section>('app')
+  const [deleting, setDeleting] = useState<ChangeItem | null>(null)
   useUnsavedWarning(busy || !!title || !!notes)
 
   async function load() {
@@ -72,6 +74,23 @@ export default function Changes() {
     finally { setBusy(false) }
   }
 
+  async function remove(item: ChangeItem) {
+    if (busy || !allowed) return
+    setDeleting(null)
+    setBusy(true)
+    setError('')
+    try {
+      if (!preview) {
+        const result = await supabase!.from('app_change_requests').delete().eq('id', item.id).select('id').single()
+        if (result.error) throw result.error
+      }
+      const next = items.filter(x => x.id !== item.id)
+      if (preview) localStorage.setItem(previewKey, JSON.stringify(next))
+      setItems(next)
+    } catch { setError('The note was not deleted. Please try again.') }
+    finally { setBusy(false) }
+  }
+
   function reset() { setEditing(null); setTitle(''); setNotes('') }
   if (!allowed) return <Navigate to="/" replace />
   const sectionItems = items.filter(x => x.section === section)
@@ -108,7 +127,11 @@ export default function Changes() {
       <ul className="change-list-items">{rows.map(item => <li key={item.id}>
         <label className="change-list-check"><input type="checkbox" checked={item.completed} disabled={busy || !!editing} onChange={e => void save({ ...item, completed: e.target.checked }, false)} aria-label={`Mark ${item.title} ${item.completed ? 'open' : 'complete'}`} /></label>
         <div className="change-list-copy"><h3>{item.title}</h3>{item.notes && <p>{item.notes}</p>}<small>Added {new Date(item.created_at).toLocaleDateString()}</small></div>
-        <button className="index-secondary" disabled={busy || (!!title && editing !== item.id) || (!!notes && editing !== item.id)} onClick={() => { setEditing(item.id); setTitle(item.title); setNotes(item.notes); document.getElementById('change-title')?.focus() }}>Edit</button>
+        <div className="change-list-row-actions">
+          <button className="index-secondary" disabled={busy || (!!title && editing !== item.id) || (!!notes && editing !== item.id)} onClick={() => { setEditing(item.id); setTitle(item.title); setNotes(item.notes); document.getElementById('change-title')?.focus() }}>Edit</button>
+          <button className="index-secondary" disabled={busy || !!editing || !!title || !!notes} aria-label={`Delete note: ${item.title}`} onClick={() => setDeleting(item)}>Delete</button>
+        </div>
       </li>)}</ul>}
+    {deleting && <ConfirmDialog title="Delete note" message={`Permanently delete “${deleting.title}”? It will be removed for both Brandon Diaz and Test ChatGPT. This cannot be undone.`} onConfirm={() => void remove(deleting)} onCancel={() => setDeleting(null)} />}
   </div>
 }

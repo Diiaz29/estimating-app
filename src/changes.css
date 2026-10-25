@@ -22,4 +22,6 @@
 .change-list-copy p{white-space:pre-wrap;line-height:1.6;margin:8px 0}
 .change-list-copy small{color:var(--z-muted)}
 .change-list button{min-height:44px}
+.change-list-row-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:600px){.change-list-row-actions{flex-direction:column}}
 @media(max-width:600px){.change-list-compose{padding:18px}.change-list-items li{gap:8px}.change-list-actions button{flex:1}.change-list{gap:20px}}
