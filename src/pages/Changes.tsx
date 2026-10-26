@@ -11,7 +11,7 @@ const sections = {
   app: { label: 'App changes', description: 'Ideas, fixes, and improvements for SpotOnBid.', placeholder: 'For example: make job search easier' },
   on_business: { label: 'On the business', description: 'Planning, systems, and improvements to grow the business.', placeholder: 'For example: improve our quoting process' },
   in_business: { label: 'In the business', description: 'Day-to-day work, follow-ups, and things to get done.', placeholder: 'For example: follow up with a supplier' },
-  shopping: { label: 'Shop shopping list', description: 'Tools, supplies, and equipment to get for the shop.', placeholder: 'For example: sanding discs or a new shop vacuum' },
+  shopping: { label: 'Shopping list', description: 'Tools, supplies, and equipment to get for the shop.', placeholder: 'For example: sanding discs or a new shop vacuum' },
 }
 type Section = keyof typeof sections
 interface ChangeItem { id: string; title: string; notes: string; completed: boolean; created_at: string; section: Section }
