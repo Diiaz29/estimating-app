@@ -31,3 +31,11 @@
 .change-list-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
 .change-list-results{display:grid;gap:24px;min-width:0}
 @media(max-width:1000px){.change-list-workspace{grid-template-columns:minmax(0,1fr);gap:24px}}
+
+.change-list-compose select,.change-list-results input{width:100%;padding:10px 12px;border:1px solid var(--z-control);border-radius:5px;background:var(--z-canvas);color:var(--z-ink);font:inherit;min-width:0;min-height:44px}
+.change-list-results-toolbar{display:grid;gap:12px;background:var(--z-canvas)}
+.change-list-results-toolbar label{font-size:14px;font-weight:600}
+.change-list-priority{font-size:13px;color:var(--z-muted)}
+.change-list-priority.priority-high{color:var(--z-ink);font-weight:700}
+.change-list-copy a{text-decoration:underline;text-underline-offset:3px}
+@media(min-width:1001px){.change-list-compose,.change-list-results{position:sticky;top:88px;max-height:calc(100dvh - 112px);overflow-y:auto;scrollbar-gutter:stable}.change-list-results{display:flex;flex-direction:column;overflow:hidden}.change-list-results-scroll{overflow-y:auto;min-height:0;scrollbar-gutter:stable}.change-list-results-toolbar{flex-shrink:0}}
