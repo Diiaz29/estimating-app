@@ -39,3 +39,5 @@
 .change-list-priority.priority-high{color:var(--z-ink);font-weight:700}
 .change-list-copy a{text-decoration:underline;text-underline-offset:3px}
 @media(min-width:1001px){.change-list-compose,.change-list-results{position:sticky;top:88px;max-height:calc(100dvh - 112px);overflow-y:auto;scrollbar-gutter:stable}.change-list-results{display:flex;flex-direction:column;overflow:hidden}.change-list-results-scroll{overflow-y:auto;min-height:0;scrollbar-gutter:stable}.change-list-results-toolbar{flex-shrink:0}}
+
+.change-list-undo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--z-line);border-radius:5px}.change-list-undo span{flex:1;min-width:140px;overflow-wrap:anywhere}

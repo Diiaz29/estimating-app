@@ -15,7 +15,7 @@ const sections = {
   shopping: { label: 'Shopping list', description: 'Tools, supplies, and equipment to get for the shop.', placeholder: 'For example: sanding discs or a new shop vacuum' },
 }
 type Section = keyof typeof sections
-interface ChangeItem { id: string; title: string; notes: string; completed: boolean; created_at: string; section: Section; quantity?: number | null; priority?: 'low' | 'normal' | 'high'; store_name?: string; product_url?: string }
+interface ChangeItem { id: string; title: string; notes: string; completed: boolean; created_at: string; section: Section; quantity?: number | null; priority?: 'low' | 'normal' | 'high'; store_name?: string; product_url?: string; deleted_at?: string | null }
 const previewKey = 'spoton-changes-preview-v1'
 
 export default function Changes() {
@@ -38,6 +38,8 @@ export default function Changes() {
   const [completed, setCompleted] = useState(false)
   const [section, setSection] = useState<Section>('app')
   const [deleting, setDeleting] = useState<ChangeItem | null>(null)
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [undoItem, setUndoItem] = useState<ChangeItem | null>(null)
   useUnsavedWarning(busy || draft)
 
   async function load() {
@@ -82,31 +84,41 @@ export default function Changes() {
     finally { setBusy(false) }
   }
 
-  async function remove(item: ChangeItem) {
+  async function setDeleted(item: ChangeItem, deleted: boolean) {
     if (busy || !allowed) return
     setDeleting(null)
     setBusy(true)
     setError('')
     try {
+      let saved = { ...item, deleted_at: deleted ? new Date().toISOString() : null }
       if (!preview) {
-        const result = await supabase!.from('app_change_requests').delete().eq('id', item.id).select('id').single()
+        const result = await supabase!.from('app_change_requests').update({ deleted_at: saved.deleted_at }).eq('id', item.id).select().single()
         if (result.error) throw result.error
+        saved = result.data as typeof saved
       }
-      const next = items.filter(x => x.id !== item.id)
+      const next = items.map(x => x.id === saved.id ? saved : x)
       if (preview) localStorage.setItem(previewKey, JSON.stringify(next))
       setItems(next)
-    } catch { setError('The note was not deleted. Please try again.') }
+      if (deleted) setUndoItem(saved)
+      else {
+        setUndoItem(current => current?.id === item.id ? null : current)
+        setShowDeleted(false)
+        setCompleted(saved.completed)
+        setSearch('')
+      }
+    } catch { setError(deleted ? 'The item was not deleted. Please try again.' : 'The item was not restored. It is still in Recently deleted; please try again.') }
     finally { setBusy(false) }
   }
 
   function reset() { setEditing(null); setTitle(''); setNotes(''); setQuantity('1'); setPriority('normal'); setStoreName(''); setProductUrl('') }
   if (!allowed) return <Navigate to="/" replace />
-  const sectionItems = items.filter(x => x.section === section)
-  const rows = sectionItems.filter(x => x.completed === completed && matchesListSearch(x, search)).sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority))
+  const deletedItems = items.filter(x => x.section === section && !!x.deleted_at)
+  const sectionItems = items.filter(x => x.section === section && !x.deleted_at)
+  const rows = (showDeleted ? deletedItems : sectionItems.filter(x => x.completed === completed)).filter(x => matchesListSearch(x, search)).sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority))
   return <div className="change-list">
     <p className="change-list-intro">Private notes shared only between Brandon Diaz and Test ChatGPT.</p>
     <div className="change-list-sections" aria-label="Choose a list">
-      {(Object.keys(sections) as Section[]).map(key => <button key={key} type="button" aria-pressed={key === section} disabled={busy || !!editing || draft} onClick={() => { setSection(key); setCompleted(false); setSearch('') }}>{sections[key].label}</button>)}
+      {(Object.keys(sections) as Section[]).map(key => <button key={key} type="button" aria-pressed={key === section} disabled={busy || !!editing || draft} onClick={() => { setSection(key); setCompleted(false); setShowDeleted(false); setUndoItem(null); setSearch('') }}>{sections[key].label}</button>)}
     </div>
     <p className="change-list-intro">{sections[section].description}</p>
     {preview && <p className="change-list-notice">Local preview: notes save in this browser. They will not transfer automatically when this page is published.</p>}
@@ -147,27 +159,30 @@ export default function Changes() {
       </div>
     </form>
     <section className="change-list-results" aria-label="Saved items">
+    {undoItem && <div className="change-list-undo"><span role="status">Deleted “{undoItem.title}”.</span><button className="index-secondary" disabled={busy || !!editing || draft} onClick={() => void setDeleted(undoItem, false)}>Undo</button><button className="index-secondary" onClick={() => setUndoItem(null)} aria-label="Dismiss undo notification">Dismiss</button></div>}
     <div className="change-list-results-toolbar">
     <label htmlFor="change-search">Search this list</label>
     <input id="change-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search titles, details, or stores" />
     <div className="change-list-filters" aria-label="Item status">
-      <button className={completed ? 'index-secondary' : 'index-primary'} aria-pressed={!completed} onClick={() => setCompleted(false)}>{section === 'shopping' ? 'To buy' : 'Open'} · {sectionItems.filter(x => !x.completed).length}</button>
-      <button className={completed ? 'index-primary' : 'index-secondary'} aria-pressed={completed} onClick={() => setCompleted(true)}>{section === 'shopping' ? 'Purchased' : 'Completed'} · {sectionItems.filter(x => x.completed).length}</button>
+      <button className={!completed && !showDeleted ? 'index-primary' : 'index-secondary'} aria-pressed={!completed && !showDeleted} onClick={() => { setCompleted(false); setShowDeleted(false) }}>{section === 'shopping' ? 'To buy' : 'Open'} · {sectionItems.filter(x => !x.completed).length}</button>
+      <button className={completed && !showDeleted ? 'index-primary' : 'index-secondary'} aria-pressed={completed && !showDeleted} onClick={() => { setCompleted(true); setShowDeleted(false) }}>{section === 'shopping' ? 'Purchased' : 'Completed'} · {sectionItems.filter(x => x.completed).length}</button>
+      <button className={showDeleted ? 'index-primary' : 'index-secondary'} aria-pressed={showDeleted} onClick={() => setShowDeleted(true)}>Recently deleted · {deletedItems.length}</button>
     </div>
     </div>
     <div className="change-list-results-scroll">
-    {loading ? <p role="status">Loading your list…</p> : rows.length === 0 ? <p className="change-list-empty">{error ? 'Your list is unavailable.' : search.trim() ? 'No matching items in this status. Try another search or switch status.' : section === 'shopping' ? completed ? 'No purchased items yet.' : 'Your shopping list is empty. Use the form to add something you need.' : completed ? 'No completed items yet.' : 'Nothing on the list yet. Use the form to add your first idea or fix.'}</p> :
+    {loading ? <p role="status">Loading your list…</p> : rows.length === 0 ? <p className="change-list-empty">{error ? 'Your list is unavailable.' : search.trim() ? 'No matching items in this status. Try another search or switch status.' : showDeleted ? 'No deleted items. Items you delete can be restored here.' : section === 'shopping' ? completed ? 'No purchased items yet.' : 'Your shopping list is empty. Use the form to add something you need.' : completed ? 'No completed items yet.' : 'Nothing on the list yet. Use the form to add your first idea or fix.'}</p> :
       <ul className="change-list-items">{rows.map(item => <li key={item.id}>
-        <label className="change-list-check"><input type="checkbox" checked={item.completed} disabled={busy || !!editing} onChange={e => void save({ ...item, completed: e.target.checked }, false)} aria-label={`Mark ${item.title} ${section === 'shopping' ? item.completed ? 'to buy' : 'purchased' : item.completed ? 'open' : 'complete'}`} /></label>
+        {!showDeleted && <label className="change-list-check"><input type="checkbox" checked={item.completed} disabled={busy || !!editing} onChange={e => void save({ ...item, completed: e.target.checked }, false)} aria-label={`Mark ${item.title} ${section === 'shopping' ? item.completed ? 'to buy' : 'purchased' : item.completed ? 'open' : 'complete'}`} /></label>}
         <div className="change-list-copy"><h3>{item.title}</h3><span className={`change-list-priority priority-${item.priority ?? 'normal'}`}>{item.priority === 'high' ? 'High' : item.priority === 'low' ? 'Low' : 'Normal'} priority</span>{item.section === 'shopping' && <>{item.store_name && <p>Store: {item.store_name}</p>}{safeProductUrl(item.product_url ?? '') && <p><a href={safeProductUrl(item.product_url ?? '')} target="_blank" rel="noopener noreferrer">View product<span className="sr-only"> (opens in a new tab)</span></a></p>}</>}{item.section === 'shopping' && item.quantity != null && <p><strong>Quantity: {item.quantity}</strong></p>}{item.notes && <p>{item.notes}</p>}<small>Added {new Date(item.created_at).toLocaleDateString()}</small></div>
         <div className="change-list-row-actions">
+          {showDeleted ? <button className="index-secondary" disabled={busy || !!editing || draft} onClick={() => void setDeleted(item, false)}>Restore</button> : <>
           <button className="index-secondary" disabled={busy || (draft && editing !== item.id)} onClick={() => { setEditing(item.id); setTitle(item.title); setNotes(item.notes); setPriority(item.priority ?? 'normal'); setStoreName(item.store_name ?? ''); setProductUrl(item.product_url ?? ''); setQuantity(item.section === 'shopping' ? item.quantity == null ? '' : String(item.quantity) : '1'); document.getElementById('change-title')?.focus() }}>Edit</button>
-          <button className="index-secondary" disabled={busy || !!editing || draft} aria-label={`Delete note: ${item.title}`} onClick={() => setDeleting(item)}>Delete</button>
+          <button className="index-secondary" disabled={busy || !!editing || draft} aria-label={`Delete note: ${item.title}`} onClick={() => setDeleting(item)}>Delete</button></>}
         </div>
       </li>)}</ul>}
     </div>
     </section>
     </div>
-    {deleting && <ConfirmDialog title="Delete note" message={`Permanently delete “${deleting.title}”? It will be removed for both Brandon Diaz and Test ChatGPT. This cannot be undone.`} onConfirm={() => void remove(deleting)} onCancel={() => setDeleting(null)} />}
+    {deleting && <ConfirmDialog title="Delete note" message={`Move “${deleting.title}” to Recently deleted? Either authorized account can restore it later.`} onConfirm={() => void setDeleted(deleting, true)} onCancel={() => setDeleting(null)} />}
   </div>
 }
