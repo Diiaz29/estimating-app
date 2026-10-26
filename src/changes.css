@@ -1,4 +1,4 @@
-.change-list{max-width:900px;display:grid;gap:24px;color:var(--z-ink)}
+.change-list{max-width:1600px;display:grid;gap:24px;color:var(--z-ink)}
 .change-list-intro,.change-list-empty{color:var(--z-muted);line-height:1.6}
 .change-list-notice{font-size:13px;padding:12px 16px;border:1px solid var(--z-line);border-radius:6px}
 .change-list-compose{display:grid;gap:10px;padding:24px;border:1px solid var(--z-line);border-radius:8px;background:var(--z-soft)}
@@ -27,3 +27,7 @@
 @media(max-width:600px){.change-list-compose{padding:18px}.change-list-items li{gap:8px}.change-list-actions button{flex:1}.change-list{gap:20px}}
 
 .change-list-quantity{display:grid;gap:10px;max-width:160px}
+
+.change-list-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.change-list-results{display:grid;gap:24px;min-width:0}
+@media(max-width:1000px){.change-list-workspace{grid-template-columns:minmax(0,1fr);gap:24px}}

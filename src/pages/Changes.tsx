@@ -106,6 +106,7 @@ export default function Changes() {
     <p className="change-list-intro">{sections[section].description}</p>
     {preview && <p className="change-list-notice">Local preview: notes save in this browser. They will not transfer automatically when this page is published.</p>}
     {error && <p role="alert">{error} <button className="index-secondary" disabled={busy} onClick={() => void load()}>Reload list</button></p>}
+    <div className="change-list-workspace">
     <form className="change-list-compose" onSubmit={async event => {
       event.preventDefault()
       if (!title.trim() || busy || loading) return
@@ -128,6 +129,7 @@ export default function Changes() {
         <button className="index-primary" disabled={!title.trim() || busy || loading}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Add item'}</button>
       </div>
     </form>
+    <section className="change-list-results" aria-label="Saved items">
     <div className="change-list-filters" aria-label="Item status">
       <button className={completed ? 'index-secondary' : 'index-primary'} aria-pressed={!completed} onClick={() => setCompleted(false)}>{section === 'shopping' ? 'To buy' : 'Open'} · {sectionItems.filter(x => !x.completed).length}</button>
       <button className={completed ? 'index-primary' : 'index-secondary'} aria-pressed={completed} onClick={() => setCompleted(true)}>{section === 'shopping' ? 'Purchased' : 'Completed'} · {sectionItems.filter(x => x.completed).length}</button>
@@ -141,6 +143,8 @@ export default function Changes() {
           <button className="index-secondary" disabled={busy || !!editing || draft} aria-label={`Delete note: ${item.title}`} onClick={() => setDeleting(item)}>Delete</button>
         </div>
       </li>)}</ul>}
+    </section>
+    </div>
     {deleting && <ConfirmDialog title="Delete note" message={`Permanently delete “${deleting.title}”? It will be removed for both Brandon Diaz and Test ChatGPT. This cannot be undone.`} onConfirm={() => void remove(deleting)} onCancel={() => setDeleting(null)} />}
   </div>
 }
