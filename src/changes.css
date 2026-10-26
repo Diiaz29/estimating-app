@@ -25,3 +25,5 @@
 .change-list-row-actions{display:flex;flex-wrap:wrap;gap:8px}
 @media(max-width:600px){.change-list-row-actions{flex-direction:column}}
 @media(max-width:600px){.change-list-compose{padding:18px}.change-list-items li{gap:8px}.change-list-actions button{flex:1}.change-list{gap:20px}}
+
+.change-list-quantity{display:grid;gap:10px;max-width:160px}
