@@ -11,6 +11,7 @@ const sections = {
   app: { label: 'App changes', description: 'Ideas, fixes, and improvements for SpotOnBid.', placeholder: 'For example: make job search easier' },
   on_business: { label: 'On the business', description: 'Planning, systems, and improvements to grow the business.', placeholder: 'For example: improve our quoting process' },
   in_business: { label: 'In the business', description: 'Day-to-day work, follow-ups, and things to get done.', placeholder: 'For example: follow up with a supplier' },
+  shopping: { label: 'Shopping list', description: 'Tools, supplies, and equipment to get for the shop.', placeholder: 'For example: sanding discs or a new shop vacuum' },
 }
 type Section = keyof typeof sections
 interface ChangeItem { id: string; title: string; notes: string; completed: boolean; created_at: string; section: Section }
@@ -110,22 +111,22 @@ export default function Changes() {
       if (await save({ id: old?.id || crypto.randomUUID(), title: title.trim(), notes: notes.trim(), completed: old?.completed ?? false, created_at: old?.created_at || new Date().toISOString(), section: old?.section ?? section }, !editing)) reset()
     }}>
       <h2>{editing ? 'Edit item' : 'Add to the list'}</h2>
-      <label htmlFor="change-title">{section === 'app' ? 'What needs to change?' : 'What would you like to work on?'}</label>
+      <label htmlFor="change-title">{section === 'shopping' ? 'What do you need for the shop?' : section === 'app' ? 'What needs to change?' : 'What would you like to work on?'}</label>
       <input id="change-title" value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required disabled={busy} placeholder={sections[section].placeholder} />
       <label htmlFor="change-notes">Details <span>(optional)</span></label>
-      <textarea id="change-notes" value={notes} onChange={e => setNotes(e.target.value)} maxLength={10000} rows={3} disabled={busy} placeholder={section === 'app' ? 'Which page, what happens now, and what you would like instead.' : 'Add your thoughts, next steps, or anything you want to remember.'} />
+      <textarea id="change-notes" value={notes} onChange={e => setNotes(e.target.value)} maxLength={10000} rows={3} disabled={busy} placeholder={section === 'shopping' ? 'Quantity, size, preferred brand, store, or a product link.' : section === 'app' ? 'Which page, what happens now, and what you would like instead.' : 'Add your thoughts, next steps, or anything you want to remember.'} />
       <div className="change-list-actions">
         {(editing || title || notes) && <button type="button" className="index-secondary" onClick={reset} disabled={busy}>{editing ? 'Cancel' : 'Clear draft'}</button>}
         <button className="index-primary" disabled={!title.trim() || busy || loading}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Add item'}</button>
       </div>
     </form>
     <div className="change-list-filters" aria-label="Item status">
-      <button className={completed ? 'index-secondary' : 'index-primary'} aria-pressed={!completed} onClick={() => setCompleted(false)}>Open · {sectionItems.filter(x => !x.completed).length}</button>
-      <button className={completed ? 'index-primary' : 'index-secondary'} aria-pressed={completed} onClick={() => setCompleted(true)}>Completed · {sectionItems.filter(x => x.completed).length}</button>
+      <button className={completed ? 'index-secondary' : 'index-primary'} aria-pressed={!completed} onClick={() => setCompleted(false)}>{section === 'shopping' ? 'To buy' : 'Open'} · {sectionItems.filter(x => !x.completed).length}</button>
+      <button className={completed ? 'index-primary' : 'index-secondary'} aria-pressed={completed} onClick={() => setCompleted(true)}>{section === 'shopping' ? 'Purchased' : 'Completed'} · {sectionItems.filter(x => x.completed).length}</button>
     </div>
-    {loading ? <p role="status">Loading your list…</p> : rows.length === 0 ? <p className="change-list-empty">{error ? 'Your list is unavailable.' : completed ? 'No completed items yet.' : 'Nothing on the list yet. Add your first idea or fix above.'}</p> :
+    {loading ? <p role="status">Loading your list…</p> : rows.length === 0 ? <p className="change-list-empty">{error ? 'Your list is unavailable.' : section === 'shopping' ? completed ? 'No purchased items yet.' : 'Your shopping list is empty. Add something you need above.' : completed ? 'No completed items yet.' : 'Nothing on the list yet. Add your first idea or fix above.'}</p> :
       <ul className="change-list-items">{rows.map(item => <li key={item.id}>
-        <label className="change-list-check"><input type="checkbox" checked={item.completed} disabled={busy || !!editing} onChange={e => void save({ ...item, completed: e.target.checked }, false)} aria-label={`Mark ${item.title} ${item.completed ? 'open' : 'complete'}`} /></label>
+        <label className="change-list-check"><input type="checkbox" checked={item.completed} disabled={busy || !!editing} onChange={e => void save({ ...item, completed: e.target.checked }, false)} aria-label={`Mark ${item.title} ${section === 'shopping' ? item.completed ? 'to buy' : 'purchased' : item.completed ? 'open' : 'complete'}`} /></label>
         <div className="change-list-copy"><h3>{item.title}</h3>{item.notes && <p>{item.notes}</p>}<small>Added {new Date(item.created_at).toLocaleDateString()}</small></div>
         <div className="change-list-row-actions">
           <button className="index-secondary" disabled={busy || (!!title && editing !== item.id) || (!!notes && editing !== item.id)} onClick={() => { setEditing(item.id); setTitle(item.title); setNotes(item.notes); document.getElementById('change-title')?.focus() }}>Edit</button>
