@@ -1,5 +1,6 @@
 import { daysSince } from '../lib/format'
 import { supabase } from '../lib/supabase'
+import { confirmLibraryPrice } from '../lib/confirmLibraryPrice'
 
 /** Amber "price is old" badge, shown once a cost is older than the staleness
  *  setting. Pass `onConfirm` to show a "still good" button next to it. */
@@ -36,8 +37,7 @@ export function StillGoodButton({ onClick }: { onClick: () => void }) {
 
 /** Mark a material/finish price as re-checked today (no cost change). */
 export async function confirmPrice(table: 'materials' | 'finishes', id: string) {
-  const { error } = await supabase!.from(table).update({ cost_updated_at: new Date().toISOString() }).eq('id', id)
-  return error?.message ?? null
+  return confirmLibraryPrice(supabase!, table, id)
 }
 
 export function GroupTitle({ children }: { children: React.ReactNode }) {

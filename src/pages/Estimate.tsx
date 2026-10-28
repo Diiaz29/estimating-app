@@ -15,6 +15,9 @@ import { fmtCost, fmtDueDate, fmtMoney } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
 import { StillGoodButton, confirmPrice } from '../components/LibraryBits'
+import BidReviewPanel from '../components/BidReviewPanel'
+import { useBidReview } from '../lib/useBidReview'
+import type { ReviewAction } from '../lib/bidReview'
 
 const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
@@ -43,6 +46,8 @@ function hardwareLabel(name: string): string {
 export default function Estimate() {
   const { id } = useParams<{ id: string }>()
   const { isAdmin, canEdit, session } = useAuth()
+  const review = useBidReview(id, canEdit)
+  const reloadReview = review.reload
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
@@ -67,6 +72,7 @@ export default function Estimate() {
   const [snapshotting, setSnapshotting] = useState(false)
   const [estimateSection, setEstimateSection] = useState('takeoff')
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null)
+  useEffect(() => { if (saves.saved && !saves.pending) void reloadReview() }, [saves.saved, saves.pending, reloadReview])
 
   async function loadAll() {
     const [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes, coRes] = await Promise.all([
@@ -444,7 +450,7 @@ export default function Estimate() {
         finishes: roomFinishes,
       }
     })
-    const { error } = await supabase!.from('revisions').insert({
+    const { data: savedRevision, error } = await supabase!.from('revisions').insert({
       bid_id: bid!.id,
       rev_number: revNumber,
       contract_amount: pricing.contractAmount,
@@ -478,7 +484,7 @@ export default function Estimate() {
         },
         settings: Object.fromEntries(settings.map((s) => [s.key, Number(s.value)])),
       },
-    })
+    }).select('id').single()
     setSnapshotting(false)
     if (error) throw new Error(error.message)
     else {
@@ -489,6 +495,7 @@ export default function Estimate() {
         .order('rev_number', { ascending: false })
       if (refreshError) throw new Error(refreshError.message)
       setRevisions((data ?? []) as Revision[])
+      return savedRevision!.id as string
     }
   
     } catch (e) { setError(e instanceof Error ? e.message : 'This action could not be completed.') }
@@ -503,6 +510,15 @@ export default function Estimate() {
     else setRevisions((prev) => prev.filter((r) => r.id !== rev.id))
   
     })
+  }
+
+  async function reviewAction(action: ReviewAction, note?: string) {
+    if (saves.queue.getSnapshot().pending > 0 || actionBusy > 0) throw new Error('Finish saving before submitting or reviewing.')
+    if (action === 'submit') {
+      const revisionId = await snapshotRevision()
+      if (!revisionId) throw new Error('Could not create a locked revision. Resolve the estimate error and try again.')
+      await review.transition(action, revisionId)
+    } else await review.transition(action, undefined, note)
   }
 
   // ---------------- change orders ----------------
@@ -657,16 +673,17 @@ export default function Estimate() {
       <SaveFeedback state={saves} retry={saves.queue.retry} />
       {actionBusy > 0 && <p role="status">Saving your action…</p>}
       {error && <div className="save-feedback save-failed" role="alert"><div><strong>This action could not be completed.</strong><p>The workspace is still available. Check the action before trying it again.</p><details><summary>Error details</summary>{error}</details></div><button className="index-secondary" onClick={() => setError(null)}>Dismiss message</button></div>}
+      {canEdit && !['won', 'lost'].includes(bid.status) && <BidReviewPanel bidId={bid.id} review={review.context?.review ?? null} admin={isAdmin} editor={canEdit} busy={review.busy || snapshotting} blocked={saves.pending > 0 || actionBusy > 0} available={!!review.context} error={review.error} onAction={reviewAction} onRetry={() => void review.reload()} />}
       {uniqueWarnings.length > 0 && (
         <details className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           <summary className="cursor-pointer font-semibold">
             <UiIcon name="warning" /> {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
           </summary>
-          {isAdmin && uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).length > 1 && (
+          {canEdit && uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).length > 1 && (
             <button
               type="button"
               onClick={() => {
-                const refs = [...new Map(uniqueWarnings.filter((w) => w.ref).map((w) => [`${w.ref!.table}:${w.ref!.id}`, w.ref!])).values()]
+                const refs = [...new Map(uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).map((w) => [`${w.ref!.table}:${w.ref!.id}`, w.ref!])).values()]
                 void Promise.all(refs.map((r) => confirmPrice(r.table, r.id))).then((errs) => {
                   const e = errs.find(Boolean)
                   if (e) setError(e)
@@ -682,7 +699,7 @@ export default function Estimate() {
             {uniqueWarnings.map((w) => (
               <li key={w.message} className="flex flex-wrap items-center gap-2">
                 <span>{w.message}</span>
-                {isAdmin && w.kind === 'stale' && w.ref && (
+                {canEdit && w.kind === 'stale' && w.ref && (
                   <StillGoodButton
                     onClick={() => void confirmPrice(w.ref!.table, w.ref!.id).then((e) => { if (e) setError(e); else void loadAll().catch(e => setError(e instanceof Error ? e.message : 'Could not refresh the estimate.')) })}
                   />

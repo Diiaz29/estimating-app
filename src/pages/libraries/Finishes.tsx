@@ -17,7 +17,7 @@ const FINISH_UNITS = ['SQ/FT', 'SHEET']
 const SLOT_OPTIONS = ['', 'CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
 export default function Finishes() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, canEdit } = useAuth()
   const saves = useSaveQueue()
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [finishes, setFinishes] = useState<Finish[] | null>(null)
@@ -76,7 +76,7 @@ export default function Finishes() {
           add your real colors here as you use them.
           {isAdmin && ' Click a price to change just the number, or "edit" for everything else.'}
         </p>
-        {isAdmin && (
+        {canEdit && (
           <button
             onClick={() => setFormTarget('new')}
             className="ml-auto shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
@@ -131,7 +131,7 @@ export default function Finishes() {
                       <StaleBadge
                         costUpdatedAt={f.cost_updated_at}
                         thresholdDays={staleDays}
-                        onConfirm={isAdmin && !saves.pending ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
+                        onConfirm={canEdit && !saves.pending ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
                       {isAdmin && (
@@ -173,7 +173,7 @@ export default function Finishes() {
           }}
         />
       )}
-      {formTarget && (
+      {formTarget && (isAdmin || (canEdit && formTarget === 'new')) && (
         <FinishForm
           finish={formTarget === 'new' ? null : formTarget}
           onClose={() => setFormTarget(null)}

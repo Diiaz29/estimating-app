@@ -11,6 +11,8 @@ import { fmtDueDate, fmtMoney, partyLabels } from '../lib/format'
 import { LOGO_URL } from '../lib/branding'
 import VendorSignature from '../components/VendorSignature'
 import { useAuth } from '../lib/auth'
+import BidReviewPanel from '../components/BidReviewPanel'
+import { fetchReviewContext, useBidReview } from '../lib/useBidReview'
 
 interface SnapshotRevision {
   created_by?: string | null
@@ -136,9 +138,12 @@ export default function Proposal() {
   const [logoOk, setLogoOk] = useState(true) // logo carries the name, so text name hides when it loads
   const [terms, setTerms] = useState<Record<string, string>>({})
   // who signs: author of the locked revision, or the signed-in user for live numbers
-  const { session, canManageBids } = useAuth()
+  const { session, canManageBids, canEdit, isAdmin } = useAuth()
+  const review = useBidReview(id, canEdit)
   const [signers, setSigners] = useState<Profile[]>([])
   const [signed, setSigned] = useState(false) // signature goes on only when the creator clicks Sign
+  const [reviewPrintError, setReviewPrintError] = useState<string | null>(null)
+  useEffect(() => { setSigned(false) }, [source])
   const [showDetail, setShowDetail] = useState(false) // bids.detail_breakdown
   useEffect(() => {
     supabase!.from('profiles').select('id, email, role, created_at, signature_data, signer_name, signer_title').then(({ data }) => setSigners((data ?? []) as Profile[]))
@@ -409,9 +414,28 @@ export default function Proposal() {
   }, [bid, pricing, revisions, source, areas, linesByArea, ctx, bidFinishes, areaFinishOverrides])
 
   const lockedRev = revisions.find((r) => r.id === source)
-  const signer = lockedRev?.created_by
+  const reviewRecord = review.context?.review
+  const requiresBidReview = !!bid && ['received', 'working', 'sent'].includes(bid.status)
+  const matchesReview = !!reviewRecord && reviewRecord.revision_id === source
+  const reviewedSignature = matchesReview && reviewRecord.stage === 'signed' ? reviewRecord : null
+  const signatureVisible = !!reviewedSignature || (!requiresBidReview && !reviewRecord && signed)
+  const canSignReviewed = isAdmin && matchesReview && reviewRecord?.stage === 'approved' && !!review.context && !review.error
+  const canSignLegacy = isAdmin && !requiresBidReview && !reviewRecord && !!review.context && !review.error
+  const signer = reviewedSignature ?? (matchesReview
+    ? signers.find((p) => p.id === session?.user.id)
+    : lockedRev?.created_by
     ? signers.find((p) => p.email === lockedRev.created_by)
-    : signers.find((p) => p.id === session?.user.id)
+    : signers.find((p) => p.id === session?.user.id))
+
+  async function printProposal() {
+    if (reviewRecord) {
+      try {
+        const latest = await fetchReviewContext(id!)
+        if (latest.review?.version !== reviewRecord.version) throw new Error('The review status changed. Reload the proposal before printing.')
+      } catch (e) { setReviewPrintError(e instanceof Error ? e.message : 'Could not verify the proposal review status.'); return }
+    }
+    window.print()
+  }
 
   // Company identity lives in Settings → Company (text_settings table)
   const COMPANY = {
@@ -443,6 +467,8 @@ export default function Proposal() {
 
   return (
     <div className="zaid-page zaid-proposal proposal-page">
+      {reviewPrintError && <p className="print:hidden" role="alert">{reviewPrintError} <button className="index-secondary" onClick={() => window.location.reload()}>Reload proposal</button></p>}
+      {canEdit && (requiresBidReview || reviewRecord) && <div className="print:hidden"><BidReviewPanel bidId={bid.id} review={reviewRecord ?? null} admin={isAdmin} editor={false} busy={review.busy} blocked={!!reviewRecord && !matchesReview} available={!!review.context} error={review.error} onAction={async (action, note) => { await review.transition(action, undefined, note) }} onRetry={() => void review.reload()} />{!reviewRecord && review.context && <p><Link to={`/bids/${bid.id}/estimate`} className="underline">Submit the estimate for review</Link> before signing this proposal.</p>}{reviewRecord && !matchesReview && reviewRecord.revision_id && <button className="index-secondary" onClick={() => setSource(reviewRecord.revision_id)}>Show the submitted revision</button>}{isAdmin && matchesReview && reviewRecord?.stage === 'approved' && !signer?.signature_data && <p>Add your signature on the <Link to="/team" className="underline">Team page</Link> before signing this proposal.</p>}</div>}
       {/* Screen-only toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
         <Link to={`/bids/${bid.id}`} className="text-sm text-slate-500 hover:text-slate-900">
@@ -484,24 +510,25 @@ export default function Proposal() {
             Detailed breakdown
           </label>
         )}
-        {signer?.signature_data && (
-          signed ? (
+        {signer?.signature_data && (reviewedSignature || canSignReviewed || canSignLegacy) && (
+          signatureVisible ? (
             <span className="ml-auto flex items-center gap-2 text-sm">
               <span className="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-emerald-800">Signed</span>
-              <button onClick={() => setSigned(false)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">remove</button>
+              {!reviewRecord && <button onClick={() => setSigned(false)} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-900">remove</button>}
             </span>
           ) : (
             <button
-              onClick={() => setSigned(true)}
+              disabled={review.busy}
+              onClick={() => { if (canSignReviewed) void review.transition('sign').catch(() => {}); else if (canSignLegacy) setSigned(true) }}
               title="Put your signature in the vendor box"
               className="ml-auto rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
             >
-              Sign
+              {reviewRecord ? 'Sign approved proposal' : 'Sign'}
             </button>
           )
         )}
         <button
-          onClick={() => window.print()}
+          onClick={() => void printProposal()}
           className={`rounded-md bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 ${signer?.signature_data ? '' : 'ml-auto'}`}
         >
           Print / Save PDF
@@ -834,10 +861,10 @@ export default function Proposal() {
           <div className="mt-3 grid grid-cols-2 gap-8 break-inside-avoid">
             <VendorSignature
               companyName={COMPANY.name}
-              signatureSrc={signed ? signer?.signature_data : null}
-              signerName={signed ? signer?.signer_name : null}
-              signerTitle={signed ? signer?.signer_title : null}
-              date={data.presentedOn}
+              signatureSrc={signatureVisible ? signer?.signature_data : null}
+              signerName={signatureVisible ? signer?.signer_name : null}
+              signerTitle={signatureVisible ? signer?.signer_title : null}
+              date={reviewedSignature?.signed_at ? new Date(reviewedSignature.signed_at).toLocaleDateString() : data.presentedOn}
             />
             <div>
               <div className="font-semibold">{party.signer} — {gc?.company ?? namePlaceholder}</div>
