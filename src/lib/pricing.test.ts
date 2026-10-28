@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildContext, priceBid, priceLine, resolveMaterialId } from './pricing'
 import { actualsLaborCosts } from './actuals'
 import type {
@@ -15,7 +15,14 @@ import type {
   Setting,
 } from './types'
 
-// A recent timestamp so nothing reads as stale unless a test says so.
+// Keep freshness checks deterministic as the calendar advances.
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-23T00:00:00Z'))
+})
+afterEach(() => vi.useRealTimers())
+
+// Recent relative to the fixed test clock, unless a test says otherwise.
 const FRESH = '2026-07-20T00:00:00Z'
 const STALE = '2026-01-01T00:00:00Z'
 
