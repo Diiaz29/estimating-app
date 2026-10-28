@@ -1,7 +1,7 @@
 /* Faithful working compositions from the approved Project index preview. */
 @media screen {
-  .zaid-app .zaid-team .team-signature-preview { background:#fff; color:#171b1e; }
-  .zaid-app .zaid-team .team-signature-preview > span { color:#655d56; }
+  .zaid-app .team-signature-preview { background:#fff; color:#171b1e; }
+  .zaid-app .team-signature-preview > span { color:#655d56; }
   .zaid-app .zaid-team > .team-password-dialog { position:fixed; inset:0; margin:auto; background:var(--z-paper); color:var(--z-ink); border:1px solid var(--z-line); max-width:min(384px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; }
   .team-password-dialog::backdrop { background:rgb(0 0 0 / .5); }
   .zaid-app .team-password-dialog .input { min-height:42px; padding:9px 12px; font-size:14px; }

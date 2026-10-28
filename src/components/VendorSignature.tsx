@@ -1,5 +1,5 @@
 /** The company's half of a signature block on printed agreements. Prints the
- *  author's signature (drawn on the Team page) above the line, with their
+ *  author's signature (saved in My profile) above the line, with their
  *  printed name / title / date under it; falls back to a blank line to sign. */
 export default function VendorSignature({
   companyName, signatureSrc, signerName, signerTitle, date,
