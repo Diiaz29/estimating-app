@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './lib/auth'
 import { supabaseConfigured } from './lib/supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import FirstLoginPassword from './pages/FirstLoginPassword'
 import Dashboard from './pages/Dashboard'
 import Bids from './pages/Bids'
 import BidDetail from './pages/BidDetail'
@@ -58,6 +59,7 @@ function Gate() {
     )
   }
   if (!session) return <Login />
+  if (session.user.app_metadata?.must_change_password === true) return <FirstLoginPassword />
 
   return (
     <Routes>
