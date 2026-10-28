@@ -6,7 +6,7 @@ const corsHeaders = {
 
 interface Dependencies {
   getCaller: (authorization: string) => Promise<{ id: string; role: string | null } | null>
-  updatePassword: (userId: string, password: string) => Promise<string | null>
+  updatePassword: (userId: string, attributes: { password: string; app_metadata: { must_change_password: true } }) => Promise<string | null>
 }
 
 export function createResetPasswordHandler(deps: Dependencies) {
@@ -29,7 +29,10 @@ export function createResetPasswordHandler(deps: Dependencies) {
       if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 128 || !body.password.trim()) {
         return json(400, { error: 'Password must be between 8 and 128 characters' })
       }
-      const error = await deps.updatePassword(body.user_id, body.password)
+      const error = await deps.updatePassword(body.user_id, {
+        password: body.password,
+        app_metadata: { must_change_password: true },
+      })
       if (error) return json(400, { error })
       return json(200, { success: true })
     } catch {

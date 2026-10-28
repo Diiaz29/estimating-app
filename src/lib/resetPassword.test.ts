@@ -32,9 +32,12 @@ describe('admin password reset authorization', () => {
   })
   it('updates the requested user only after authorization and never returns the password', async () => {
     const { handler, updatePassword } = setup()
-    const response = await handler(request({ user_id: userId, password: 'example-password' }))
+    const response = await handler(request({ user_id: userId, password: 'example-password', app_metadata: { must_change_password: false } }))
     expect(response.status).toBe(200)
-    expect(updatePassword).toHaveBeenCalledExactlyOnceWith(userId, 'example-password')
+    expect(updatePassword).toHaveBeenCalledExactlyOnceWith(userId, {
+      password: 'example-password',
+      app_metadata: { must_change_password: true },
+    })
     expect(await response.json()).toEqual({ success: true })
   })
   it('reports an upstream rejection without claiming success', async () => {
