@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
     password,
     email_confirm: true,
     user_metadata: names,
+    app_metadata: { must_change_password: true },
   })
   if (error) return json(400, { error: error.message })
 
