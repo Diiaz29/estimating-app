@@ -17,7 +17,7 @@ const GENERAL_CATEGORIES = ['WOOD PANEL', 'QUARTZ', 'CONSUMABLES']
 const HARDWARE_CATEGORIES = ['HARDWARE', 'EQUIPMENT']
 
 export default function Materials({ mode = 'general' }: { mode?: 'general' | 'hardware' }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, canEdit } = useAuth()
   const saves = useSaveQueue()
   const [categoryFilter, setCategoryFilter] = useState<{ mode: typeof mode; category: string | null }>({ mode, category: null })
   const [materials, setMaterials] = useState<Material[] | null>(null)
@@ -131,7 +131,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                       <StaleBadge
                         costUpdatedAt={m.cost_updated_at}
                         thresholdDays={staleDays}
-                        onConfirm={isAdmin && !saves.pending ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
+                        onConfirm={canEdit && !saves.pending ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
                       {isAdmin && (

@@ -131,7 +131,7 @@ export default function Finishes() {
                       <StaleBadge
                         costUpdatedAt={f.cost_updated_at}
                         thresholdDays={staleDays}
-                        onConfirm={isAdmin && !saves.pending ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
+                        onConfirm={canEdit && !saves.pending ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
                       {isAdmin && (

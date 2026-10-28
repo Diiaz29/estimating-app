@@ -662,11 +662,11 @@ export default function Estimate() {
           <summary className="cursor-pointer font-semibold">
             <UiIcon name="warning" /> {uniqueWarnings.length} pricing warning{uniqueWarnings.length > 1 ? 's' : ''} — numbers may be incomplete
           </summary>
-          {isAdmin && uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).length > 1 && (
+          {canEdit && uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).length > 1 && (
             <button
               type="button"
               onClick={() => {
-                const refs = [...new Map(uniqueWarnings.filter((w) => w.ref).map((w) => [`${w.ref!.table}:${w.ref!.id}`, w.ref!])).values()]
+                const refs = [...new Map(uniqueWarnings.filter((w) => w.kind === 'stale' && w.ref).map((w) => [`${w.ref!.table}:${w.ref!.id}`, w.ref!])).values()]
                 void Promise.all(refs.map((r) => confirmPrice(r.table, r.id))).then((errs) => {
                   const e = errs.find(Boolean)
                   if (e) setError(e)
@@ -682,7 +682,7 @@ export default function Estimate() {
             {uniqueWarnings.map((w) => (
               <li key={w.message} className="flex flex-wrap items-center gap-2">
                 <span>{w.message}</span>
-                {isAdmin && w.kind === 'stale' && w.ref && (
+                {canEdit && w.kind === 'stale' && w.ref && (
                   <StillGoodButton
                     onClick={() => void confirmPrice(w.ref!.table, w.ref!.id).then((e) => { if (e) setError(e); else void loadAll().catch(e => setError(e instanceof Error ? e.message : 'Could not refresh the estimate.')) })}
                   />
