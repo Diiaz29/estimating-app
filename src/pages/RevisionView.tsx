@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { fmtDueDate, fmtMoney } from '../lib/format'
+import BidReviewPanel from '../components/BidReviewPanel'
+import { useBidReview } from '../lib/useBidReview'
 
 interface DisplayLine {
   label: string
@@ -47,7 +49,8 @@ interface RevisionRow {
 
 export default function RevisionView() {
   const { id, revId } = useParams<{ id: string; revId: string }>()
-  const { isAdmin } = useAuth()
+  const { isAdmin, canEdit } = useAuth()
+  const review = useBidReview(id, canEdit)
   const [rev, setRev] = useState<RevisionRow | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,6 +75,8 @@ export default function RevisionView() {
 
   return (
     <div className="zaid-page zaid-revisionview space-y-5 pb-32">
+      {canEdit && review.error && review.context?.review?.revision_id !== revId && <div className="bid-review-panel" role="alert"><p>{review.error}</p><button className="index-secondary" disabled={review.busy} onClick={() => void review.reload()}>Reload review status</button></div>}
+      {review.context?.review && review.context.review.revision_id === revId && <BidReviewPanel bidId={id!} review={review.context.review} admin={isAdmin} editor={false} busy={review.busy} blocked={false} available={true} error={review.error} onAction={async (action, note) => { await review.transition(action, undefined, note) }} onRetry={() => void review.reload()} />}
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/bids/${id}/estimate`} className="text-sm text-slate-500 hover:text-slate-900">
           <UiIcon name="left" /> Back to live estimate

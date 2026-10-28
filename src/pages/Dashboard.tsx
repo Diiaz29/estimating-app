@@ -7,6 +7,7 @@ import type { Bid, Customer } from '../lib/types'
 import { ACTIVE_STATUSES, STATUSES, fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 import NewBidForm from '../components/NewBidForm'
+import { DashboardReviewNotifications } from '../components/BidReviewNotifications'
 
 interface GcLink {
   bid_id: string
@@ -111,6 +112,7 @@ export default function Dashboard() {
   return (
     <div className="zaid-page zaid-dashboard space-y-6">
       <div className="construction-page-heading"><div><h1>Dashboard</h1><p>Bids to finish, proposals to follow up, and work in the shop.</p></div><div className="construction-heading-actions"><Link className="index-secondary" to="/bids">Bid register</Link>{canEdit && <button className="index-primary" onClick={() => setShowNew(true)}>+ New bid</button>}</div></div>
+      <DashboardReviewNotifications />
       <div className="construction-overview">
       {/* Pipeline counts */}
       <section className="zaid-pipeline">

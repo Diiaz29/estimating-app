@@ -7,6 +7,7 @@ import type { Role } from '../lib/types'
 import UiIcon from './UiIcon'
 import { profileName } from '../lib/profileName'
 import { canUseChangeList } from '../lib/changeListAccess'
+import { BidReviewNotificationsProvider, ReviewNotificationBadge } from './BidReviewNotifications'
 
 const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -45,6 +46,10 @@ const pageTitles: Record<string, string> = {
 }
 
 export default function Layout() {
+  return <BidReviewNotificationsProvider><WorkspaceLayout /></BidReviewNotificationsProvider>
+}
+
+function WorkspaceLayout() {
   const { session, profile, isAdmin, isOffice, realRole, viewAs, setViewAs } = useAuth()
   // office never touches the pricing libraries
   const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
@@ -154,7 +159,7 @@ export default function Layout() {
             const visible = tabs.filter(t => group.routes.includes(t.to))
             return visible.length > 0 && <section key={group.label} aria-label={group.label}>
               <h2>{group.label}</h2>
-              {visible.map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={() => setMenuOpen(false)}><UiIcon name={t.to === '/schedule' ? 'calendar' : t.to === '/time' ? 'clock' : t.to === '/team' || t.to === '/contractors' ? 'people' : t.to === '/settings' ? 'settings' : t.to === '/' ? 'dashboard' : t.to === '/libraries' ? 'folder' : 'register'} /><span>{t.label}</span></NavLink>)}
+              {visible.map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={() => setMenuOpen(false)}><UiIcon name={t.to === '/schedule' ? 'calendar' : t.to === '/time' ? 'clock' : t.to === '/team' || t.to === '/contractors' ? 'people' : t.to === '/settings' ? 'settings' : t.to === '/' ? 'dashboard' : t.to === '/libraries' ? 'folder' : 'register'} /><span>{t.label}</span>{t.to === '/' && <ReviewNotificationBadge />}</NavLink>)}
             </section>
           })}
         </nav>
