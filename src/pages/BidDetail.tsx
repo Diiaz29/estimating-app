@@ -11,6 +11,7 @@ import { STATUSES, fmtFollowUp, followUpAt } from '../lib/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
 import PlansSection from '../components/PlansSection'
+import BidEstimatorAssignment from '../components/BidEstimatorAssignment'
 import { duplicateBid } from '../lib/duplicateBid'
 
 export default function BidDetail() {
@@ -294,6 +295,7 @@ export default function BidDetail() {
 
       {/* Details grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <BidEstimatorAssignment bidId={bid.id} />
         <Field label="Due date">
           <input
             type="date"
