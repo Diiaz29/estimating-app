@@ -27,7 +27,8 @@ export interface BidReviewNote {
   reviewed_at: string
   note: string
 }
-export interface ReviewContext { review: BidReview | null; fingerprint: string; history?: BidReviewNote[] }
+export interface ReviewEstimator { id: string; name: string }
+export interface ReviewContext { review: BidReview | null; fingerprint: string; history?: BidReviewNote[]; assigned_estimator_id?: string | null; estimators?: ReviewEstimator[] }
 export interface ReviewQueueItem extends BidReview {
   bid: { id: string; job_number: string; name: string; status: string; assignment?: { estimator_id: string | null } | null } | null
   submitter: { first_name: string | null; last_name: string | null; email: string } | null

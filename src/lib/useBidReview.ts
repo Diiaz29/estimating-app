@@ -25,12 +25,15 @@ export function useBidReview(bidId: string | undefined, enabled: boolean) {
     window.addEventListener('focus', refresh)
     return () => { clearInterval(timer); window.removeEventListener('focus', refresh) }
   }, [reload, enabled])
-  async function transition(action: ReviewAction, revisionId?: string, note?: string) {
+  async function transition(action: ReviewAction, revisionId?: string, note?: string, estimatorId?: string) {
     if (!bidId || !context || busy) throw new Error('Reload the review status and try again.')
     setBusy(true)
     setError(null)
     try {
-      const { data, error: writeError } = await supabase!.rpc('transition_bid_review', {
+      const { data, error: writeError } = action === 'return' && estimatorId !== undefined ? await supabase!.rpc('return_bid_review_to_estimator', {
+        p_bid_id: bidId, p_revision_id: revisionId ?? context.review?.revision_id ?? null,
+        p_note: note ?? null, p_expected_version: context.review?.version ?? 0, p_estimator_id: estimatorId,
+      }) : await supabase!.rpc('transition_bid_review', {
         p_bid_id: bidId, p_action: action, p_revision_id: revisionId ?? context.review?.revision_id ?? null,
         p_note: note ?? null, p_expected_version: context.review?.version ?? 0, p_fingerprint: context.fingerprint,
       })
