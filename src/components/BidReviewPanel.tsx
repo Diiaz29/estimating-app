@@ -20,6 +20,7 @@ export default function BidReviewPanel({ bidId, review, admin, editor, busy, blo
       {admin && review?.stage === 'approved' && <Link className="index-primary" to={`/bids/${bidId}/proposal`}>Open proposal to sign</Link>}
       {canReviewAction('return', review?.stage ?? null, admin, editor) && <button className="index-secondary" disabled={busy || blocked} onClick={() => setReturning(!returning)}>Return for changes</button>}
     </div>
+    {admin && review?.stage === 'changes_requested' && <p role="status">You can send review notes without resubmitting. A new submission is required before approval or signing.</p>}
     {returning && <form className="review-return-form" onSubmit={e => { e.preventDefault(); void run('return') }}><label>What needs to change?<textarea required maxLength={4000} value={note} onChange={e => setNote(e.target.value)} className="input" disabled={busy} /></label><div><button className="index-primary" disabled={busy || blocked || !note.trim()}>Send back to estimator</button><button type="button" className="index-secondary" onClick={() => setReturning(false)} disabled={busy}>Cancel</button></div></form>}
     {blocked && <p role="status">Finish saving or retry failed edits before submitting or reviewing.</p>}
     {error && <p role="alert">{error} <button className="index-secondary" onClick={onRetry} disabled={busy}>Reload review status</button></p>}

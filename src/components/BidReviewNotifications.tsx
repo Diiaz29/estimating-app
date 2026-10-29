@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { profileName } from '../lib/profileName'
-import { reviewAttentionCount, reviewStageLabel, type ReviewQueueItem } from '../lib/bidReview'
+import { needsAdminReview, reviewAttentionCount, reviewStageLabel, type ReviewQueueItem } from '../lib/bidReview'
 import { fmtMoney } from '../lib/format'
 import { ReviewNotifications, useReviewNotifications } from '../lib/reviewNotificationsContext'
 
@@ -45,7 +45,7 @@ export function ReviewCountBadge({ count }: { count: number }) {
   return count > 0 ? <span className="review-count" aria-label={`${count} bids need your attention`}>{count}</span> : null
 }
 export function BidReviewQueue({ items, admin, userId }: { items: ReviewQueueItem[]; admin: boolean; userId?: string }) {
-  const active = items.filter(r => r.bid && !['won', 'lost'].includes(r.bid.status) && (admin ? ['ready', 'approved'].includes(r.stage) : r.submitted_by === userId))
+  const active = items.filter(r => r.bid && !['won', 'lost'].includes(r.bid.status) && (admin ? needsAdminReview(r) : r.submitted_by === userId))
   return <section id="bid-review-queue" className="bid-review-queue" aria-label={admin ? 'Bids needing your attention' : 'Your submitted bids'}>
     <div className="review-queue-heading"><h2>{admin ? 'Needs your attention' : 'Your submitted bids'}</h2><span className="review-count">{active.length}</span></div>
     {!active.length ? <p className="review-queue-empty">{admin ? 'No bids waiting for review or signature.' : 'Submit a finished estimate for review to see its progress here.'}</p> : <div className="review-queue-list">{active.map(r => <div className="review-queue-row" key={r.bid_id}>

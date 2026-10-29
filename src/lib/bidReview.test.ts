@@ -16,4 +16,14 @@ describe('bid review actions and notifications', () => {
     expect(reviewAttentionCount([item('ready'),item('approved'),item('signed'),item('changes_requested'),item('ready','won'),item('ready','lost')])).toBe(2)
     expect(reviewAttentionCount([])).toBe(0)
   })
+  it('keeps input-invalidated reviews in the admin queue until an admin sends feedback', () => {
+    const item = (reviewed_by: string | null, status = 'working') => ({
+      stage: 'changes_requested', reviewed_by, bid: { status },
+    }) as ReviewQueueItem
+    expect(reviewAttentionCount([item(null), item('admin'), item(null, 'won'), item(null, 'lost')])).toBe(1)
+    expect(canReviewAction('return', 'changes_requested', true, true)).toBe(true)
+    expect(canReviewAction('return', 'changes_requested', false, true)).toBe(false)
+    expect(canReviewAction('approve', 'changes_requested', true, true)).toBe(false)
+    expect(canReviewAction('sign', 'changes_requested', true, true)).toBe(false)
+  })
 })
