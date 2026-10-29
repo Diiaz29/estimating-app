@@ -17,7 +17,18 @@ export interface BidReview {
   signer_title: string | null
   updated_at: string
 }
-export interface ReviewContext { review: BidReview | null; fingerprint: string }
+export interface BidReviewNote {
+  bid_id: string
+  review_version: number
+  revision_id: string | null
+  revision_number: number | null
+  reviewer_id: string | null
+  reviewer_name: string
+  reviewed_at: string
+  note: string
+}
+export interface ReviewEstimator { id: string; name: string }
+export interface ReviewContext { review: BidReview | null; fingerprint: string; history?: BidReviewNote[]; assigned_estimator_id?: string | null; estimators?: ReviewEstimator[] }
 export interface ReviewQueueItem extends BidReview {
   bid: { id: string; job_number: string; name: string; status: string; assignment?: { estimator_id: string | null } | null } | null
   submitter: { first_name: string | null; last_name: string | null; email: string } | null

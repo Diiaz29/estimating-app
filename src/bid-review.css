@@ -23,7 +23,19 @@
   .review-return-form { flex:1 0 100%; display:grid; gap:12px; }
   .review-return-form label { display:block; font-size:14px; }
   .review-return-form textarea { min-height:80px; width:100%; }
+  .zaid-app .review-return-form select.input { display:block; max-width:360px; margin-top:4px; appearance:auto; background-image:none; }
+  .review-return-form>.review-recipient-field { display:block; }
+  .review-recipient-help { margin:4px 0 0; color:var(--z-muted); font-size:13px; }
   .review-panel-summary .review-return-note { margin-top:10px; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--z-ink); }
+  .review-note-history { flex:1 0 100%; min-width:0; border-top:1px solid var(--z-line); padding-top:16px; }
+  .review-note-history h3 { margin:0; font-size:15px; font-weight:600; }
+  .review-note-history>p { margin:4px 0 12px; color:var(--z-muted); font-size:13px; }
+  .review-note-history ol { list-style:none; padding:0; margin:0; display:grid; gap:16px; }
+  .review-note-history li+li { border-top:1px solid var(--z-line); padding-top:16px; }
+  .review-note-meta { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; font-size:12px; color:var(--z-muted); }
+  .review-note-meta strong { color:var(--z-ink); font-size:13px; }
+  .review-note-meta .review-revision-link { margin:0; font-size:12px; }
+  .review-history-note { margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; max-width:70ch; font-size:14px; }
   @media(max-width:700px) {
     .review-queue-row { grid-template-columns:minmax(0,1fr); gap:12px; }
     .review-queue-next { align-items:flex-start; flex-direction:row; flex-wrap:wrap; gap:8px 16px; }

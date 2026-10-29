@@ -512,13 +512,13 @@ export default function Estimate() {
     })
   }
 
-  async function reviewAction(action: ReviewAction, note?: string) {
+  async function reviewAction(action: ReviewAction, note?: string, estimatorId?: string) {
     if (saves.queue.getSnapshot().pending > 0 || actionBusy > 0) throw new Error('Finish saving before submitting or reviewing.')
     if (action === 'submit') {
       const revisionId = await snapshotRevision()
       if (!revisionId) throw new Error('Could not create a locked revision. Resolve the estimate error and try again.')
       await review.transition(action, revisionId)
-    } else await review.transition(action, undefined, note)
+    } else await review.transition(action, undefined, note, estimatorId)
   }
 
   // ---------------- change orders ----------------
@@ -673,7 +673,7 @@ export default function Estimate() {
       <SaveFeedback state={saves} retry={saves.queue.retry} />
       {actionBusy > 0 && <p role="status">Saving your action…</p>}
       {error && <div className="save-feedback save-failed" role="alert"><div><strong>This action could not be completed.</strong><p>The workspace is still available. Check the action before trying it again.</p><details><summary>Error details</summary>{error}</details></div><button className="index-secondary" onClick={() => setError(null)}>Dismiss message</button></div>}
-      {canEdit && !['won', 'lost'].includes(bid.status) && <BidReviewPanel bidId={bid.id} review={review.context?.review ?? null} admin={isAdmin} editor={canEdit} busy={review.busy || snapshotting} blocked={saves.pending > 0 || actionBusy > 0} available={!!review.context} error={review.error} onAction={reviewAction} onRetry={() => void review.reload()} />}
+      {canEdit && !['won', 'lost'].includes(bid.status) && <BidReviewPanel assignedEstimatorId={review.context?.assigned_estimator_id} estimators={review.context?.estimators} history={review.context?.history} bidId={bid.id} review={review.context?.review ?? null} admin={isAdmin} editor={canEdit} busy={review.busy || snapshotting} blocked={saves.pending > 0 || actionBusy > 0} available={!!review.context} error={review.error} onAction={reviewAction} onRetry={() => void review.reload()} />}
       {uniqueWarnings.length > 0 && (
         <details className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           <summary className="cursor-pointer font-semibold">
