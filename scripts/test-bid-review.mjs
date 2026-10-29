@@ -42,8 +42,12 @@ await db.exec(await readFile(new URL('../supabase/migrations/20261028180048_bid_
 await db.exec(await readFile(new URL('../supabase/migrations/20261029174425_preserve_review_feedback.sql',import.meta.url),'utf8'))
 await db.query('insert into profiles(id,email,role) values($1,$2,$3)',[id(7),'second-estimator@example.test','estimator'])
 await db.exec(await readFile(new URL('../supabase/migrations/20261029175034_bid_estimator_assignments.sql',import.meta.url),'utf8'))
+await db.exec(`insert into bids values('${id(30)}','working','Legacy feedback example',null,'{}',now()); insert into revisions(id,bid_id,rev_number,snapshot) values('${id(31)}','${id(30)}',1,'{}'); insert into bid_reviews(bid_id,revision_id,stage,submitted_by,reviewed_by,reviewed_at,note,fingerprint) values('${id(30)}','${id(31)}','changes_requested','${id(2)}','${id(1)}',now(),'Previously saved review notes.','legacy');`)
+await db.exec(await readFile(new URL('../supabase/migrations/20261029180545_bid_review_note_history.sql',import.meta.url),'utf8'))
 let checks = 0
 const eq = (actual,expected) => { assert.deepEqual(actual,expected); checks++ }
+eq((await db.query('select note,revision_number from bid_review_notes where bid_id=$1',[id(30)])).rows,[{note:'Previously saved review notes.',revision_number:1}])
+await db.exec(`delete from bids where id='${id(30)}'`)
 async function actor(n) { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${id(n)}',false); set role authenticated;`) }
 async function owner(sql) { await db.exec('reset role'); return db.exec(sql) }
 async function context() { return (await db.query('select public.get_bid_review_context($1) as result',[id(10)])).rows[0].result }
@@ -92,10 +96,22 @@ await actor(2)
 const rev2 = await snapshot(); ctx=await action('submit',await context(),rev2)
 await actor(1); ctx=await action('approve',ctx); ctx=await action('return',ctx,rev2,'Check the countertop dimensions.')
 eq(ctx.review.note,'Check the countertop dimensions.'); eq(ctx.review.stage,'changes_requested')
+eq(ctx.history.length,1); eq(ctx.history[0].note,'Check the countertop dimensions.')
+eq(ctx.history[0].revision_id,rev2); eq(ctx.history[0].reviewer_name,'admin@example.test')
+const firstFeedback=ctx.history[0]
+await denied(()=>db.query("update bid_review_notes set note='rewrite'"),/permission denied/)
+await denied(()=>db.query('delete from bid_review_notes'),/permission denied/)
+await actor(3); eq((await db.query('select * from bid_review_notes')).rows.length,0)
 await actor(2)
 const rev3=await snapshot(); ctx=await action('submit',await context(),rev3)
+eq(ctx.history,[firstFeedback]); eq(ctx.review.note,null)
+await actor(1); ctx=await action('return',ctx,rev3,'Confirm the countertop and finished ends.\nKeep the original dimensions.')
+eq(ctx.history.length,2); eq(ctx.history[0].revision_id,rev3); eq(ctx.history[1],firstFeedback)
+await actor(2)
+const nextRevision=await snapshot(); ctx=await action('submit',await context(),nextRevision)
+eq(ctx.history.length,2); eq(ctx.history[1],firstFeedback)
 await owner(`update line_items set quantity=3 where id='${id(13)}'`)
-await actor(1); eq((await context()).review.stage,'changes_requested')
+await actor(1); eq((await context()).review.stage,'changes_requested'); eq((await context()).history.length,2)
 await denied(()=>action('approve',ctx),/review changed/)
 await actor(2)
 const rev4=await snapshot(); ctx=await action('submit',await context(),rev4)
@@ -152,5 +168,6 @@ eq((await db.query("select has_function_privilege('anon','public.assign_bid_esti
 await owner(`delete from bids where id='${id(10)}'`)
 eq((await db.query('select * from bid_reviews')).rows.length,0)
 eq((await db.query('select * from bid_estimator_assignments')).rows.length,0)
+eq((await db.query('select * from bid_review_notes')).rows.length,0)
 console.log(`Bid review database checks passed: ${checks}. Isolated fixtures only; no live database used.`)
 await db.close()
