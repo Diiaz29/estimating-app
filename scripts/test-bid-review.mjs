@@ -255,5 +255,43 @@ eq(await clientVersions(),sentVersions)
 await actor(1); ctx=await action('approve',ctx); ctx=await action('sign',ctx)
 eq((await clientVersions()).map(r=>r.rev_number),[1,2])
 eq((await clientVersions())[0],sentVersions[0]); eq(ctx.history.length,2)
+
+// Existing numbered revisions can be explicitly approved without copying them.
+await owner('select 1')
+await db.exec(await readFile(new URL('../supabase/migrations/20261102035242_approve_existing_revision.sql',import.meta.url),'utf8'))
+const oldClientId=(await db.query('select id from revisions where bid_id=$1 and rev_number=1',[id(10)])).rows[0].id
+const beforeExisting=await clientVersions()
+await actor(2)
+await denied(async()=>action('approve_existing',await context(),oldClientId),/Only admins/)
+await actor(1)
+await denied(async()=>action('approve_existing',await context(),copy5),/numbered client revision/)
+await denied(async()=>action('approve_existing',await context(),id(999)),/numbered client revision/)
+await owner(`insert into bids values('${id(40)}','working','Other bid',null,'{}',now()); insert into revisions(id,bid_id,rev_number,snapshot) values('${id(41)}','${id(40)}',1,'{"display":{}}');`)
+await actor(1)
+await denied(async()=>action('approve_existing',await context(),id(41)),/numbered client revision/)
+// R1 predates live edits, but is deliberately selected as the frozen proposal.
+ctx=await action('approve_existing',await context(),oldClientId)
+eq(ctx.review.stage,'approved');eq(ctx.review.revision_id,oldClientId);eq(ctx.review.signature_data,null)
+eq(await clientVersions(),beforeExisting);eq(ctx.history.length,2)
+await denied(()=>action('approve_existing',ctx,oldClientId),/already approved or signed/)
+const existingApproval=ctx
+ctx=await action('sign',ctx)
+eq(ctx.review.stage,'signed');eq(ctx.review.revision_id,oldClientId);eq(await clientVersions(),beforeExisting)
+await denied(()=>action('sign',existingApproval),/review changed/)
+// Reproduce a deleted signed reference without altering any real records.
+await owner(`update bid_reviews set revision_id=null where bid_id='${id(10)}'`)
+await actor(1)
+ctx=await action('approve_existing',await context(),oldClientId)
+eq(ctx.review.stage,'approved');eq(ctx.review.revision_id,oldClientId)
+// Approval still becomes stale if working inputs change after approval.
+await owner(`update areas set multiplier=5 where id='${id(11)}'`)
+await actor(1)
+eq((await context()).review.stage,'changes_requested')
+await denied(()=>action('sign',ctx),/review changed/)
+eq(await clientVersions(),beforeExisting)
+await owner(`update bids set status='won' where id='${id(10)}'`)
+await actor(1)
+await denied(async()=>action('approve_existing',await context(),oldClientId),/active bid/)
+
 console.log(`Bid review database checks passed: ${checks}. Isolated fixtures only; no live database used.`)
 await db.close()

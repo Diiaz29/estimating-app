@@ -1,5 +1,5 @@
 export type ReviewStage = 'ready' | 'approved' | 'changes_requested' | 'signed'
-export type ReviewAction = 'submit' | 'approve' | 'return' | 'sign'
+export type ReviewAction = 'submit' | 'approve' | 'approve_existing' | 'return' | 'sign'
 export interface BidReview {
   bid_id: string
   revision_id: string | null
@@ -28,7 +28,7 @@ export interface BidReviewNote {
   note: string
 }
 export interface ReviewEstimator { id: string; name: string }
-export interface ReviewContext { review: BidReview | null; fingerprint: string; internal_review_submissions?: boolean; history?: BidReviewNote[]; assigned_estimator_id?: string | null; estimators?: ReviewEstimator[] }
+export interface ReviewContext { review: BidReview | null; fingerprint: string; internal_review_submissions?: boolean; approve_existing_revision?: boolean; history?: BidReviewNote[]; assigned_estimator_id?: string | null; estimators?: ReviewEstimator[] }
 export interface ReviewQueueItem extends BidReview {
   bid: { id: string; job_number: string; name: string; status: string; assignment?: { estimator_id: string | null } | null } | null
   submitter: { first_name: string | null; last_name: string | null; email: string } | null
@@ -57,6 +57,7 @@ export function needsAdminReview(review: ReviewQueueItem) {
 export function canReviewAction(action: ReviewAction, stage: ReviewStage | null, admin: boolean, editor: boolean) {
   if (action === 'submit') return editor && (!stage || stage === 'changes_requested')
   if (!admin) return false
+  if (action === 'approve_existing') return true
   if (action === 'approve') return stage === 'ready'
   if (action === 'sign') return stage === 'approved'
   return stage === 'ready' || stage === 'approved' || stage === 'signed' || stage === 'changes_requested'
