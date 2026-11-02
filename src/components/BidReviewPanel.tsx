@@ -9,6 +9,8 @@ export default function BidReviewPanel({ bidId, review, history = [], assignedEs
   assignedEstimatorId?: string | null; estimators?: ReviewEstimator[]
   error: string | null; available: boolean; onAction: (action: ReviewAction, note?: string, estimatorId?: string) => Promise<void>; onRetry: () => void
 }) {
+  const standaloneNote = review?.note && !history.some(entry => entry.review_version === review.version) ? review.note : null
+  const noteCount = history.length + (standaloneNote ? 1 : 0)
   const [returning, setReturning] = useState(false)
   const [note, setNote] = useState('')
   const [recipient, setRecipient] = useState('')
@@ -17,21 +19,22 @@ export default function BidReviewPanel({ bidId, review, history = [], assignedEs
     try { await onAction(action, action === 'return' ? note.trim() : undefined, action === 'return' ? recipient : undefined); setReturning(false); setNote('') } catch { /* parent shows the server error */ }
   }
   return <section className="bid-review-panel print:hidden" aria-label="Bid review">
-    <div className="review-panel-summary"><strong>{review ? reviewStageLabel[review.stage] : 'Working — not submitted for review'}</strong><p>{review?.stage === 'ready' ? 'An internal review copy is waiting for an admin to review.' : review?.stage === 'approved' ? 'Review is complete. An admin must sign the approved proposal.' : review?.stage === 'signed' ? 'The approved revision has been signed.' : admin && review?.stage === 'changes_requested' ? 'Review the submitted estimate and send feedback below.' : 'Save your work, then submit for internal review. This does not create a client revision.'}</p>{review?.revision_id && <Link to={`/bids/${bidId}/revisions/${review.revision_id}`} className="review-revision-link">View submitted estimate</Link>}{review?.note && !history.some(entry => entry.review_version === review.version) && <p className="review-return-note">{review.note}</p>}</div>
+    <div className="review-panel-summary"><strong>{review ? reviewStageLabel[review.stage] : 'Working — not submitted for review'}</strong><p>{review?.stage === 'ready' ? 'An internal review copy is waiting for an admin to review.' : review?.stage === 'approved' ? 'Review is complete. An admin must sign the approved proposal.' : review?.stage === 'signed' ? 'The approved revision has been signed.' : admin && review?.stage === 'changes_requested' ? 'Review the submitted estimate and send feedback below.' : 'Save your work, then submit for internal review. This does not create a client revision.'}</p>{review?.revision_id && <Link to={`/bids/${bidId}/revisions/${review.revision_id}`} className="review-revision-link">View submitted estimate</Link>}</div>
     <div className="review-panel-actions">
       {canReviewAction('submit', review?.stage ?? null, admin, editor) && <button className="index-primary" disabled={!available || busy || blocked} onClick={() => void run('submit')}>{busy ? 'Submitting…' : review ? 'Resubmit for review' : 'Submit for review'}</button>}
       {canReviewAction('approve', review?.stage ?? null, admin, editor) && <button className="index-primary" disabled={busy || blocked} onClick={() => void run('approve')}>Approve for signature</button>}
       {admin && review?.stage === 'approved' && <Link className="index-primary" to={`/bids/${bidId}/proposal`}>Open proposal to sign</Link>}
       {canReviewAction('return', review?.stage ?? null, admin, editor) && <button className="index-secondary" disabled={busy || blocked} onClick={() => { if (!returning) setRecipient(estimators.some(p => p.id === assignedEstimatorId) ? (assignedEstimatorId ?? '') : ''); setReturning(!returning) }}>Return for changes</button>}
     </div>
-    {history.length > 0 && <section className="review-note-history" aria-label="Review note history">
-      <h3>Review notes</h3>
+    {noteCount > 0 && <details key={bidId} className="review-note-history">
+      <summary>Review notes <span className="review-count">{noteCount}</span></summary>
+      {standaloneNote && <p className="review-history-note">{standaloneNote}</p>}
       <p>Check these earlier requests against the current submission.</p>
       <ol>{history.map(entry => <li key={entry.review_version}>
         <div className="review-note-meta"><strong>{entry.revision_number !== null ? `Returned R${entry.revision_number}` : 'Internal review — changes requested'}</strong><span>{entry.reviewer_name} · <time dateTime={entry.reviewed_at}>{new Date(entry.reviewed_at).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</time></span>{entry.revision_id && <Link className="review-revision-link" to={`/bids/${bidId}/revisions/${entry.revision_id}`}>View reviewed estimate</Link>}</div>
         <p className="review-history-note">{entry.note}</p>
       </li>)}</ol>
-    </section>}
+    </details>}
     {admin && review?.stage === 'changes_requested' && <p role="status">You can send review notes without resubmitting. A new submission is required before approval or signing.</p>}
     {returning && <form className="review-return-form" onSubmit={e => { e.preventDefault(); void run('return') }}>
       <div className="review-recipient-field"><label>Assigned estimator<select required className="input" value={recipient} onChange={e => setRecipient(e.target.value)} disabled={busy || !estimators.length}><option value="">Choose an estimator</option>{estimators.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><p className="review-recipient-help">These notes will go to this person when you send the estimate back.</p></div>
