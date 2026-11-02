@@ -673,7 +673,7 @@ export default function Estimate() {
         </Link>
       </div>
 
-      <SaveFeedback state={saves} retry={saves.queue.retry} />
+      <SaveFeedback state={saves} retry={saves.queue.retry} explanation="Submit saved changes for review. Signing the approved proposal creates the numbered client revision." />
       {actionBusy > 0 && <p role="status">Saving your action…</p>}
       {error && <div className="save-feedback save-failed" role="alert"><div><strong>This action could not be completed.</strong><p>The workspace is still available. Check the action before trying it again.</p><details><summary>Error details</summary>{error}</details></div><button className="index-secondary" onClick={() => setError(null)}>Dismiss message</button></div>}
       {canEdit && !['won', 'lost'].includes(bid.status) && <BidReviewPanel assignedEstimatorId={review.context?.assigned_estimator_id} estimators={review.context?.estimators} history={review.context?.history} bidId={bid.id} review={review.context?.review ?? null} admin={isAdmin} editor={canEdit} busy={review.busy || snapshotting} blocked={saves.pending > 0 || actionBusy > 0} available={!!review.context} error={review.error} onAction={reviewAction} onRetry={() => void review.reload()} />}
