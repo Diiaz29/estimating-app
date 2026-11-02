@@ -74,7 +74,7 @@ export default function Finishes() {
         <p className="text-sm text-slate-500">
           Laminates and solid surfaces. Each job assigns these to its finish slots (PLAM 1–4, SS 1–4) —
           add your real colors here as you use them.
-          {isAdmin && ' Click a price to change just the number, or "edit" for everything else.'}
+          {canEdit && ' Click a price to change just the number, or "edit" for everything else.'}
         </p>
         {canEdit && (
           <button
@@ -117,7 +117,7 @@ export default function Finishes() {
                     <td data-label="Color / code" className="px-2 py-2 text-xs text-slate-500">{f.color_code ?? '—'}</td>
                     <td data-label="Unit" className="px-2 py-2 text-xs text-slate-500 whitespace-nowrap">{f.unit}</td>
                     <td data-label="Cost" className="px-2 py-2 text-right tabular-nums">
-                      {isAdmin ? <CostCell label={`Cost for ${f.name}`} value={f.cost} onSave={(v) => void patch(f, { cost: v })} /> : fmtCost(f.cost)}
+                      {canEdit ? <CostCell label={`Cost for ${f.name}`} value={f.cost} onSave={(v) => void patch(f, { cost: v })} /> : fmtCost(f.cost)}
                     </td>
                     <td data-label="Default slot" className="px-2 py-2">
                       {f.default_slot && (
@@ -134,11 +134,9 @@ export default function Finishes() {
                         onConfirm={canEdit && !saves.pending ? () => void confirmPrice('finishes', f.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
+                      {canEdit && <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">edit</button>}
                       {isAdmin && (
                         <>
-                          <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
-                            edit
-                          </button>
                           <button
                             onClick={() => setDupTarget(f)}
                             title="Start a new entry prefilled from this one"
@@ -173,7 +171,7 @@ export default function Finishes() {
           }}
         />
       )}
-      {formTarget && (isAdmin || (canEdit && formTarget === 'new')) && (
+      {formTarget && canEdit && (
         <FinishForm
           finish={formTarget === 'new' ? null : formTarget}
           onClose={() => setFormTarget(null)}
@@ -230,7 +228,7 @@ function FinishForm({
       default_slot: slot || null,
     }
     const { error } = finish && !duplicate
-      ? await supabase!.from('finishes').update(fields).eq('id', finish.id)
+      ? await supabase!.from('finishes').update(fields).eq('id', finish.id).select('id').single()
       : await supabase!.from('finishes').insert(fields)
     if (error) {
       setError(error.message.includes('duplicate') ? 'A finish with that name already exists.' : error.message)

@@ -83,7 +83,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
             : 'Raw material prices. Every cabinet price is built from these — keep them current.'}
           {isAdmin && ' Click a price to change just the number, or "edit" for everything else.'}
         </p>
-        {isAdmin && (
+        {canEdit && (
           <button
             onClick={() => setFormTarget('new')}
             className="ml-auto shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
@@ -162,7 +162,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
       ))}
       </div></div>
 
-      {dupTarget && (
+      {dupTarget && isAdmin && (
         <MaterialForm
           material={dupTarget}
           duplicate
@@ -180,7 +180,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
           }}
         />
       )}
-      {formTarget && (
+      {formTarget && (isAdmin || (formTarget === 'new' && canEdit)) && (
         <MaterialForm
           material={formTarget === 'new' ? null : formTarget}
           categories={
