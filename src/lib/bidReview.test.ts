@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { canReviewAction, estimatorAttentionCount, reviewAttentionCount, reviewBelongsTo, type ReviewQueueItem } from './bidReview'
 describe('bid review actions and notifications', () => {
+  it('hides archived reviews and returned notes without clearing their history', () => {
+    const ready = { stage: 'ready', submitted_by: 'estimator', bid: { status: 'working', archive: { archived_at: '2026-11-02T00:00:00Z' } } } as ReviewQueueItem
+    const returned = { ...ready, stage: 'changes_requested', reviewed_by: 'admin' } as ReviewQueueItem
+    expect(reviewAttentionCount([ready])).toBe(0)
+    expect(estimatorAttentionCount([returned], 'estimator')).toBe(0)
+    expect(reviewAttentionCount([{ ...ready, bid: { ...ready.bid!, archive: null } }])).toBe(1)
+    expect(estimatorAttentionCount([{ ...returned, bid: { ...returned.bid!, archive: null } }], 'estimator')).toBe(1)
+  })
   it('keeps submission separate from administrator approval and signing', () => {
     expect(canReviewAction('submit', null, false, true)).toBe(true)
     expect(canReviewAction('submit', 'changes_requested', false, true)).toBe(true)

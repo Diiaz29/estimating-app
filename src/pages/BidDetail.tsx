@@ -12,6 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
 import PlansSection from '../components/PlansSection'
 import BidEstimatorAssignment from '../components/BidEstimatorAssignment'
+import BidArchiveAction from '../components/BidArchiveAction'
 import { duplicateBid } from '../lib/duplicateBid'
 
 export default function BidDetail() {
@@ -31,12 +32,15 @@ export default function BidDetail() {
   const [confirmDuplicate, setConfirmDuplicate] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
   const [followupDefault, setFollowupDefault] = useState(7)
+  const [archiveNotice, setArchiveNotice] = useState<string | null>(null)
+  const archiveNoticeRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => { if (archiveNotice) archiveNoticeRef.current?.focus() }, [archiveNotice])
 
   useUnsavedWarning(dirty || busy || saves.pending > 0)
 
   async function load() {
     const [bidRes, gcRes, custRes, setRes] = await Promise.all([
-      supabase!.from('bids').select('*').eq('id', id!).single(),
+      supabase!.from('bids').select('*, archive:bid_archives(archived_at)').eq('id', id!).single(),
       supabase!.from('bid_customers').select('*, customer:customers(*)').eq('bid_id', id!),
       supabase!.from('customers').select('*').order('company'),
       supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
@@ -53,6 +57,7 @@ export default function BidDetail() {
     setDirty(false)
     setSaved(false)
     setError(null)
+    setArchiveNotice(null)
     void load().catch(e => setError(String(e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
@@ -74,7 +79,7 @@ export default function BidDetail() {
     setBusy(true)
     setError(null)
     try {
-      const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...fields } = bid
+      const { id: _id, created_at: _createdAt, updated_at: _updatedAt, archive: _archive, ...fields } = bid
       await checkedWrite(supabase!.from('bids').update(fields).eq('id', bid.id).select('id').single())
       if (version === editVersion.current) { setDirty(false); setSaved(true) }
     } catch (e) { setError(e instanceof Error ? e.message : 'The server did not confirm your changes.') }
@@ -141,6 +146,7 @@ export default function BidDetail() {
         </Link>
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
+          {canEdit && !bid.archive && bid.status !== 'won' && <details className="bid-options"><summary className="index-secondary">Bid options</summary><div><BidArchiveAction bid={bid} disabled={dirty || busy || saves.pending > 0} onChanged={() => { setDirty(false); navigate('/bids') }} /></div></details>}
           <span role="status" aria-live="polite" className="text-xs font-medium">{busy ? 'Saving…' : dirty ? 'Unsaved changes' : saved ? 'Changes saved' : ''}</span>
           {canEdit && (
             <button
@@ -166,6 +172,8 @@ export default function BidDetail() {
 
       {error && <div className="save-feedback save-failed" role="alert"><div><strong>This action did not complete.</strong><p>Your edits are still here. {dirty ? 'Use Retry save to save them.' : 'Check the action before trying again.'}</p><details><summary>Error details</summary>{error}</details></div>{dirty && <button className="index-secondary" disabled={busy} onClick={() => void save()}>Retry save</button>}<button className="index-secondary" onClick={() => setError(null)}>Dismiss message</button></div>}
       {canEdit && <p className="save-feedback">Project details need Save. Contractor selections save immediately.</p>}
+      {archiveNotice && <p ref={archiveNoticeRef} role="status" tabIndex={-1}>{archiveNotice}</p>}
+      {bid.archive && <div className="bid-archive-notice"><div><strong>Archived bid</strong><p>This bid is saved for later. Its status and history are unchanged.</p><Link to="/bids?view=archived">View archived bids</Link></div><BidArchiveAction bid={bid} disabled={dirty || busy || saves.pending > 0} onChanged={() => { setBid(current => current ? { ...current, archive: null } : current); setArchiveNotice('Bid restored to the bid list.') }} /></div>}
       {saves.pending > 0 || saves.saved ? <SaveFeedback state={saves} retry={saves.queue.retry} explanation="" savedMessage="Contractor selections saved." /> : null}
       {!canEdit && <ViewOnlyBanner />}
 

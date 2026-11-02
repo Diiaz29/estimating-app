@@ -29,7 +29,7 @@ export default function Dashboard() {
   useEffect(() => {
     supabase!
       .from('bids')
-      .select('*')
+      .select('*, archive:bid_archives(archived_at)')
       .then(({ data, error }) => {
         if (error) setError(error.message)
         else setBids(data as Bid[])
@@ -72,7 +72,7 @@ export default function Dashboard() {
   if (error) return <ErrorNote message={error} />
   if (!bids) return <p className="text-sm text-slate-500">Loading…</p>
 
-  const active = bids.filter((b) => ACTIVE_STATUSES.includes(b.status))
+  const active = bids.filter((b) => !b.archive && ACTIVE_STATUSES.includes(b.status))
   // dated bids first (soonest on top), then the ones with no due date so nothing hides
   const dueList = active
     .filter((b) => b.status !== 'sent')

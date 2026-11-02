@@ -407,3 +407,18 @@
     .zaid-app .responsive-record-table .library-price-status button { min-height:36px; }
   }
 }
+@media screen {
+  .zaid-app .bid-register-views { display:flex; align-items:stretch; justify-content:space-between; gap:24px; min-width:0; border-bottom:1px solid var(--z-line); }
+  .zaid-app .construction-register .bid-register-views .index-tabs { margin:0; padding:0; border-bottom:0; min-width:0; }
+  .zaid-app .construction-register .bid-register-views .bid-archive-tabs { flex-shrink:0; }
+  .zaid-app .bid-options { position:relative; }
+  .zaid-app .bid-options summary { cursor:pointer; }
+  .zaid-app .bid-options > div { position:absolute; right:0; top:calc(100% + 8px); z-index:20; padding:12px; min-width:200px; background:var(--z-paper); border:1px solid var(--z-line); border-radius:6px; }
+  .zaid-app .bid-archive-notice { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:16px; border:1px solid var(--z-line); border-radius:6px; background:var(--z-paper); }
+  .zaid-app .bid-archive-notice p { margin:4px 0; color:var(--z-muted); }
+  .zaid-app .bid-archive-notice a { text-decoration:underline; }
+  @media (max-width:600px) {
+    .zaid-app .bid-register-views { flex-wrap:wrap; gap:0; }
+    .zaid-app .construction-register .bid-register-views .bid-archive-tabs { margin-left:auto; }
+  }
+}
