@@ -12,6 +12,7 @@ import { LOGO_URL } from '../lib/branding'
 import VendorSignature from '../components/VendorSignature'
 import { useAuth } from '../lib/auth'
 import BidReviewPanel from '../components/BidReviewPanel'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { fetchReviewContext, useBidReview } from '../lib/useBidReview'
 
 interface SnapshotRevision {
@@ -142,6 +143,7 @@ export default function Proposal() {
   const review = useBidReview(id, canEdit)
   const [signers, setSigners] = useState<Profile[]>([])
   const [signed, setSigned] = useState(false) // signature goes on only when the creator clicks Sign
+  const [revisionToApprove, setRevisionToApprove] = useState<SnapshotRevision | null>(null)
   const [reviewPrintError, setReviewPrintError] = useState<string | null>(null)
   useEffect(() => { setSigned(false) }, [source])
   const [showDetail, setShowDetail] = useState(false) // bids.detail_breakdown
@@ -440,6 +442,8 @@ export default function Proposal() {
   const signatureVisible = !!reviewedSignature || (!requiresBidReview && !reviewRecord && signed)
   const canSignReviewed = isAdmin && matchesReview && reviewRecord?.stage === 'approved' && !!review.context && !review.error
   const canSignLegacy = isAdmin && !requiresBidReview && !reviewRecord && !!review.context && !review.error
+  const canApproveExisting = isAdmin && requiresBidReview && lockedRev?.rev_number != null
+    && !(matchesReview && (reviewRecord?.stage === 'approved' || reviewRecord?.stage === 'signed'))
   const signer = reviewedSignature ?? (matchesReview
     ? signers.find((p) => p.id === session?.user.id)
     : lockedRev?.created_by
@@ -489,6 +493,10 @@ export default function Proposal() {
 
   return (
     <div className="zaid-page zaid-proposal proposal-page">
+      {revisionToApprove && <ConfirmDialog title={`Approve existing R${revisionToApprove.rev_number}?`}
+        message={`Approve the saved R${revisionToApprove.rev_number} for ${fmtMoney(Number(revisionToApprove.contract_amount))}, exactly as displayed. This replaces the current review selection and clears its signature status. Signing is a separate step and will keep R${revisionToApprove.rev_number}; no new revision will be created.`}
+        confirmLabel="Approve for signature" onCancel={() => setRevisionToApprove(null)}
+        onConfirm={() => { const revisionId = revisionToApprove.id; setRevisionToApprove(null); void review.transition('approve_existing', revisionId).catch(() => {}) }} />}
       {reviewPrintError && <p className="print:hidden" role="alert">{reviewPrintError} <button className="index-secondary" onClick={() => window.location.reload()}>Reload proposal</button></p>}
       {canEdit && (requiresBidReview || reviewRecord) && <div className="print:hidden"><BidReviewPanel assignedEstimatorId={review.context?.assigned_estimator_id} estimators={review.context?.estimators} history={review.context?.history} bidId={bid.id} review={reviewRecord ?? null} admin={isAdmin} editor={false} busy={review.busy} blocked={!!reviewRecord && !matchesReview} available={!!review.context} error={review.error} onAction={async (action, note, estimatorId) => { await review.transition(action, undefined, note, estimatorId) }} onRetry={() => void review.reload()} />{!reviewRecord && review.context && <p><Link to={`/bids/${bid.id}/estimate`} className="underline">Submit the estimate for review</Link> before signing this proposal.</p>}{reviewRecord && !matchesReview && reviewRecord.revision_id && <button className="index-secondary" onClick={() => setSource(reviewRecord.revision_id)}>Show the submitted revision</button>}{isAdmin && matchesReview && reviewRecord?.stage === 'approved' && !signer?.signature_data && <p>Add your signature on the <Link to="/team" className="underline">Team page</Link> before signing this proposal.</p>}</div>}
       {/* Screen-only toolbar */}
@@ -514,6 +522,9 @@ export default function Proposal() {
         <span className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider ${data.isLocked ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-amber-400 bg-amber-50 text-amber-800'}`}>
           {data.sourceLabel}
         </span>
+        {canApproveExisting && <button className="index-primary" disabled={review.busy || !review.context?.approve_existing_revision || !!review.error}
+          onClick={() => setRevisionToApprove(lockedRev!)}>Approve R{lockedRev!.rev_number} for signature</button>}
+        {canApproveExisting && review.context && !review.context.approve_existing_revision && <span role="status">Approving existing revisions will be available after the database update is published.</span>}
         {canManageBids && (
           <label
             className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-600"
