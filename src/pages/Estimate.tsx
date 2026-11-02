@@ -671,7 +671,6 @@ export default function Estimate() {
         >
           Show the math
         </Link>
-        {canEdit && <button onClick={() => void snapshotRevision()} disabled={snapshotting || saves.pending > 0 || actionBusy > 0} className="index-primary">{snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}</button>}
       </div>
 
       <SaveFeedback state={saves} retry={saves.queue.retry} />
@@ -961,20 +960,11 @@ export default function Estimate() {
           <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
             Revisions — the price you sent, locked in
           </h2>
-          {canEdit && (
-            <button
-              onClick={() => void snapshotRevision()}
-              disabled={snapshotting || saves.pending > 0 || actionBusy > 0}
-              className="ml-auto rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-            >
-              {snapshotting ? 'Saving…' : `Snapshot R${(revisions[0]?.rev_number ?? 0) + 1}`}
-            </button>
-          )}
         </div>
         {revisions.length === 0 ? (
           <p className="px-4 py-3 text-sm text-slate-500">
-            No snapshots yet. Take one every time you send this bid — the recorded price never
-            changes, even when library prices do.
+            No client revisions yet. Approve and sign the proposal to create a numbered revision.
+            Its recorded price stays locked, even when library prices change.
           </p>
         ) : (
           revisions.map((r, i) => (
