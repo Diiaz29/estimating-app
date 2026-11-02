@@ -38,6 +38,8 @@ export interface Contact {
 }
 
 export interface Bid {
+  /** Optional one-to-one workspace metadata; never written into the bid itself. */
+  archive?: { archived_at: string } | null
   id: string
   job_number: string
   name: string

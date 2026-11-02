@@ -19,14 +19,16 @@ export default function Bids() {
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const filter = (params.get('status') as BidStatus | null) ?? null
+  const showArchived = params.get('view') === 'archived'
   const [followupDays, setFollowupDays] = useState(7)
 
   async function load() {
     setError(null)
     const [bidsRes, custRes, setRes, gcRes] = await Promise.all([
-      supabase!.from('bids').select('*').order('created_at', { ascending: false }),
+      supabase!.from('bids').select('*, archive:bid_archives(archived_at)').order('created_at', { ascending: false }),
       supabase!.from('customers').select('*').order('company'),
       supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
       supabase!.from('bid_customers').select('bid_id, won_through, customer:customers(company)'),
@@ -57,7 +59,8 @@ export default function Bids() {
 
   return (
     <div className="zaid-page zaid-bids space-y-4">
-      <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={(b) => b.bid_value == null ? null : Number(b.bid_value)} onNew={canEdit ? () => setShowNew(true) : undefined} title="Your bids" statusFilter={filter} onStatusFilter={(status) => setParams(status ? { status } : {})} />
+      {notice && <p role="status">{notice}</p>}
+      <ProjectIndex followupDays={followupDays} bids={bids.filter(b => !!b.archive === showArchived)} contractor={gcLabel} valueFor={(b) => b.bid_value == null ? null : Number(b.bid_value)} onNew={canEdit && !showArchived ? () => setShowNew(true) : undefined} title={showArchived ? 'Archived bids' : 'Your bids'} statusFilter={showArchived ? null : filter} onStatusFilter={(status) => setParams(status ? { status } : {})} archiveControls={{ showArchived, count: bids.filter(b => b.archive).length, onShowArchived: value => { setNotice(null); setParams(value ? { view: 'archived' } : {}) }, onRestored: () => { setNotice('Bid restored to the bid list.'); void load() } }} />
       {showNew && (
         <NewBidForm
           customers={customers}

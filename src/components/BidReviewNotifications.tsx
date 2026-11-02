@@ -18,7 +18,7 @@ export function BidReviewNotificationsProvider({ children }: { children: ReactNo
   const reload = useCallback(async () => {
     const current = ++request.current
     if (!canEdit) { setItems([]); setLoading(false); setError(null); return }
-    const { data, error: loadError } = await supabase!.from('bid_reviews').select('*, bid:bids(id,job_number,name,status,assignment:bid_estimator_assignments(estimator_id)), submitter:profiles!bid_reviews_submitted_by_fkey(first_name,last_name,email), revision:revisions(rev_number,contract_amount)').order('submitted_at')
+    const { data, error: loadError } = await supabase!.from('bid_reviews').select('*, bid:bids(id,job_number,name,status,archive:bid_archives(archived_at),assignment:bid_estimator_assignments(estimator_id)), submitter:profiles!bid_reviews_submitted_by_fkey(first_name,last_name,email), revision:revisions(rev_number,contract_amount)').order('submitted_at')
     if (request.current !== current) return
     setLoading(false)
     setError(loadError ? 'Review notifications are unavailable. Please retry.' : null)
@@ -45,7 +45,7 @@ export function ReviewCountBadge({ count }: { count: number }) {
   return count > 0 ? <span className="review-count" aria-label={`${count} bids need your attention`}>{count}</span> : null
 }
 export function BidReviewQueue({ items, admin, userId }: { items: ReviewQueueItem[]; admin: boolean; userId?: string }) {
-  const active = items.filter(r => r.bid && !['won', 'lost'].includes(r.bid.status) && (admin ? needsAdminReview(r) : reviewBelongsTo(r, userId)))
+  const active = items.filter(r => r.bid && !r.bid.archive && !['won', 'lost'].includes(r.bid.status) && (admin ? needsAdminReview(r) : reviewBelongsTo(r, userId)))
   return <section id="bid-review-queue" className="bid-review-queue" aria-label={admin ? 'Bids needing your attention' : 'Your bids'}>
     <div className="review-queue-heading"><h2>{admin ? 'Needs your attention' : 'Your bids'}</h2><span className="review-count">{active.length}</span></div>
     {!active.length ? <p className="review-queue-empty">{admin ? 'No bids waiting for review or signature.' : 'Submit a finished estimate for review to see its progress here.'}</p> : <div className="review-queue-list">{active.map(r => <div className="review-queue-row" key={r.bid_id}>
