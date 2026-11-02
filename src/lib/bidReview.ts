@@ -28,11 +28,11 @@ export interface BidReviewNote {
   note: string
 }
 export interface ReviewEstimator { id: string; name: string }
-export interface ReviewContext { review: BidReview | null; fingerprint: string; history?: BidReviewNote[]; assigned_estimator_id?: string | null; estimators?: ReviewEstimator[] }
+export interface ReviewContext { review: BidReview | null; fingerprint: string; internal_review_submissions?: boolean; history?: BidReviewNote[]; assigned_estimator_id?: string | null; estimators?: ReviewEstimator[] }
 export interface ReviewQueueItem extends BidReview {
   bid: { id: string; job_number: string; name: string; status: string; assignment?: { estimator_id: string | null } | null } | null
   submitter: { first_name: string | null; last_name: string | null; email: string } | null
-  revision: { rev_number: number; contract_amount: number } | null
+  revision: { rev_number: number | null; contract_amount: number } | null
 }
 export function reviewBelongsTo(review: ReviewQueueItem, userId?: string) {
   if (!userId) return false

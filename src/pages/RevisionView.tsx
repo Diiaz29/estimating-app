@@ -27,7 +27,7 @@ interface DisplayArea {
 interface RevisionRow {
   id: string
   bid_id: string
-  rev_number: number
+  rev_number: number | null
   contract_amount: number
   tax: number
   true_cost: number | null
@@ -82,7 +82,7 @@ export default function RevisionView() {
           <UiIcon name="left" /> Back to live estimate
         </Link>
         <span className="rounded-full border border-amber-400 bg-amber-50 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-amber-800">
-          Snapshot R{rev.rev_number} · view only
+          {rev.rev_number === null ? 'Internal review copy' : `Snapshot R${rev.rev_number}`} · view only
         </span>
         <span className="text-xs text-slate-500">
           {fmtDueDate(rev.created_at)} {rev.created_by && `· by ${rev.created_by}`}
@@ -157,7 +157,7 @@ export default function RevisionView() {
         <div className="mx-auto flex max-w-6xl items-stretch divide-x divide-amber-300 overflow-x-auto font-mono">
           {totals && <Cell label="Base bid" value={fmtMoney(totals.cabinetTotal)} />}
           {totals && <Cell label="Added costs" value={fmtMoney(totals.addersTotal)} />}
-          <Cell label={`Contract (R${rev.rev_number})`} value={fmtMoney(Number(rev.contract_amount))} strong />
+          <Cell label={rev.rev_number === null ? 'Contract (internal review)' : `Contract (R${rev.rev_number})`} value={fmtMoney(Number(rev.contract_amount))} strong />
           <Cell label="Tax" value={fmtMoney(Number(rev.tax))} />
           {totals && (totals.alternatesAllInTotal ?? totals.alternatesTotal) > 0 && (
             <Cell label="Options" value={fmtMoney(totals.alternatesAllInTotal ?? totals.alternatesTotal)} />

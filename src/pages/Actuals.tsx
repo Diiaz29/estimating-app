@@ -105,7 +105,7 @@ export default function Actuals() {
             supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
             supabase!.from('settings').select('*'),
             supabase!.from('job_actuals').select('*').eq('bid_id', id!).maybeSingle(),
-            supabase!.from('revisions').select('contract_amount').eq('bid_id', id!).order('rev_number', { ascending: false }).limit(1),
+            supabase!.from('revisions').select('contract_amount').not('rev_number', 'is', null).eq('bid_id', id!).order('rev_number', { ascending: false }).limit(1),
             supabase!.from('receipts').select('*').eq('bid_id', id!).order('created_at', { ascending: false }),
           ])
         requireLoaded({ Project: bidRes, Areas: areaRes, Assemblies: asmRes, Recipes: bomRes, Materials: matRes, Finishes: bfRes, Overrides: ovrRes, Settings: setRes, 'Actual hours': actRes, Revision: revRes, Receipts: recRes })
