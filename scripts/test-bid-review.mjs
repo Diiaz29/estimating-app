@@ -191,5 +191,69 @@ await owner(`delete from bids where id='${id(10)}'`)
 eq((await db.query('select * from bid_reviews')).rows.length,0)
 eq((await db.query('select * from bid_estimator_assignments')).rows.length,0)
 eq((await db.query('select * from bid_review_notes')).rows.length,0)
+// Exercise the new flow after the legacy regression checks above. Supply the
+// remaining production snapshot columns in this deliberately small fixture.
+await owner(`alter table revisions add column note text, add column contract_amount numeric default 1500,
+  add column tax numeric default 0, add column true_cost numeric, add column profit numeric,
+  add column margin_pct numeric, add column created_by text;
+  alter table revisions add unique(bid_id,rev_number);
+  insert into bids values('${id(10)}','working','Internal review example',null,'{}',now());
+  insert into areas values('${id(11)}','${id(10)}','Room',1);`)
+await db.exec(await readFile(new URL('../supabase/migrations/20261102030500_internal_review_submissions.sql',import.meta.url),'utf8'))
+async function internalCopy(amount) {
+  return (await db.query('insert into revisions(bid_id,rev_number,snapshot,contract_amount) values($1,null,$2,$3) returning id',
+    [id(10),{contract:amount,display:{areas:['Frozen room']}},amount])).rows[0].id
+}
+const clientVersions = async () => (await db.query('select rev_number,snapshot,contract_amount from revisions where bid_id=$1 and rev_number is not null order by rev_number',[id(10)])).rows
+await actor(2)
+const copy1 = await internalCopy(1500)
+ctx = await action('submit',await context(),copy1)
+eq(await clientVersions(),[])
+await denied(()=>action('approve',ctx),/Only admins/)
+await actor(1)
+ctx=await action('return',ctx,copy1,'Correct the first dimensions.')
+await owner(`update areas set multiplier=2 where id='${id(11)}'`)
+await actor(2)
+await denied(async ()=>action('submit',await context(),copy1),/current internal review copy/)
+const copy2=await internalCopy(2000)
+ctx=await action('submit',await context(),copy2)
+eq(ctx.history.length,1); eq(ctx.history[0].revision_number,null)
+eq(ctx.history[0].revision_id,copy1)
+eq(await clientVersions(),[])
+await actor(1)
+ctx=await action('return',ctx,copy2,'Check the second measurement.')
+await actor(2)
+const copy3=await internalCopy(2200)
+ctx=await action('submit',await context(),copy3)
+eq(ctx.history.length,2); eq(await clientVersions(),[])
+await actor(1)
+ctx=await action('approve',ctx)
+await owner(`update areas set multiplier=3 where id='${id(11)}'`)
+await actor(1)
+eq((await context()).review.stage,'changes_requested')
+await denied(()=>action('sign',ctx),/review changed/)
+await actor(2)
+const copy4=await internalCopy(2400)
+ctx=await action('submit',await context(),copy4)
+await actor(1)
+ctx=await action('approve',ctx)
+const beforeSign=ctx
+ctx=await action('sign',ctx)
+eq(ctx.review.stage,'signed'); eq(ctx.review.revision_id===copy4,false)
+const sentVersions=await clientVersions()
+eq(sentVersions,[{rev_number:1,snapshot:{contract:2400,display:{areas:['Frozen room']}},contract_amount:'2400'}])
+await denied(()=>action('sign',beforeSign),/review changed/)
+eq(await clientVersions(),sentVersions)
+eq((await db.query('select rev_number,snapshot from revisions where id=$1',[copy1])).rows[0],
+  {rev_number:null,snapshot:{contract:1500,display:{areas:['Frozen room']}}})
+// A client-requested change creates R2 only after its own approval/signature.
+await owner(`update bids set status='sent' where id='${id(10)}'; update areas set multiplier=4 where id='${id(11)}'`)
+await actor(2)
+const copy5=await internalCopy(2800)
+ctx=await action('submit',await context(),copy5)
+eq(await clientVersions(),sentVersions)
+await actor(1); ctx=await action('approve',ctx); ctx=await action('sign',ctx)
+eq((await clientVersions()).map(r=>r.rev_number),[1,2])
+eq((await clientVersions())[0],sentVersions[0]); eq(ctx.history.length,2)
 console.log(`Bid review database checks passed: ${checks}. Isolated fixtures only; no live database used.`)
 await db.close()

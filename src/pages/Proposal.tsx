@@ -17,7 +17,7 @@ import { fetchReviewContext, useBidReview } from '../lib/useBidReview'
 interface SnapshotRevision {
   created_by?: string | null
   id: string
-  rev_number: number
+  rev_number: number | null
   contract_amount: number
   tax: number
   created_at: string
@@ -190,7 +190,7 @@ export default function Proposal() {
       setTerms(Object.fromEntries(((termRes.data ?? []) as { key: string; value: string }[]).map((t) => [t.key, t.value])))
       const revRows = ((revRes.data ?? []) as SnapshotRevision[]).filter((r) => r.snapshot?.display)
       setRevisions(revRows)
-      setSource(revRows[0]?.id ?? 'live')
+      setSource(current => current ?? revRows.find(r => r.rev_number !== null)?.id ?? 'live')
       const gcRows = (gcRes.data ?? []) as BidCustomer[]
       setGcs(gcRows)
       const primary = gcRows.find((g) => g.won_through) ?? gcRows[0]
@@ -201,6 +201,25 @@ export default function Proposal() {
       }
     })()
   }, [id])
+
+  // Signing an internal review creates a numbered client snapshot. Load that
+  // exact frozen payload before displaying its signature or printing it.
+  const reviewedRevisionId = review.context?.review?.revision_id
+  useEffect(() => {
+    if (!reviewedRevisionId) return
+    let cancelled = false
+    supabase!.from('revisions')
+      .select('id, rev_number, contract_amount, tax, created_at, created_by, snapshot')
+      .eq('bid_id', id!).eq('id', reviewedRevisionId).single()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) { setReviewPrintError('Could not load the reviewed proposal. Reload before printing.'); return }
+        const row = data as SnapshotRevision
+        setRevisions(previous => [row, ...previous.filter(r => r.id !== row.id)])
+        setSource(row.id)
+      })
+    return () => { cancelled = true }
+  }, [id, reviewedRevisionId])
 
   const ctx = useMemo(() => {
     const areaMap = new Map<string, Map<string, string>>()
@@ -242,8 +261,8 @@ export default function Proposal() {
       const install = d.adders.filter((a) => a.enabled && isInstallish(a)).reduce((s, a) => s + a.price, 0)
       const delivery = d.adders.filter((a) => a.enabled && isDelivery(a)).reduce((s, a) => s + a.price, 0)
       return {
-        refLabel: `${bid.job_number} R${rev.rev_number}`,
-        sourceLabel: `Locked snapshot R${rev.rev_number} — ${fmtDueDate(rev.created_at)}`,
+        refLabel: rev.rev_number === null ? `${bid.job_number} — Internal review` : `${bid.job_number} R${rev.rev_number}`,
+        sourceLabel: rev.rev_number === null ? 'Internal review copy — sign to create the client version' : `Locked snapshot R${rev.rev_number} — ${fmtDueDate(rev.created_at)}`,
         isLocked: true,
         // the proposal is dated when the price was locked, not when it's printed
         presentedOn: new Date(rev.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
@@ -428,6 +447,9 @@ export default function Proposal() {
     : signers.find((p) => p.id === session?.user.id))
 
   async function printProposal() {
+    if (lockedRev?.rev_number === null) {
+      setReviewPrintError('Sign the approved proposal to create its client version before printing.'); return
+    }
     if (reviewRecord) {
       try {
         const latest = await fetchReviewContext(id!)
@@ -481,9 +503,9 @@ export default function Proposal() {
             onChange={(e) => setSource(e.target.value)}
             className="input mt-0 w-auto py-1.5"
           >
-            {revisions.map((r) => (
+            {revisions.filter(r => r.rev_number !== null || r.id === reviewRecord?.revision_id).map((r) => (
               <option key={r.id} value={r.id}>
-                R{r.rev_number} — {fmtMoney(Number(r.contract_amount))} (locked)
+                {r.rev_number === null ? 'Internal review' : `R${r.rev_number}`} — {fmtMoney(Number(r.contract_amount))} (locked)
               </option>
             ))}
             <option value="live">Live numbers (right now)</option>

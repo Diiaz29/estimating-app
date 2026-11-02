@@ -35,7 +35,7 @@ export default function Reports() {
           supabase!
             .from('revisions')
             .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
-            .order('rev_number'),
+            .not('rev_number', 'is', null).order('rev_number'),
         ])
         requireLoaded({ Bids: bidRes, Contractors: custRes, 'Contractor assignments': linkRes, Revisions: revRes })
         if (cancelled) return

@@ -85,7 +85,7 @@ export default function Estimate() {
       supabase!.from('finishes').select('*').eq('active', true).order('type').order('name'),
       supabase!.from('settings').select('*'),
       supabase!.from('bid_material_overrides').select('*').eq('bid_id', id!),
-      supabase!.from('revisions').select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at').eq('bid_id', id!).order('rev_number', { ascending: false }),
+      supabase!.from('revisions').select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at').eq('bid_id', id!).not('rev_number', 'is', null).order('rev_number', { ascending: false }),
       supabase!.from('change_orders').select('*').eq('bid_id', id!).order('co_number'),
     ])
     for (const response of [bidRes, areaRes, bfRes, asmRes, bomRes, matRes, finRes, setRes, ovrRes, revRes, coRes]) if (response.error) throw new Error(response.error.message)
@@ -368,7 +368,7 @@ export default function Estimate() {
     })
   }
 
-  async function snapshotRevision() {
+  async function snapshotRevision(internalReview = false) {
     if (saves.queue.getSnapshot().pending > 0) { setError('Save or retry pending edits before this action.'); return }
     setActionBusy(n => n + 1)
     setError(null)
@@ -452,7 +452,7 @@ export default function Estimate() {
     })
     const { data: savedRevision, error } = await supabase!.from('revisions').insert({
       bid_id: bid!.id,
-      rev_number: revNumber,
+      rev_number: internalReview ? null : revNumber,
       contract_amount: pricing.contractAmount,
       tax: pricing.tax,
       true_cost: pricing.trueCost,
@@ -492,7 +492,7 @@ export default function Estimate() {
         .from('revisions')
         .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
         .eq('bid_id', bid!.id)
-        .order('rev_number', { ascending: false })
+        .not('rev_number', 'is', null).order('rev_number', { ascending: false })
       if (refreshError) throw new Error(refreshError.message)
       setRevisions((data ?? []) as Revision[])
       return savedRevision!.id as string
@@ -515,8 +515,12 @@ export default function Estimate() {
   async function reviewAction(action: ReviewAction, note?: string, estimatorId?: string) {
     if (saves.queue.getSnapshot().pending > 0 || actionBusy > 0) throw new Error('Finish saving before submitting or reviewing.')
     if (action === 'submit') {
-      const revisionId = await snapshotRevision()
-      if (!revisionId) throw new Error('Could not create a locked revision. Resolve the estimate error and try again.')
+      if (!review.context?.internal_review_submissions) {
+        setError('Internal review submissions are ready for release but need the database update before use.')
+        throw new Error('Internal review database update required.')
+      }
+      const revisionId = await snapshotRevision(true)
+      if (!revisionId) throw new Error('Could not save the internal review copy. Resolve the estimate error and try again.')
       await review.transition(action, revisionId)
     } else await review.transition(action, undefined, note, estimatorId)
   }

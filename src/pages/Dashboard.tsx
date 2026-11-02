@@ -59,7 +59,7 @@ export default function Dashboard() {
     supabase!
       .from('revisions')
       .select('bid_id, rev_number, contract_amount')
-      .order('rev_number')
+      .not('rev_number', 'is', null).order('rev_number')
       .then(({ data }) => {
         if (data) {
           const m = new Map<string, number>()

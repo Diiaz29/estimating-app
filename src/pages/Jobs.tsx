@@ -27,7 +27,7 @@ export default function Jobs() {
       supabase!
         .from('revisions')
         .select('id, bid_id, rev_number, note, contract_amount, tax, true_cost, profit, margin_pct, created_by, created_at')
-        .order('rev_number'),
+        .not('rev_number', 'is', null).order('rev_number'),
     ])
     if (bidRes.error) return setError(bidRes.error.message)
     setJobs(bidRes.data as Bid[])
