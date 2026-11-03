@@ -20,9 +20,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
   archiveControls?: {
     showArchived: boolean
     count: number
-    available: boolean
     onShowArchived: (archived: boolean) => void
-    onToggle?: (bid: Bid) => void
   }
   jobControls?: {
     showCompleted: boolean
@@ -99,7 +97,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
               {jobControls?.onToggleComplete && <td data-label="" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{jobControls?.onToggleComplete && <button className="index-secondary construction-complete-job" onClick={() => jobControls.onToggleComplete?.(b)}>{b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}</button>}</td>}
             </tr>)}
           </tbody></table>
-            {!visible.length && <div className="index-empty"><h2>{archiveControls?.showArchived && !hasDetailFilters ? 'No archived bids' : jobControls ? hasDetailFilters ? 'No matching jobs' : jobControls.showCompleted ? 'Nothing completed yet' : 'No active jobs' : 'No matching projects'}</h2><p>{archiveControls?.showArchived && !hasDetailFilters ? 'To set a bid aside, open its project overview and choose Archive bid.' : jobControls && !hasDetailFilters ? jobControls.showCompleted ? 'Completed jobs will appear here. You can reopen them later.' : 'When a bid is marked Won, it moves here.' : 'Try another project name, number, or contractor.'}</p>{(!archiveControls?.showArchived || hasDetailFilters) && (!jobControls || hasDetailFilters) && <button onClick={() => { clearDetailFilters(); setFilter('all'); onStatusFilter?.(null) }}>{jobControls ? 'Clear filters' : onStatusFilter ? 'Show all bids' : 'Show all projects'}</button>}</div>}
+            {!visible.length && <div className="index-empty"><h2>{archiveControls?.showArchived && !hasDetailFilters ? 'No archived bids' : jobControls ? hasDetailFilters ? 'No matching jobs' : jobControls.showCompleted ? 'Nothing completed yet' : 'No active jobs' : 'No matching projects'}</h2><p>{archiveControls?.showArchived && !hasDetailFilters ? 'To set a bid aside, open its Details page and choose Archive bid.' : jobControls && !hasDetailFilters ? jobControls.showCompleted ? 'Completed jobs will appear here. You can reopen them later.' : 'When a bid is marked Won, it moves here.' : 'Try another project name, number, or contractor.'}</p>{(!archiveControls?.showArchived || hasDetailFilters) && (!jobControls || hasDetailFilters) && <button onClick={() => { clearDetailFilters(); setFilter('all'); onStatusFilter?.(null) }}>{jobControls ? 'Clear filters' : onStatusFilter ? 'Show all bids' : 'Show all projects'}</button>}</div>}
           </div>
           <div className="index-list-foot">{visible.length} {visible.length === 1 ? jobControls ? 'job' : 'project' : jobControls ? 'jobs' : 'projects'}</div>
           {!archiveControls?.showArchived && !!filteredSent.length && <section className="index-followups"><div className="index-section-line"><h2>Follow up</h2><span>Proposals awaiting a reply</span></div>{filteredSent.map(b => <div className="index-follow-row" key={b.id}><div><strong>{b.name}</strong><p>{contractor(b.id)}{seesMoney && valueFor(b) != null ? ` · ${fmtMoney(valueFor(b)!)}` : ''}</p><p className="index-follow-date">{(() => { const date = followUpAt(b, followupDays); return date ? `${date.getTime() <= Date.now() ? 'Follow up due' : 'Follow up'} ${fmtFollowUp(date)}` : 'Follow-up date not set' })()}</p></div><Link className="index-secondary" to={`/bids/${b.id}`}>Open bid</Link></div>)}</section>}
@@ -114,7 +112,6 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
           {seesMoney && <div className="index-preview-total"><span>{jobControls ? 'Contract value' : 'Estimate total'}</span><strong className={valueFor(selected) == null ? 'index-recorded-empty' : undefined}>{valueFor(selected) == null ? valuesLoading ? 'Loading…' : 'Unavailable' : fmtMoney(valueFor(selected)!)}</strong></div>}
 
           <div className="index-preview-links"><Link to={`/bids/${selected.id}`}>Details</Link><Link to={`/bids/${selected.id}/proposal`}>Proposal</Link>{!isOffice && <><Link to={`/bids/${selected.id}/order`}>Order sheet</Link><Link to={`/bids/${selected.id}/schedule`}>Schedule</Link></>}{(isAdmin || isOffice) && <Link to={`/bids/${selected.id}/actuals`}>Actuals</Link>}</div>
-          {archiveControls?.onToggle && (selected.status !== 'won' || archiveControls.showArchived) && <div style={{ marginTop: 20 }}><button className="index-secondary" disabled={!archiveControls.available} title={!archiveControls.available ? 'Available after publishing this update' : undefined} onClick={() => archiveControls.onToggle?.(selected)}>{archiveControls.showArchived ? 'Restore bid' : 'Archive bid'}</button></div>}
         </aside>}
       </div>
     </section>
