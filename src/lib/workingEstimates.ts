@@ -60,4 +60,3 @@ export async function loadWorkingEstimateTotals(bids: Bid[]): Promise<Map<string
   }
   return totals
 }
-
