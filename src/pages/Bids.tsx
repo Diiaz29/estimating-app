@@ -6,6 +6,8 @@ import type { Bid, BidStatus, Customer } from '../lib/types'
 import NewBidForm from '../components/NewBidForm'
 import ProjectIndex from '../components/ProjectIndex'
 import { loadWorkingEstimateTotals } from '../lib/workingEstimates'
+import { loadBidArchives, setBidArchived } from '../lib/bidArchives'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface GcLink {
   bid_id: string
@@ -27,15 +29,22 @@ export default function Bids() {
   const [params, setParams] = useSearchParams()
   const filter = (params.get('status') as BidStatus | null) ?? null
   const [followupDays, setFollowupDays] = useState(7)
+  const [archives, setArchives] = useState({ ids: new Set<string>(), available: false })
+  const [archiveTarget, setArchiveTarget] = useState<Bid | null>(null)
+  const [archiveBusy, setArchiveBusy] = useState(false)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
+  const showArchived = params.get('view') === 'archived'
 
   async function load() {
     setError(null)
-    const [bidsRes, custRes, setRes, gcRes] = await Promise.all([
+    const [bidsRes, custRes, setRes, gcRes, archiveState] = await Promise.all([
       supabase!.from('bids').select('*').order('created_at', { ascending: false }),
       supabase!.from('customers').select('*').order('company'),
       supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
       supabase!.from('bid_customers').select('bid_id, won_through, customer:customers(company)'),
+      loadBidArchives(),
     ])
+    setArchives(archiveState)
     if (bidsRes.error) setError(bidsRes.error.message)
     else setBids(bidsRes.data as Bid[])
     if (custRes.data) setCustomers(custRes.data as Customer[])
@@ -52,7 +61,7 @@ export default function Bids() {
   }
 
   useEffect(() => {
-    void load()
+    void load().catch(() => setError('Could not load bids. Refresh to try again.'))
   }, [])
 
   useEffect(() => {
@@ -66,6 +75,23 @@ export default function Bids() {
     return () => { cancelled = true }
   }, [bids, seesMoney])
 
+  async function changeArchive() {
+    if (!archiveTarget || archiveBusy) return
+    setArchiveBusy(true)
+    setArchiveError(null)
+    try {
+      await setBidArchived(archiveTarget.id, !showArchived)
+      setArchives(current => {
+        const ids = new Set(current.ids)
+        if (showArchived) ids.delete(archiveTarget.id)
+        else ids.add(archiveTarget.id)
+        return { ...current, ids }
+      })
+      setArchiveTarget(null)
+    } catch { setArchiveError('The archive change could not be saved. Please try again.') }
+    finally { setArchiveBusy(false) }
+  }
+
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
 
@@ -74,7 +100,10 @@ export default function Bids() {
   return (
     <div className="zaid-page zaid-bids space-y-4">
       {totalsError && <p role="alert">{totalsError}</p>}
-      <ProjectIndex valuesLoading={totalsLoading} followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={(b) => estimateTotals?.get(b.id) ?? null} onNew={canEdit ? () => setShowNew(true) : undefined} title="Your bids" statusFilter={filter} onStatusFilter={(status) => setParams(status ? { status } : {})} />
+      {archiveError && <p role="alert">{archiveError}</p>}
+      {showArchived && !archives.available && <p role="status">Archive saving will be available after this update is published.</p>}
+      <ProjectIndex valuesLoading={totalsLoading} followupDays={followupDays} bids={bids.filter(b => archives.ids.has(b.id) === showArchived)} contractor={gcLabel} valueFor={(b) => estimateTotals?.get(b.id) ?? null} onNew={canEdit && !showArchived ? () => setShowNew(true) : undefined} title={showArchived ? 'Archived bids' : 'Your bids'} statusFilter={showArchived ? undefined : filter} onStatusFilter={(status) => setParams(status ? { status } : {})} archiveControls={{ showArchived, count: bids.filter(b => archives.ids.has(b.id)).length, onShowArchived: archived => setParams(archived ? { view: 'archived' } : {}), onToggle: canEdit ? setArchiveTarget : undefined, available: archives.available }} />
+      {archiveTarget && <ConfirmDialog title={showArchived ? 'Restore bid' : 'Archive bid'} message={archiveBusy ? 'Saving…' : archiveError ? archiveError : showArchived ? `Restore ${archiveTarget.job_number} — ${archiveTarget.name} to the regular bid list? Its original status and estimate will be kept.` : `Archive ${archiveTarget.job_number} — ${archiveTarget.name}? It will leave your active list and reminders. The estimate, notes, files, and status are kept, and you can restore it anytime.`} confirmLabel={showArchived ? 'Restore bid' : 'Archive bid'} onConfirm={() => void changeArchive()} onCancel={() => { if (!archiveBusy) setArchiveTarget(null) }} />}
       {showNew && (
         <NewBidForm
           customers={customers}
