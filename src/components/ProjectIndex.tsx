@@ -7,10 +7,11 @@ import StatusBadge from './StatusBadge'
 import ProjectEstimatePreview from './ProjectEstimatePreview'
 import UiIcon from './UiIcon'
 
-export default function ProjectIndex({ bids, contractor, valueFor, onNew, title = 'Your projects', followupDays = 7, statusFilter, onStatusFilter, jobControls }: {
+export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading = false, onNew, title = 'Your projects', followupDays = 7, statusFilter, onStatusFilter, jobControls }: {
   bids: Bid[]
   contractor: (id: string) => string | null
   valueFor: (bid: Bid) => number | null
+  valuesLoading?: boolean
   onNew?: () => void
   title?: string
   followupDays?: number
@@ -81,12 +82,12 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
             <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name={sort?.key === 'name' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             <th scope="col" aria-sort={sort?.key === 'contractor' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('contractor')}>Contractor <UiIcon name={sort?.key === 'contractor' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             {!jobControls && <th scope="col" aria-sort={sort?.key === 'due' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('due')}>Due date <UiIcon name={sort?.key === 'due' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>}
-            <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name={sort?.key === 'status' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>{seesMoney && <th scope="col">{jobControls ? 'Contract value' : 'Recorded value'}</th>}{jobControls && <th scope="col">Actions</th>}
+            <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name={sort?.key === 'status' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>{seesMoney && <th scope="col">{jobControls ? 'Contract value' : 'Estimate total'}</th>}{jobControls && <th scope="col">Actions</th>}
           </tr></thead><tbody>
             {visible.map(b => <tr key={b.id} className={showPreview && selected?.id === b.id ? 'construction-selected-row' : undefined}>
               <td data-label="Job number" className="construction-job-number">{b.job_number}</td>
               <td data-label="Project"><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
-              <td data-label="Contractor">{contractor(b.id) ?? '—'}</td>{!jobControls && <td data-label="Due date"><span className={isOverdue(b) ? 'construction-overdue' : undefined}>{isOverdue(b) && 'Overdue · '}{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</span></td>}<td data-label="Status">{jobControls ? b.completed_at ? 'Completed' : 'Active' : <StatusBadge status={b.status} />}</td>{seesMoney && <td data-label={jobControls ? 'Contract value' : 'Recorded value'} className="construction-money">{valueFor(b) == null ? '—' : fmtMoney(valueFor(b)!)}</td>}
+              <td data-label="Contractor">{contractor(b.id) ?? '—'}</td>{!jobControls && <td data-label="Due date"><span className={isOverdue(b) ? 'construction-overdue' : undefined}>{isOverdue(b) && 'Overdue · '}{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</span></td>}<td data-label="Status">{jobControls ? b.completed_at ? 'Completed' : 'Active' : <StatusBadge status={b.status} />}</td>{seesMoney && <td data-label={jobControls ? 'Contract value' : 'Estimate total'} className="construction-money">{valueFor(b) == null ? valuesLoading ? 'Loading…' : '—' : fmtMoney(valueFor(b)!)}</td>}
               {jobControls && <td data-label="Actions"><div className="construction-row-actions"><Link className="construction-row-link" aria-label={`Open details for ${b.name}`} to={`/bids/${b.id}`}>Details</Link>{!isOffice && <Link className="construction-row-link" aria-label={`Open estimate for ${b.name}`} to={`/bids/${b.id}/estimate`}>Estimate</Link>}{jobControls && <><Link className="construction-row-link" to={`/bids/${b.id}/proposal`}>Proposal</Link>{!isOffice && <><Link className="construction-row-link" to={`/bids/${b.id}/schedule`}>Schedule</Link><Link className="construction-row-link" to={`/bids/${b.id}/order`}>Order sheet</Link></>}{(isAdmin || isOffice) && <Link className="construction-row-link" to={`/bids/${b.id}/actuals`}>Actuals</Link>}{jobControls.onToggleComplete && <button className="index-secondary construction-complete-job" onClick={() => jobControls.onToggleComplete?.(b)}>{b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}</button>}</>}</div></td>}
             </tr>)}
           </tbody></table>
@@ -102,7 +103,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
           <dl className="index-detail-grid"><div><dt>Project number</dt><dd>{selected.job_number}</dd></div><div><dt>Due</dt><dd>{selected.due_at ? fmtDueDate(selected.due_at) : 'Not set'}</dd></div><div><dt>Drawings</dt><dd>{selected.drawings_date ? fmtDueDate(selected.drawings_date) : 'Not set'}</dd></div><div><dt>Tax</dt><dd>{selected.tax_exempt ? 'Exempt' : 'Taxable'}</dd></div></dl>
           {!isOffice && seesMoney ? <ProjectEstimatePreview bid={selected} /> : <h3>Project overview</h3>}
           {selected.address && <p className="index-address">{selected.address}</p>}
-          {seesMoney && <div className="index-preview-total"><span>{jobControls ? 'Contract value' : 'Recorded value'}</span><strong className={valueFor(selected) == null ? 'index-recorded-empty' : undefined}>{valueFor(selected) == null ? 'No recorded value' : fmtMoney(valueFor(selected)!)}</strong></div>}
+          {seesMoney && <div className="index-preview-total"><span>{jobControls ? 'Contract value' : 'Estimate total'}</span><strong className={valueFor(selected) == null ? 'index-recorded-empty' : undefined}>{valueFor(selected) == null ? valuesLoading ? 'Loading…' : 'Unavailable' : fmtMoney(valueFor(selected)!)}</strong></div>}
 
           <div className="index-preview-links"><Link to={`/bids/${selected.id}`}>Details</Link><Link to={`/bids/${selected.id}/proposal`}>Proposal</Link>{!isOffice && <><Link to={`/bids/${selected.id}/order`}>Order sheet</Link><Link to={`/bids/${selected.id}/schedule`}>Schedule</Link></>}{(isAdmin || isOffice) && <Link to={`/bids/${selected.id}/actuals`}>Actuals</Link>}</div>
         </aside>}
@@ -110,3 +111,4 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
     </section>
   )
 }
+
