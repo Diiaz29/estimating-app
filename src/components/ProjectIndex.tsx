@@ -111,4 +111,3 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
     </section>
   )
 }
-
