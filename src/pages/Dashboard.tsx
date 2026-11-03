@@ -16,7 +16,7 @@ interface GcLink {
 }
 
 export default function Dashboard() {
-  const { isAdmin, canManageBids: canEdit, isOffice, seesMoney } = useAuth()
+  const { canManageBids: canEdit, seesMoney } = useAuth()
   const navigate = useNavigate()
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
@@ -182,11 +182,6 @@ export default function Dashboard() {
                       <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                     )}
                   </Link>
-                  {!isOffice && (
-                    <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Estimate
-                    </Link>
-                  )}
                   <StatusBadge status={b.status} />
                   <span
                     className={`whitespace-nowrap text-xs tabular-nums ${
@@ -227,26 +222,6 @@ export default function Dashboard() {
                     <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                   )}
                 </Link>
-                <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
-                  {!isOffice && (
-                    <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Estimate
-                    </Link>
-                  )}
-                  <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                    Proposal
-                  </Link>
-                  {!isOffice && (
-                    <Link to={`/bids/${b.id}/order`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Order sheet
-                    </Link>
-                  )}
-                  {(isAdmin || isOffice) && (
-                    <Link to={`/bids/${b.id}/actuals`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Actuals
-                    </Link>
-                  )}
-                </span>
                 {seesMoney && (
                   <span className="order-2 ml-auto text-sm font-semibold tabular-nums sm:order-3 sm:ml-0">
                     {jobValue(b) == null ? '—' : fmtMoney(jobValue(b))}
@@ -284,16 +259,6 @@ export default function Dashboard() {
                       <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">{gcLabel(b.id)}</span>
                     )}
                   </Link>
-                  <span className="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:basis-auto">
-                    {!isOffice && (
-                      <Link to={`/bids/${b.id}/estimate`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                        Estimate
-                      </Link>
-                    )}
-                    <Link to={`/bids/${b.id}/proposal`} className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
-                      Proposal
-                    </Link>
-                  </span>
                   {seesMoney && b.bid_value != null && (
                     <span className="order-2 ml-auto text-xs tabular-nums text-slate-500 sm:order-3 sm:ml-0">
                       {fmtMoney(b.bid_value)}
