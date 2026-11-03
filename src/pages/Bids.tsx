@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus, Customer } from '../lib/types'
 import NewBidForm from '../components/NewBidForm'
 import ProjectIndex from '../components/ProjectIndex'
+import { loadWorkingEstimateTotals } from '../lib/workingEstimates'
 
 interface GcLink {
   bid_id: string
@@ -13,8 +14,12 @@ interface GcLink {
 }
 
 export default function Bids() {
-  const { canManageBids: canEdit } = useAuth()
+  const { canManageBids: canEdit, seesMoney } = useAuth()
+  const [estimateResult, setEstimateResult] = useState<{ bids: Bid[]; totals: Map<string, number>; error: string | null } | null>(null)
   const [bids, setBids] = useState<Bid[] | null>(null)
+  const totalsLoading = seesMoney && !!bids && estimateResult?.bids !== bids
+  const totalsError = seesMoney && estimateResult?.bids === bids ? estimateResult?.error : null
+  const estimateTotals = seesMoney && estimateResult?.bids === bids ? estimateResult?.totals : undefined
   const [customers, setCustomers] = useState<Customer[]>([])
   const [gcLinks, setGcLinks] = useState<GcLink[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -50,6 +55,17 @@ export default function Bids() {
     void load()
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    if (!bids || !seesMoney) return
+    void loadWorkingEstimateTotals(bids).then(totals => {
+      if (!cancelled) setEstimateResult({ bids, totals, error: null })
+    }).catch(() => {
+      if (!cancelled) setEstimateResult({ bids, totals: new Map(), error: 'Estimate totals could not be loaded. Refresh to try again.' })
+    })
+    return () => { cancelled = true }
+  }, [bids, seesMoney])
+
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
 
@@ -57,7 +73,8 @@ export default function Bids() {
 
   return (
     <div className="zaid-page zaid-bids space-y-4">
-      <ProjectIndex followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={(b) => b.bid_value == null ? null : Number(b.bid_value)} onNew={canEdit ? () => setShowNew(true) : undefined} title="Your bids" statusFilter={filter} onStatusFilter={(status) => setParams(status ? { status } : {})} />
+      {totalsError && <p role="alert">{totalsError}</p>}
+      <ProjectIndex valuesLoading={totalsLoading} followupDays={followupDays} bids={bids} contractor={gcLabel} valueFor={(b) => estimateTotals?.get(b.id) ?? null} onNew={canEdit ? () => setShowNew(true) : undefined} title="Your bids" statusFilter={filter} onStatusFilter={(status) => setParams(status ? { status } : {})} />
       {showNew && (
         <NewBidForm
           customers={customers}
@@ -72,3 +89,4 @@ export default function Bids() {
     </div>
   )
 }
+
