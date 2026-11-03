@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus } from '../lib/types'
 import { fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
@@ -29,6 +29,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
     totalValue: number
   }
 }) {
+  const navigate = useNavigate()
   const { isOffice, isAdmin, seesMoney } = useAuth()
   const [filter, setFilter] = useState('bids')
   const [query, setQuery] = useState('')
@@ -92,7 +93,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
           </tr></thead><tbody>
             {visible.map(b => <tr key={b.id} className={showPreview && selected?.id === b.id ? 'construction-selected-row' : undefined}>
               <td data-label="Job number" className="construction-job-number">{b.job_number}</td>
-              <td data-label="Project"><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
+              <td data-label="Project"><button className="construction-project-select" aria-label={`${showPreview && selected?.id === b.id ? 'Open details for' : 'Show overview for'} ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { if (showPreview && selected?.id === b.id) navigate(`/bids/${b.id}`); else { setSelectedId(b.id); setShowPreview(true) } }}><strong>{b.name}</strong></button></td>
               <td data-label="Contractor">{contractor(b.id) ?? '—'}</td>{!jobControls && <td data-label="Due date"><span className={isOverdue(b) ? 'construction-overdue' : undefined}>{isOverdue(b) && 'Overdue · '}{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</span></td>}<td data-label="Status"><div className="flex items-center gap-3"><span>{jobControls ? b.completed_at ? 'Completed' : 'Active' : <StatusBadge status={b.status} />}</span></div></td>{seesMoney && <td data-label={jobControls ? 'Contract value' : 'Estimate total'} className="construction-money">{valueFor(b) == null ? valuesLoading ? 'Loading…' : '—' : fmtMoney(valueFor(b)!)}</td>}
               {jobControls?.onToggleComplete && <td data-label="" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{jobControls?.onToggleComplete && <button className="index-secondary construction-complete-job" onClick={() => jobControls.onToggleComplete?.(b)}>{b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}</button>}</td>}
             </tr>)}
