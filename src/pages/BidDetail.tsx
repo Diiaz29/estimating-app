@@ -206,32 +206,28 @@ export default function BidDetail() {
         className="w-full border-0 border-b-2 border-slate-300 bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight focus:border-slate-900 focus:outline-none focus:ring-0"
       />
 
-      {/* Status pipeline */}
-      <div className="flex flex-wrap gap-1.5">
-        {STATUSES.map((s) => (
-          <button
-            key={s.value}
-            aria-pressed={bid.status === s.value}
-            onClick={() => {
+      <div style={{ width: '100%', maxWidth: 240 }}>
+        <Field label="Status">
+          <select
+            className="input"
+            value={bid.status}
+            disabled={!canEdit}
+            onChange={(e) => {
+              const status = e.target.value as BidStatus
               patch({
-                status: s.value as BidStatus,
-                // moving to Sent (re)starts the follow-up clock
-                ...(s.value === 'sent' ? { sent_at: new Date().toISOString() } : {}),
+                status,
+                // Moving to Sent (re)starts the follow-up clock.
+                ...(status === 'sent' ? { sent_at: new Date().toISOString() } : {}),
               })
-              // Won with a single GC: no ambiguity about who it was won through
-              if (s.value === 'won' && gcs.length === 1 && !gcs[0].won_through) {
+              // Won with a single GC: no ambiguity about who it was won through.
+              if (status === 'won' && gcs.length === 1 && !gcs[0].won_through) {
                 void setWonThrough(gcs[0].customer_id)
               }
             }}
-            className={`rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider ${
-              bid.status === s.value
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : `${s.badge} hover:border-slate-500`
-            }`}
           >
-            {s.label}
-          </button>
-        ))}
+            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </Field>
       </div>
 
       {bid.status === 'sent' && (
