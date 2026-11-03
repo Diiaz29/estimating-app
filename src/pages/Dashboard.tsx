@@ -1,3 +1,4 @@
+import { loadBidArchives } from '../lib/bidArchives'
 import UiIcon from '../components/UiIcon'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -18,6 +19,7 @@ interface GcLink {
 export default function Dashboard() {
   const { canManageBids: canEdit, seesMoney } = useAuth()
   const navigate = useNavigate()
+  const [archivedIds, setArchivedIds] = useState(new Set<string>())
   const [bids, setBids] = useState<Bid[] | null>(null)
   const [followupDays, setFollowupDays] = useState(7)
   const [revValues, setRevValues] = useState<Map<string, number>>(new Map())
@@ -27,13 +29,11 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase!
-      .from('bids')
-      .select('*')
-      .then(({ data, error }) => {
+    Promise.all([supabase!.from('bids').select('*'), loadBidArchives()])
+      .then(([{ data, error }, archives]) => {
         if (error) setError(error.message)
-        else setBids(data as Bid[])
-      })
+        else { setBids(data as Bid[]); setArchivedIds(archives.ids) }
+      }).catch(() => setError('Could not load the dashboard. Please refresh.'))
     supabase!
       .from('settings')
       .select('value')
@@ -72,7 +72,7 @@ export default function Dashboard() {
   if (error) return <ErrorNote message={error} />
   if (!bids) return <p className="text-sm text-slate-500">Loading…</p>
 
-  const active = bids.filter((b) => ACTIVE_STATUSES.includes(b.status))
+  const active = bids.filter((b) => ACTIVE_STATUSES.includes(b.status) && !archivedIds.has(b.id))
   // dated bids first (soonest on top), then the ones with no due date so nothing hides
   const dueList = active
     .filter((b) => b.status !== 'sent')
