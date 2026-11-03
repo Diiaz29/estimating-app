@@ -1,3 +1,4 @@
+import { loadBidArchives } from '../lib/bidArchives'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -18,11 +19,14 @@ export function BidReviewNotificationsProvider({ children }: { children: ReactNo
   const reload = useCallback(async () => {
     const current = ++request.current
     if (!canEdit) { setItems([]); setLoading(false); setError(null); return }
-    const { data, error: loadError } = await supabase!.from('bid_reviews').select('*, bid:bids(id,job_number,name,status,assignment:bid_estimator_assignments(estimator_id)), submitter:profiles!bid_reviews_submitted_by_fkey(first_name,last_name,email), revision:revisions(rev_number,contract_amount)').order('submitted_at')
-    if (request.current !== current) return
-    setLoading(false)
-    setError(loadError ? 'Review notifications are unavailable. Please retry.' : null)
-    if (!loadError) setItems((data ?? []) as unknown as ReviewQueueItem[])
+    try {
+      const archives = await loadBidArchives()
+      const { data, error: loadError } = await supabase!.from('bid_reviews').select('*, bid:bids(id,job_number,name,status,assignment:bid_estimator_assignments(estimator_id)), submitter:profiles!bid_reviews_submitted_by_fkey(first_name,last_name,email), revision:revisions(rev_number,contract_amount)').order('submitted_at')
+      if (request.current !== current) return
+      setLoading(false)
+      setError(loadError ? 'Review notifications are unavailable. Please retry.' : null)
+      if (!loadError) setItems(((data ?? []) as unknown as ReviewQueueItem[]).filter(item => !archives.ids.has(item.bid_id)))
+    } catch { if (request.current === current) { setLoading(false); setError('Review notifications are unavailable. Please retry.') } }
   }, [canEdit])
   useEffect(() => {
     void reload()
