@@ -442,8 +442,8 @@ export default function BidDetail() {
               title={!archiveState.available ? 'Available after publishing this update' : dirty || busy || saves.pending > 0 ? 'Save your changes before archiving or restoring this bid' : undefined}
               onClick={() => { setArchiveError(null); setConfirmArchive(true) }}
             >{archiveState.archived ? 'Restore bid' : 'Archive bid'}</button>}
-            {isAdmin && <button onClick={() => setConfirmDelete(true)} className="text-xs text-red-500 hover:text-red-700 hover:underline">
-              Delete this bid
+            {isAdmin && <button onClick={() => setConfirmDelete(true)} className="index-secondary" style={{ color: '#ef4444' }}>
+              Delete Bid
             </button>}
           </div>
           {archiveState.archived && <p className="mt-2 text-sm">Archived. Restore this bid to return it to your regular bid list.</p>}
