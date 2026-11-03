@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import type { Bid, BidStatus } from '../lib/types'
 import { fmtDueDate, fmtFollowUp, fmtMoney, followUpAt, isOverdue } from '../lib/format'
@@ -7,15 +7,21 @@ import StatusBadge from './StatusBadge'
 import ProjectEstimatePreview from './ProjectEstimatePreview'
 import UiIcon from './UiIcon'
 
-export default function ProjectIndex({ bids, contractor, valueFor, onNew, title = 'Your projects', followupDays = 7, statusFilter, onStatusFilter, jobControls }: {
+export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading = false, onNew, title = 'Your projects', followupDays = 7, statusFilter, onStatusFilter, jobControls, archiveControls }: {
   bids: Bid[]
   contractor: (id: string) => string | null
   valueFor: (bid: Bid) => number | null
+  valuesLoading?: boolean
   onNew?: () => void
   title?: string
   followupDays?: number
   statusFilter?: BidStatus | null
   onStatusFilter?: (status: BidStatus | null) => void
+  archiveControls?: {
+    showArchived: boolean
+    count: number
+    onShowArchived: (archived: boolean) => void
+  }
   jobControls?: {
     showCompleted: boolean
     onShowCompleted: (completed: boolean) => void
@@ -23,6 +29,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
     totalValue: number
   }
 }) {
+  const navigate = useNavigate()
   const { isOffice, isAdmin, seesMoney } = useAuth()
   const [filter, setFilter] = useState('bids')
   const [query, setQuery] = useState('')
@@ -37,7 +44,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
     `${b.name} ${b.job_number} ${contractor(b.id) ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()) &&
     b.job_number.toLowerCase().includes(jobNumber.trim().toLowerCase()) &&
     (!contractorFilter || (contractorFilter === '__unassigned__' ? !contractor(b.id) : contractor(b.id) === contractorFilter))
-  const visible = bids.filter(b => (jobControls ? !!b.completed_at === jobControls.showCompleted : statusFilter !== undefined ? statusFilter ? b.status === statusFilter : b.status !== 'won' : matches(b, filter)) && matchesDetails(b))
+  const visible = bids.filter(b => (archiveControls?.showArchived ? true : jobControls ? !!b.completed_at === jobControls.showCompleted : statusFilter !== undefined ? statusFilter ? b.status === statusFilter : b.status !== 'won' : matches(b, filter)) && matchesDetails(b))
   const hasDetailFilters = !!(query || jobNumber || contractorFilter)
   function clearDetailFilters() { setQuery(''); setJobNumber(''); setContractorFilter('') }
   if (!jobControls && (statusFilter === null || statusFilter === 'received' || statusFilter === 'working' || (statusFilter === undefined && filter === 'bids'))) {
@@ -56,7 +63,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
   return (
     <section className="project-index">
       <div className="project-heading">
-        <div><h1>{title}</h1><p>{jobControls ? 'Won work — this is what the shop builds.' : <>{bids.filter(b => b.status === 'received' || b.status === 'working').length} bids in progress. {sent.length} proposals awaiting a reply.</>}</p></div>
+        <div><h1>{title}</h1><p>{archiveControls?.showArchived ? 'Set aside for now. Your estimates, notes, and files are kept here.' : jobControls ? 'Won work — this is what the shop builds.' : <>{bids.filter(b => b.status === 'received' || b.status === 'working').length} bids in progress. {sent.length} proposals awaiting a reply.</>}</p></div>
         {jobControls && <div className="construction-jobs-total">{seesMoney && <strong>{fmtMoney(jobControls.totalValue)}</strong>}<span>{bids.filter(b => !b.completed_at).length} active jobs</span></div>}
         {onNew && <button className="index-primary" onClick={onNew}>+ New bid</button>}
       </div>
@@ -64,7 +71,8 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
         <div className="project-index-column">
           <div className="project-index-tools">
             <nav className="index-tabs" aria-label="Project filters">
-              {jobControls ? ([false, true] as const).map(completed => <button key={String(completed)} aria-pressed={jobControls.showCompleted === completed} onClick={() => jobControls.onShowCompleted(completed)}>{completed ? 'Completed' : 'Active'}<span>{bids.filter(b => !!b.completed_at === completed).length}</span></button>) : onStatusFilter ? ([null, 'received', 'working', 'sent', 'lost', 'won'] as const).map(key => <button key={key ?? 'all'} aria-pressed={statusFilter === key} onClick={() => onStatusFilter(key)}>{key == null ? 'All bids' : ({ received: 'Received', working: 'Working', sent: 'Sent', lost: 'Lost', won: 'Jobs' })[key]}<span>{bids.filter(b => key ? b.status === key : b.status !== 'won').length}</span></button>) : (['bids', 'sent', 'jobs', 'all'] as const).map(key => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{({ bids: 'Bids', sent: 'Sent', jobs: 'Jobs', all: 'All' })[key]} <span>{bids.filter(b => matches(b, key)).length}</span></button>)}
+              {archiveControls?.showArchived ? <button onClick={() => { clearDetailFilters(); archiveControls.onShowArchived(false) }}>← Back to bids</button> : jobControls ? ([false, true] as const).map(completed => <button key={String(completed)} aria-pressed={jobControls.showCompleted === completed} onClick={() => jobControls.onShowCompleted(completed)}>{completed ? 'Completed' : 'Active'}<span>{bids.filter(b => !!b.completed_at === completed).length}</span></button>) : onStatusFilter ? ([null, 'received', 'working', 'sent', 'lost', 'won'] as const).map(key => <button key={key ?? 'all'} aria-pressed={statusFilter === key} onClick={() => onStatusFilter(key)}>{key == null ? 'All bids' : ({ received: 'Received', working: 'Working', sent: 'Sent', lost: 'Lost', won: 'Jobs' })[key]}<span>{bids.filter(b => key ? b.status === key : b.status !== 'won').length}</span></button>) : (['bids', 'sent', 'jobs', 'all'] as const).map(key => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{({ bids: 'Bids', sent: 'Sent', jobs: 'Jobs', all: 'All' })[key]} <span>{bids.filter(b => matches(b, key)).length}</span></button>)}
+              {archiveControls && <button style={{ marginLeft: 'auto' }} aria-pressed={archiveControls.showArchived} onClick={() => { clearDetailFilters(); archiveControls.onShowArchived(!archiveControls.showArchived) }}>Archived <span>{archiveControls.count}</span></button>}
             </nav>
             <div className="construction-register-filters">
               <label className="construction-register-filter"><span>Search</span><span className="index-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg><input type="search" aria-label={jobControls ? 'Search jobs' : 'Search projects'} placeholder={jobControls ? 'Find a job' : 'Find a project'} value={query} onChange={e => setQuery(e.target.value)} /></span></label>
@@ -81,28 +89,28 @@ export default function ProjectIndex({ bids, contractor, valueFor, onNew, title 
             <th scope="col" aria-sort={sort?.key === 'name' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('name')}>Project <UiIcon name={sort?.key === 'name' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             <th scope="col" aria-sort={sort?.key === 'contractor' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('contractor')}>Contractor <UiIcon name={sort?.key === 'contractor' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>
             {!jobControls && <th scope="col" aria-sort={sort?.key === 'due' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('due')}>Due date <UiIcon name={sort?.key === 'due' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>}
-            <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name={sort?.key === 'status' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>{seesMoney && <th scope="col">{jobControls ? 'Contract value' : 'Recorded value'}</th>}<th scope="col">Actions</th>
+            <th scope="col" aria-sort={sort?.key === 'status' ? sort.descending ? 'descending' : 'ascending' : 'none'}><button onClick={() => sortBy('status')}>Status <UiIcon name={sort?.key === 'status' ? sort.descending ? 'down' : 'up' : 'sort'} /></button></th>{seesMoney && <th scope="col" style={{ whiteSpace: 'nowrap' }}>{jobControls ? 'Contract value' : 'Estimate total'}</th>}{jobControls?.onToggleComplete && <th scope="col" aria-label="Job completion" style={{ width: 1 }} />}
           </tr></thead><tbody>
             {visible.map(b => <tr key={b.id} className={showPreview && selected?.id === b.id ? 'construction-selected-row' : undefined}>
               <td data-label="Job number" className="construction-job-number">{b.job_number}</td>
-              <td data-label="Project"><button className="construction-project-select" aria-label={`Show overview for ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { setSelectedId(b.id); setShowPreview(true) }}><strong>{b.name}</strong></button></td>
-              <td data-label="Contractor">{contractor(b.id) ?? '—'}</td>{!jobControls && <td data-label="Due date"><span className={isOverdue(b) ? 'construction-overdue' : undefined}>{isOverdue(b) && 'Overdue · '}{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</span></td>}<td data-label="Status">{jobControls ? b.completed_at ? 'Completed' : 'Active' : <StatusBadge status={b.status} />}</td>{seesMoney && <td data-label={jobControls ? 'Contract value' : 'Recorded value'} className="construction-money">{valueFor(b) == null ? '—' : fmtMoney(valueFor(b)!)}</td>}
-              <td data-label="Actions"><div className="construction-row-actions"><Link className="construction-row-link" aria-label={`Open details for ${b.name}`} to={`/bids/${b.id}`}>Details</Link>{!isOffice && <Link className="construction-row-link" aria-label={`Open estimate for ${b.name}`} to={`/bids/${b.id}/estimate`}>Estimate</Link>}{jobControls && <><Link className="construction-row-link" to={`/bids/${b.id}/proposal`}>Proposal</Link>{!isOffice && <><Link className="construction-row-link" to={`/bids/${b.id}/schedule`}>Schedule</Link><Link className="construction-row-link" to={`/bids/${b.id}/order`}>Order sheet</Link></>}{(isAdmin || isOffice) && <Link className="construction-row-link" to={`/bids/${b.id}/actuals`}>Actuals</Link>}{jobControls.onToggleComplete && <button className="index-secondary construction-complete-job" onClick={() => jobControls.onToggleComplete?.(b)}>{b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}</button>}</>}</div></td>
+              <td data-label="Project"><button className="construction-project-select" aria-label={`${showPreview && selected?.id === b.id ? 'Open details for' : 'Show overview for'} ${b.name}`} aria-pressed={showPreview && selected?.id === b.id} onClick={() => { if (showPreview && selected?.id === b.id) navigate(`/bids/${b.id}`); else { setSelectedId(b.id); setShowPreview(true) } }}><strong>{b.name}</strong></button></td>
+              <td data-label="Contractor">{contractor(b.id) ?? '—'}</td>{!jobControls && <td data-label="Due date"><span className={isOverdue(b) ? 'construction-overdue' : undefined}>{isOverdue(b) && 'Overdue · '}{b.due_at ? fmtDueDate(b.due_at) : 'Not set'}</span></td>}<td data-label="Status"><div className="flex items-center gap-3"><span>{jobControls ? b.completed_at ? 'Completed' : 'Active' : <StatusBadge status={b.status} />}</span></div></td>{seesMoney && <td data-label={jobControls ? 'Contract value' : 'Estimate total'} className="construction-money">{valueFor(b) == null ? valuesLoading ? 'Loading…' : '—' : fmtMoney(valueFor(b)!)}</td>}
+              {jobControls?.onToggleComplete && <td data-label="" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{jobControls?.onToggleComplete && <button className="index-secondary construction-complete-job" onClick={() => jobControls.onToggleComplete?.(b)}>{b.completed_at ? 'Reopen' : <><UiIcon name="check" /> Complete</>}</button>}</td>}
             </tr>)}
           </tbody></table>
-            {!visible.length && <div className="index-empty"><h2>{jobControls ? hasDetailFilters ? 'No matching jobs' : jobControls.showCompleted ? 'Nothing completed yet' : 'No active jobs' : 'No matching projects'}</h2><p>{jobControls && !hasDetailFilters ? jobControls.showCompleted ? 'Completed jobs will appear here. You can reopen them later.' : 'When a bid is marked Won, it moves here.' : 'Try another project name, number, or contractor.'}</p>{(!jobControls || hasDetailFilters) && <button onClick={() => { clearDetailFilters(); setFilter('all'); onStatusFilter?.(null) }}>{jobControls ? 'Clear filters' : onStatusFilter ? 'Show all bids' : 'Show all projects'}</button>}</div>}
+            {!visible.length && <div className="index-empty"><h2>{archiveControls?.showArchived && !hasDetailFilters ? 'No archived bids' : jobControls ? hasDetailFilters ? 'No matching jobs' : jobControls.showCompleted ? 'Nothing completed yet' : 'No active jobs' : 'No matching projects'}</h2><p>{archiveControls?.showArchived && !hasDetailFilters ? 'To set a bid aside, open its Details page and choose Archive bid.' : jobControls && !hasDetailFilters ? jobControls.showCompleted ? 'Completed jobs will appear here. You can reopen them later.' : 'When a bid is marked Won, it moves here.' : 'Try another project name, number, or contractor.'}</p>{(!archiveControls?.showArchived || hasDetailFilters) && (!jobControls || hasDetailFilters) && <button onClick={() => { clearDetailFilters(); setFilter('all'); onStatusFilter?.(null) }}>{jobControls ? 'Clear filters' : onStatusFilter ? 'Show all bids' : 'Show all projects'}</button>}</div>}
           </div>
           <div className="index-list-foot">{visible.length} {visible.length === 1 ? jobControls ? 'job' : 'project' : jobControls ? 'jobs' : 'projects'}</div>
-          {!!filteredSent.length && <section className="index-followups"><div className="index-section-line"><h2>Follow up</h2><span>Proposals awaiting a reply</span></div>{filteredSent.map(b => <div className="index-follow-row" key={b.id}><div><strong>{b.name}</strong><p>{contractor(b.id)}{seesMoney && valueFor(b) != null ? ` · ${fmtMoney(valueFor(b)!)}` : ''}</p><p className="index-follow-date">{(() => { const date = followUpAt(b, followupDays); return date ? `${date.getTime() <= Date.now() ? 'Follow up due' : 'Follow up'} ${fmtFollowUp(date)}` : 'Follow-up date not set' })()}</p></div><Link className="index-secondary" to={`/bids/${b.id}`}>Open bid</Link></div>)}</section>}
+          {!archiveControls?.showArchived && !!filteredSent.length && <section className="index-followups"><div className="index-section-line"><h2>Follow up</h2><span>Proposals awaiting a reply</span></div>{filteredSent.map(b => <div className="index-follow-row" key={b.id}><div><strong>{b.name}</strong><p>{contractor(b.id)}{seesMoney && valueFor(b) != null ? ` · ${fmtMoney(valueFor(b)!)}` : ''}</p><p className="index-follow-date">{(() => { const date = followUpAt(b, followupDays); return date ? `${date.getTime() <= Date.now() ? 'Follow up due' : 'Follow up'} ${fmtFollowUp(date)}` : 'Follow-up date not set' })()}</p></div><Link className="index-secondary" to={`/bids/${b.id}`}>Open bid</Link></div>)}</section>}
         </div>
         {selected && showPreview && <aside className="index-preview" aria-label="Selected project">
-          <StatusBadge status={selected.status} />
+          <StatusBadge status={selected.status} />{archiveControls?.showArchived && <p className="index-preview-note">Archived · not counted as a lost bid unless its status is Lost.</p>}
           <h2>{selected.name}</h2><p className="index-contractor">{contractor(selected.id)}</p>
           <Link className="index-primary" to={`/bids/${selected.id}${isOffice ? '' : '/estimate'}`}>{isOffice ? 'Open project' : 'Open estimate'}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg></Link>
           <dl className="index-detail-grid"><div><dt>Project number</dt><dd>{selected.job_number}</dd></div><div><dt>Due</dt><dd>{selected.due_at ? fmtDueDate(selected.due_at) : 'Not set'}</dd></div><div><dt>Drawings</dt><dd>{selected.drawings_date ? fmtDueDate(selected.drawings_date) : 'Not set'}</dd></div><div><dt>Tax</dt><dd>{selected.tax_exempt ? 'Exempt' : 'Taxable'}</dd></div></dl>
           {!isOffice && seesMoney ? <ProjectEstimatePreview bid={selected} /> : <h3>Project overview</h3>}
           {selected.address && <p className="index-address">{selected.address}</p>}
-          {seesMoney && <div className="index-preview-total"><span>{jobControls ? 'Contract value' : 'Recorded value'}</span><strong className={valueFor(selected) == null ? 'index-recorded-empty' : undefined}>{valueFor(selected) == null ? 'No recorded value' : fmtMoney(valueFor(selected)!)}</strong></div>}
+          {seesMoney && <div className="index-preview-total"><span>{jobControls ? 'Contract value' : 'Estimate total'}</span><strong className={valueFor(selected) == null ? 'index-recorded-empty' : undefined}>{valueFor(selected) == null ? valuesLoading ? 'Loading…' : 'Unavailable' : fmtMoney(valueFor(selected)!)}</strong></div>}
 
           <div className="index-preview-links"><Link to={`/bids/${selected.id}`}>Details</Link><Link to={`/bids/${selected.id}/proposal`}>Proposal</Link>{!isOffice && <><Link to={`/bids/${selected.id}/order`}>Order sheet</Link><Link to={`/bids/${selected.id}/schedule`}>Schedule</Link></>}{(isAdmin || isOffice) && <Link to={`/bids/${selected.id}/actuals`}>Actuals</Link>}</div>
         </aside>}

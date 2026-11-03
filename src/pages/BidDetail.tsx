@@ -12,6 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ViewOnlyBanner from '../components/ViewOnlyBanner'
 import PlansSection from '../components/PlansSection'
 import BidEstimatorAssignment from '../components/BidEstimatorAssignment'
+import { loadBidArchives, setBidArchived } from '../lib/bidArchives'
 import { duplicateBid } from '../lib/duplicateBid'
 
 export default function BidDetail() {
@@ -27,6 +28,10 @@ export default function BidDetail() {
   const editVersion = useRef(0)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [archiveState, setArchiveState] = useState({ archived: false, available: false })
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [archiveBusy, setArchiveBusy] = useState(false)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmDuplicate, setConfirmDuplicate] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
@@ -56,6 +61,31 @@ export default function BidDetail() {
     void load().catch(e => setError(String(e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+    setArchiveState({ archived: false, available: false })
+    setConfirmArchive(false)
+    setArchiveError(null)
+    void loadBidArchives().then(result => {
+      if (!cancelled) setArchiveState({ archived: result.ids.has(id!), available: result.available })
+    }).catch(() => {
+      if (!cancelled) setArchiveError('Could not load archive status. Refresh to try again.')
+    })
+    return () => { cancelled = true }
+  }, [id])
+
+  async function changeArchive() {
+    if (!id || archiveBusy || !canEdit || dirty || busy || saves.pending > 0) return
+    setArchiveBusy(true)
+    setArchiveError(null)
+    try {
+      await setBidArchived(id, !archiveState.archived)
+      setArchiveState(current => ({ ...current, archived: !current.archived }))
+      setConfirmArchive(false)
+    } catch { setArchiveError('The archive change could not be saved. Please try again.') }
+    finally { setArchiveBusy(false) }
+  }
 
   if (error && !bid)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -403,13 +433,32 @@ export default function BidDetail() {
 
       <PlansSection bidId={bid.id} kind="document" />
 
-      {isAdmin && (
+      {canEdit && (
         <div className="border-t border-slate-200 pt-4">
-          <button onClick={() => setConfirmDelete(true)} className="text-xs text-red-500 hover:text-red-700 hover:underline">
-            Delete this bid
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            {(bid.status !== 'won' || archiveState.archived) && <button
+              className="index-secondary"
+              disabled={!archiveState.available || archiveBusy || dirty || busy || saves.pending > 0}
+              title={!archiveState.available ? 'Available after publishing this update' : dirty || busy || saves.pending > 0 ? 'Save your changes before archiving or restoring this bid' : undefined}
+              onClick={() => { setArchiveError(null); setConfirmArchive(true) }}
+            >{archiveState.archived ? 'Restore bid' : 'Archive bid'}</button>}
+            {isAdmin && <button onClick={() => setConfirmDelete(true)} className="index-secondary" style={{ color: '#ef4444' }}>
+              Delete Bid
+            </button>}
+          </div>
+          {archiveState.archived && <p className="mt-2 text-sm">Archived. Restore this bid to return it to your regular bid list.</p>}
+          {archiveError && <p role="alert" className="mt-2 text-sm">{archiveError}</p>}
         </div>
       )}
+      {confirmArchive && <ConfirmDialog
+        title={archiveState.archived ? 'Restore bid' : 'Archive bid'}
+        message={archiveBusy ? 'Saving…' : archiveError ?? (archiveState.archived
+          ? 'Restore this bid to your regular bid list? Its original status and estimate will be kept.'
+          : 'Archive this bid? It will leave your active list and reminders. Your estimate, notes, files, and status are kept, and you can restore it anytime.')}
+        confirmLabel={archiveState.archived ? 'Restore bid' : 'Archive bid'}
+        onConfirm={() => void changeArchive()}
+        onCancel={() => { if (!archiveBusy) setConfirmArchive(false) }}
+      />}
 
       {confirmDuplicate && (
         <ConfirmDialog
