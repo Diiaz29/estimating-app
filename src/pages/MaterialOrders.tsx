@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/loadResults'
 import { loadMaterialRequests, saveMaterialRequest, ORDER_STATUSES, type MaterialRequest, type OrderStatus, type RequestInput } from '../lib/materialRequests'
 import Modal from '../components/Modal'
+import ShopInventory from '../components/ShopInventory'
 import '../material-orders.css'
 
 type Job = { id: string; name: string; job_number: string; status: string; completed_at: string | null }
@@ -13,6 +14,17 @@ const jobLabel = (job: Job) => `${job.job_number} · ${job.name}`
 const shortDate = (value: string) => new Date(value.length === 10 ? `${value}T12:00:00` : value).toLocaleDateString()
 
 export default function MaterialOrders() {
+  const [section, setSection] = useState('orders')
+  return <div className="material-orders project-index">
+    <div className="index-tabs material-orders-sections" aria-label="Materials section">
+      <button aria-pressed={section === 'orders'} onClick={() => setSection('orders')}>Orders</button>
+      <button aria-pressed={section === 'inventory'} onClick={() => setSection('inventory')}>Shop inventory</button>
+    </div>
+    {section === 'inventory' ? <ShopInventory /> : <Orders />}
+  </div>
+}
+
+function Orders() {
   const { session, canSchedule } = useAuth()
   const userId = session!.user.id
   const [rows, setRows] = useState<MaterialRequest[]>([])
@@ -122,7 +134,7 @@ function RequestForm({ existing, jobs, onClose, onSave }: { existing?: MaterialR
     <form onSubmit={e => void submit(e)} className="material-order-form">
       <fieldset disabled={saving}>
         <label>Item or material<input data-modal-autofocus className="input" required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} /></label>
-        <div className="material-order-form-pair"><label>Quantity<input className="input" type="number" required min="0.001" max="1000000" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} /></label><label>Unit<input className="input" required maxLength={40} placeholder="each, sheets, boxes…" value={unit} onChange={e => setUnit(e.target.value)} /></label></div>
+        <div className="material-order-form-pair"><label>Quantity<input className="input" type="number" required min="0.001" max="1000000" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} /></label><label>Unit<select className="input" required value={unit} onChange={e => setUnit(e.target.value)}>{!['each', 'case', 'gal', 'ft'].includes(unit) && <option value={unit}>{unit} (current)</option>}{['each', 'case', 'gal', 'ft'].map(option => <option key={option} value={option}>{option}</option>)}</select></label></div>
         <label>For job or shop<select className="input" required value={bidId} onChange={e => setBidId(e.target.value)}><option value="" disabled>Choose a job or Shop</option><option value="shop">Shop</option>{jobs.filter(job => (job.status === 'won' && !job.completed_at) || job.id === existing?.bid_id).map(job => <option key={job.id} value={job.id}>{jobLabel(job)}</option>)}</select></label>
         <label>Details (optional)<textarea className="input" rows={3} maxLength={4000} placeholder="Size, supplier, product link, or other details" value={notes} onChange={e => setNotes(e.target.value)} /></label>
         {existing && <div className="material-order-form-pair"><label>Status<select className="input" value={status} onChange={e => setStatus(e.target.value as OrderStatus)}>{Object.entries(ORDER_STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Expected arrival<input className="input" type="date" name="expected_on" disabled={status === 'requested'} value={status === 'requested' ? '' : expected} onInput={e => setExpected(e.currentTarget.value)} onChange={e => setExpected(e.target.value)} /></label></div>}
