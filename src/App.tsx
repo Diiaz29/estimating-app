@@ -30,6 +30,7 @@ import Schedule from './pages/Schedule'
 import TimeClock from './pages/TimeClock'
 import Receipts from './pages/Receipts'
 import Changes from './pages/Changes'
+import MaterialOrders from './pages/MaterialOrders'
 import JobSchedule from './pages/JobSchedule'
 import Reports from './pages/Reports'
 import LibrariesLayout from './components/LibrariesLayout'
@@ -71,6 +72,7 @@ function Gate() {
         <Route path="/time" element={<TimeClock />} />
         <Route path="/receipts" element={<Receipts />} />
         <Route path="/changes" element={<Changes />} />
+        <Route path="/material-orders" element={<MaterialOrders />} />
         <Route path="/bids/:id" element={<BidLayout />}>
           <Route index element={<BidDetail />} />
           <Route path="estimate" element={<Estimate />} />

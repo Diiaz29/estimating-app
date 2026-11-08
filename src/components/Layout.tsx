@@ -16,6 +16,7 @@ const baseTabs = [
   { to: '/schedule', label: 'Schedule', icon: '▦' },
   { to: '/time', label: 'Time', icon: '◔' },
   { to: '/receipts', label: 'Receipts', icon: '▤' },
+  { to: '/material-orders', label: 'Material orders', icon: '▤' },
   { to: '/contractors', label: 'Contractors', icon: '▧' },
   { to: '/libraries', label: 'Libraries', icon: '▥' },
 ]
@@ -33,6 +34,7 @@ const pageTitles: Record<string, string> = {
   '/schedule': 'Calendar',
   '/time': 'Time',
   '/receipts': 'Receipts',
+  '/material-orders': 'Material orders',
   '/contractors': 'Contractors & clients',
   '/libraries': 'Libraries',
   '/libraries/hardware': 'Libraries',
@@ -137,7 +139,7 @@ function WorkspaceLayout() {
 
   const groups = [
     { label: 'Estimating', routes: ['/', '/bids'] },
-    { label: 'Project delivery', routes: ['/jobs', '/schedule', '/time', '/receipts'] },
+    { label: 'Project delivery', routes: ['/jobs', '/schedule', '/time', '/receipts', '/material-orders'] },
     { label: 'Company', routes: ['/contractors', '/libraries', '/reports', '/team', '/settings'] },
     { label: 'Private', routes: ['/changes'] },
   ]
