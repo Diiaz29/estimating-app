@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut, useAuth } from '../lib/auth'
 import { LOGO_URL } from '../lib/branding'
 import { supabase } from '../lib/supabase'
@@ -8,6 +8,7 @@ import UiIcon from './UiIcon'
 import { profileName } from '../lib/profileName'
 import { canUseChangeList } from '../lib/changeListAccess'
 import { BidReviewNotificationsProvider, ReviewNotificationBadge } from './BidReviewNotifications'
+import { ProjectNavigationProvider, useProjectNavigation } from './ProjectNavigation'
 
 const baseTabs = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -48,7 +49,7 @@ const pageTitles: Record<string, string> = {
 }
 
 export default function Layout() {
-  return <BidReviewNotificationsProvider><WorkspaceLayout /></BidReviewNotificationsProvider>
+  return <BidReviewNotificationsProvider><ProjectNavigationProvider><WorkspaceLayout /></ProjectNavigationProvider></BidReviewNotificationsProvider>
 }
 
 function WorkspaceLayout() {
@@ -57,6 +58,8 @@ function WorkspaceLayout() {
   const tabs = (isAdmin ? adminTabs : baseTabs).filter((t) => !(isOffice && t.to === '/libraries'))
   if (canUseChangeList(session?.user.id)) tabs.push({ to: '/changes', label: 'Notes & plans', icon: '▤' })
   const { pathname } = useLocation()
+  const { isJob } = useProjectNavigation()
+  const navigationPath = isJob ? '/jobs' : pathname
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const accountArea = useRef<HTMLDivElement>(null)
@@ -143,7 +146,7 @@ function WorkspaceLayout() {
     { label: 'Company', routes: ['/contractors', '/libraries', '/reports', '/team', '/settings'] },
     { label: 'Private', routes: ['/changes'] },
   ]
-  const currentPage = tabs.find(t => t.to === '/' ? pathname === '/' : pathname.startsWith(t.to))?.label ?? 'Project workspace'
+  const currentPage = tabs.find(t => t.to === '/' ? navigationPath === '/' : navigationPath.startsWith(t.to))?.label ?? 'Project workspace'
   const pageTitle = pageTitles[pathname.replace(/\/$/, '') || '/']
   const accountName = profile ? profileName(profile) : session?.user.email ?? 'My profile'
   const initials = [profile?.first_name?.[0], profile?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || accountName[0]?.toUpperCase()
@@ -161,7 +164,10 @@ function WorkspaceLayout() {
             const visible = tabs.filter(t => group.routes.includes(t.to))
             return visible.length > 0 && <section key={group.label} aria-label={group.label}>
               <h2>{group.label}</h2>
-              {visible.map(t => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={linkClass} onClick={() => setMenuOpen(false)}><UiIcon name={t.to === '/schedule' ? 'calendar' : t.to === '/time' ? 'clock' : t.to === '/team' || t.to === '/contractors' ? 'people' : t.to === '/settings' ? 'settings' : t.to === '/' ? 'dashboard' : t.to === '/libraries' ? 'folder' : 'register'} /><span>{t.label}</span>{t.to === '/' && <ReviewNotificationBadge />}</NavLink>)}
+              {visible.map(t => {
+                const isActive = t.to === '/' ? navigationPath === '/' : navigationPath === t.to || navigationPath.startsWith(`${t.to}/`)
+                return <Link key={t.to} to={t.to} aria-current={isActive ? 'page' : undefined} className={linkClass({ isActive })} onClick={() => setMenuOpen(false)}><UiIcon name={t.to === '/schedule' ? 'calendar' : t.to === '/time' ? 'clock' : t.to === '/team' || t.to === '/contractors' ? 'people' : t.to === '/settings' ? 'settings' : t.to === '/' ? 'dashboard' : t.to === '/libraries' ? 'folder' : 'register'} /><span>{t.label}</span>{t.to === '/' && <ReviewNotificationBadge />}</Link>
+              })}
             </section>
           })}
         </nav>
