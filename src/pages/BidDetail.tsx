@@ -1,4 +1,5 @@
 import UiIcon from '../components/UiIcon'
+import CopyAddress from '../components/CopyAddress'
 import { useSaveQueue, useUnsavedWarning } from '../lib/useSaveQueue'
 import { checkedWrite } from '../lib/saveQueue'
 import SaveFeedback from '../components/SaveFeedback'
@@ -355,6 +356,7 @@ export default function BidDetail() {
               className="input"
             />
           </Field>
+          <CopyAddress address={bid.address} />
         </div>
         <Field label="Distance (mi)">
           <input

@@ -109,7 +109,7 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
           <Link className="index-primary" to={`/bids/${selected.id}${isOffice ? '' : '/estimate'}`}>{isOffice ? 'Open project' : 'Open estimate'}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg></Link>
           <dl className="index-detail-grid"><div><dt>Project number</dt><dd>{selected.job_number}</dd></div><div><dt>Due</dt><dd>{selected.due_at ? fmtDueDate(selected.due_at) : 'Not set'}</dd></div><div><dt>Drawings</dt><dd>{selected.drawings_date ? fmtDueDate(selected.drawings_date) : 'Not set'}</dd></div><div><dt>Tax</dt><dd>{selected.tax_exempt ? 'Exempt' : 'Taxable'}</dd></div></dl>
           {!isOffice && seesMoney ? <ProjectEstimatePreview bid={selected} /> : <h3>Project overview</h3>}
-          {selected.address && <p className="index-address">{selected.address}</p>}
+          {selected.address && <div className="index-address"><p>{selected.address}</p><CopyAddress address={selected.address} /></div>}
           {seesMoney && <div className="index-preview-total"><span>{jobControls ? 'Contract value' : 'Estimate total'}</span><strong className={valueFor(selected) == null ? 'index-recorded-empty' : undefined}>{valueFor(selected) == null ? valuesLoading ? 'Loading…' : 'Unavailable' : fmtMoney(valueFor(selected)!)}</strong></div>}
 
           <div className="index-preview-links"><Link to={`/bids/${selected.id}`}>Details</Link><Link to={`/bids/${selected.id}/proposal`}>Proposal</Link>{!isOffice && <><Link to={`/bids/${selected.id}/order`}>Order sheet</Link><Link to={`/bids/${selected.id}/schedule`}>Schedule</Link></>}{(isAdmin || isOffice) && <Link to={`/bids/${selected.id}/actuals`}>Actuals</Link>}</div>
@@ -118,3 +118,4 @@ export default function ProjectIndex({ bids, contractor, valueFor, valuesLoading
     </section>
   )
 }
+import CopyAddress from './CopyAddress'
