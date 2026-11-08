@@ -5,8 +5,9 @@ import { errorMessage } from '../lib/loadResults'
 import { loadInventory, saveStock, type StockInput, type StockItem } from '../lib/shopInventory'
 import { STOCK_UNITS, quantityNeeded, needsWeeklyCheck } from '../lib/inventoryMath'
 import Modal from './Modal'
+import type { RequestInput } from '../lib/materialRequests'
 
-export default function ShopInventory() {
+export default function ShopInventory({ onRequest }: { onRequest: (input: RequestInput) => void }) {
   const { session, canSchedule } = useAuth()
   const userId = session!.user.id
   const [rows, setRows] = useState<StockItem[]>([])
@@ -48,13 +49,13 @@ export default function ShopInventory() {
       <div className="construction-register-caption"><span>{filtered.length} stock items</span><span>Due for count after 7 days</span></div>
       {loading ? <p className="material-orders-empty" role="status">Loading inventory…</p> : error ? <p className="material-orders-empty">Refresh to try again.</p> : !filtered.length ? <p className="material-orders-empty">{rows.length ? 'No stock items match this view.' : canSchedule ? 'Add the materials you keep in the shop, their current counts, and the minimum you want on hand.' : 'No stocked materials have been added yet.'}</p> :
         <div className="construction-table-scroll"><table className="responsive-record-table construction-register-table material-orders-table shop-inventory-table">
-          <thead><tr><th scope="col">Material / item</th><th scope="col">On hand</th><th scope="col">Minimum</th><th scope="col">Need to order</th><th scope="col">Last counted</th>{canSchedule && <th scope="col"><span className="sr-only">Update stock</span></th>}</tr></thead>
+          <thead><tr><th scope="col">Material / item</th><th scope="col">On hand</th><th scope="col">Minimum</th><th scope="col">Need to order</th><th scope="col">Last counted</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>{filtered.map(row => <tr key={row.id}>
             <td data-label="Material"><strong>{row.title}</strong>{row.notes && <details className="material-order-details"><summary>Details</summary><p>{row.notes}</p></details>}</td>
             <td data-label="On hand">{row.on_hand} {row.unit}</td><td data-label="Minimum">{row.minimum} {row.unit}</td>
             <td data-label="Need to order">{low(row) ? <strong>{quantityNeeded(row.on_hand, row.minimum)} {row.unit} needed</strong> : 'Stocked'}</td>
             <td data-label="Last counted">{new Date(row.checked_at).toLocaleDateString()}{needsWeeklyCheck(row.checked_at) && <small>Count due</small>}<small>{row.checked_by ? people[row.checked_by] ?? 'Team member' : 'Former team member'}</small></td>
-            {canSchedule && <td data-label="Actions"><button className="index-secondary" onClick={() => setEditing(row)} aria-label={`Update stock for ${row.title}`}>Update stock</button></td>}
+            <td data-label="Actions"><div className="stock-row-actions">{low(row) && <button className="index-secondary" aria-label={`Request materials for ${row.title}`} onClick={() => onRequest({ title: row.title, quantity: quantityNeeded(row.on_hand, row.minimum), unit: row.unit, notes: row.notes, bid_id: null })}>Request materials</button>}{canSchedule && <button className="index-secondary" onClick={() => setEditing(row)} aria-label={`Update stock for ${row.title}`}>Update stock</button>}</div></td>
           </tr>)}</tbody>
         </table></div>}
       <div className="index-list-foot">Need to order is the shortage below your minimum. Pending orders do not change the physical count.</div>

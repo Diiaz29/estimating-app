@@ -15,16 +15,17 @@ const shortDate = (value: string) => new Date(value.length === 10 ? `${value}T12
 
 export default function MaterialOrders() {
   const [section, setSection] = useState('orders')
+  const [stockRequest, setStockRequest] = useState<RequestInput | null>(null)
   return <div className="material-orders project-index">
     <div className="index-tabs material-orders-sections" aria-label="Materials section">
       <button aria-pressed={section === 'orders'} onClick={() => setSection('orders')}>Orders</button>
       <button aria-pressed={section === 'inventory'} onClick={() => setSection('inventory')}>Shop inventory</button>
     </div>
-    {section === 'inventory' ? <ShopInventory /> : <Orders />}
+    {section === 'inventory' ? <ShopInventory onRequest={input => { setStockRequest(input); setSection('orders') }} /> : <Orders stockRequest={stockRequest} clearStockRequest={() => setStockRequest(null)} />}
   </div>
 }
 
-function Orders() {
+function Orders({ stockRequest, clearStockRequest }: { stockRequest: RequestInput | null; clearStockRequest: () => void }) {
   const { session, canSchedule } = useAuth()
   const userId = session!.user.id
   const [rows, setRows] = useState<MaterialRequest[]>([])
@@ -37,7 +38,7 @@ function Orders() {
   const [search, setSearch] = useState('')
   const [jobFilter, setJobFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('requested')
-  const [editing, setEditing] = useState<MaterialRequest | 'new' | null>(null)
+  const [editing, setEditing] = useState<MaterialRequest | 'new' | null>(stockRequest ? 'new' : null)
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
@@ -101,21 +102,22 @@ function Orders() {
         </table></div>}
       <div className="index-list-foot">{filtered.length} {filtered.length === 1 ? 'request' : 'requests'}</div>
     </section>
-    {editing && <RequestForm key={editing === 'new' ? 'new' : editing.id} existing={editing === 'new' ? undefined : editing} jobs={jobs} onClose={() => setEditing(null)} onSave={async input => {
+    {editing && !loading && !error && <RequestForm key={editing === 'new' ? 'new' : editing.id} existing={editing === 'new' ? undefined : editing} initial={editing === 'new' ? stockRequest ?? undefined : undefined} jobs={jobs} onClose={() => { setEditing(null); clearStockRequest() }} onSave={async input => {
       const existing = editing === 'new' ? undefined : editing
       const result = await saveMaterialRequest(userId, input, preview, existing)
       setRows(previous => existing ? previous.map(row => row.id === result.id ? result : row) : [result, ...previous])
-      setStatusFilter(result.status); setSearch(''); setJobFilter('all'); setNotice(existing ? 'Order updated.' : 'Material request added.'); setEditing(null)
+      setStatusFilter(result.status); setSearch(''); setJobFilter('all'); setNotice(existing ? 'Order updated.' : 'Material request added.'); setEditing(null); clearStockRequest()
     }} />}
   </div>
 }
 
-function RequestForm({ existing, jobs, onClose, onSave }: { existing?: MaterialRequest; jobs: Job[]; onClose: () => void; onSave: (input: RequestInput | (RequestInput & { status: OrderStatus; expected_on: string | null })) => Promise<void> }) {
-  const [title, setTitle] = useState(existing?.title ?? '')
-  const [quantity, setQuantity] = useState(String(existing?.quantity ?? 1))
-  const [unit, setUnit] = useState(existing?.unit ?? 'each')
-  const [bidId, setBidId] = useState(existing ? existing.bid_id ?? 'shop' : '')
-  const [notes, setNotes] = useState(existing?.notes ?? '')
+function RequestForm({ existing, initial, jobs, onClose, onSave }: { existing?: MaterialRequest; initial?: RequestInput; jobs: Job[]; onClose: () => void; onSave: (input: RequestInput | (RequestInput & { status: OrderStatus; expected_on: string | null })) => Promise<void> }) {
+  const values = existing ?? initial
+  const [title, setTitle] = useState(values?.title ?? '')
+  const [quantity, setQuantity] = useState(String(values?.quantity ?? 1))
+  const [unit, setUnit] = useState(values?.unit ?? 'each')
+  const [bidId, setBidId] = useState(values ? values.bid_id ?? 'shop' : '')
+  const [notes, setNotes] = useState(values?.notes ?? '')
   const [status, setStatus] = useState<OrderStatus>(existing?.status ?? 'requested')
   const [expected, setExpected] = useState(existing?.expected_on ?? '')
   const [saving, setSaving] = useState(false)
