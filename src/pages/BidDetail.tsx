@@ -15,10 +15,12 @@ import PlansSection from '../components/PlansSection'
 import BidEstimatorAssignment from '../components/BidEstimatorAssignment'
 import { loadBidArchives, setBidArchived } from '../lib/bidArchives'
 import { duplicateBid } from '../lib/duplicateBid'
+import { useProjectNavigation } from '../components/ProjectNavigation'
 
 export default function BidDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { setProjectStatus } = useProjectNavigation()
   const { isAdmin, canManageBids: canEdit } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [gcs, setGcs] = useState<BidCustomer[]>([])
@@ -48,7 +50,7 @@ export default function BidDetail() {
       supabase!.from('settings').select('value').eq('key', 'followup_days').single(),
     ])
     if (bidRes.error) setError(bidRes.error.message)
-    else setBid(bidRes.data as Bid)
+    else { setBid(bidRes.data as Bid); setProjectStatus(bidRes.data.id, bidRes.data.status) }
     if (gcRes.data) setGcs(gcRes.data as BidCustomer[])
     if (custRes.data) setAllCustomers(custRes.data as Customer[])
     if (setRes.data) setFollowupDefault(Number(setRes.data.value))
@@ -107,6 +109,7 @@ export default function BidDetail() {
     try {
       const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...fields } = bid
       await checkedWrite(supabase!.from('bids').update(fields).eq('id', bid.id).select('id').single())
+      setProjectStatus(bid.id, bid.status)
       if (version === editVersion.current) { setDirty(false); setSaved(true) }
     } catch (e) { setError(e instanceof Error ? e.message : 'The server did not confirm your changes.') }
     finally { setBusy(false) }
@@ -167,8 +170,8 @@ export default function BidDetail() {
   return (
     <div className="zaid-page zaid-biddetail space-y-5">
       <div className="flex items-center gap-3">
-        <Link to="/bids" className="text-sm text-slate-500 hover:text-slate-900">
-          <UiIcon name="left" /> Bids
+        <Link to={bid.status === 'won' ? '/jobs' : '/bids'} className="text-sm text-slate-500 hover:text-slate-900">
+          <UiIcon name="left" /> {bid.status === 'won' ? 'Jobs' : 'Bids'}
         </Link>
         <span className="font-mono text-sm text-slate-500">{bid.job_number}</span>
         <div className="ml-auto flex items-center gap-2">
