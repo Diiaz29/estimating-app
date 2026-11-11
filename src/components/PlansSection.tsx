@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { fmtDueDate } from '../lib/format'
 import ConfirmDialog from './ConfirmDialog'
+import PlanDownloadButton from './PlanDownloadButton'
 
 interface Plan {
   id: string
@@ -145,6 +146,7 @@ export default function PlansSection({ bidId, kind = 'plan' }: { bidId: string; 
                 </button>
                 <span className="text-xs text-slate-400">{fmtDueDate(p.created_at)}</span>
                 {p.uploaded_by && <span className="text-xs text-slate-400">{p.uploaded_by}</span>}
+                <PlanDownloadButton filePath={p.file_path} />
                 {canEdit && (
                   <button onClick={() => setRemoving(p)} className="text-slate-300 hover:text-red-600">×</button>
                 )}
