@@ -6,6 +6,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { supabase } from '../lib/supabase'
 import type { Bid } from '../lib/types'
+import PlanDownloadButton from '../components/PlanDownloadButton'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -393,6 +394,7 @@ export default function PlanRoom() {
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
           {bid.name} — plan room
         </h1>
+        {selected && <PlanDownloadButton key={selected.id} filePath={selected.file_path} />}
         {(doc || (selected && isImage(selected.file_path) && url)) && (
           <div className="flex flex-wrap items-center gap-1.5">
             {doc && (
