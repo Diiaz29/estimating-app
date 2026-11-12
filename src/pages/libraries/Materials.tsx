@@ -17,7 +17,7 @@ const GENERAL_CATEGORIES = ['WOOD PANEL', 'QUARTZ', 'CONSUMABLES']
 const HARDWARE_CATEGORIES = ['HARDWARE', 'EQUIPMENT']
 
 export default function Materials({ mode = 'general' }: { mode?: 'general' | 'hardware' }) {
-  const { isAdmin, canEdit } = useAuth()
+  const { canEdit } = useAuth()
   const saves = useSaveQueue()
   const [categoryFilter, setCategoryFilter] = useState<{ mode: typeof mode; category: string | null }>({ mode, category: null })
   const [materials, setMaterials] = useState<Material[] | null>(null)
@@ -81,7 +81,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
           {mode === 'hardware'
             ? 'Pulls, hinges, slides, and the rest. Each job picks its hardware from this list.'
             : 'Raw material prices. Every cabinet price is built from these — keep them current.'}
-          {isAdmin && ' Click a price to change just the number, or "edit" for everything else.'}
+          {canEdit && ' Click a price to change just the number, or "edit" for everything else.'}
         </p>
         {canEdit && (
           <button
@@ -123,7 +123,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                     </td>
                     <td data-label="Unit" className="px-2 py-2 text-xs text-slate-500 whitespace-nowrap">{m.unit}</td>
                     <td data-label="Cost" className="px-2 py-2 text-right tabular-nums">
-                      {isAdmin ? <CostCell label={`Cost for ${m.name}`} value={m.cost} onSave={(v) => void saveCost(m, v)} /> : fmtCost(m.cost)}
+                      {canEdit ? <CostCell label={`Cost for ${m.name}`} value={m.cost} onSave={(v) => void saveCost(m, v)} /> : fmtCost(m.cost)}
                     </td>
                     <td data-label="Supplier" className="px-2 py-2 text-xs text-slate-500">{m.supplier ?? '—'}</td>
                     <td data-label="Actions" className="px-4 py-2 text-right whitespace-nowrap">
@@ -134,7 +134,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
                         onConfirm={canEdit && !saves.pending ? () => void confirmPrice('materials', m.id).then((e) => { if (e) setError(e); void load() }) : undefined}
                       />
                       </span><span className="library-record-actions">
-                      {isAdmin && (
+                      {canEdit && (
                         <>
                           <button onClick={() => setFormTarget(m)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">
                             edit
@@ -162,7 +162,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
       ))}
       </div></div>
 
-      {dupTarget && isAdmin && (
+      {dupTarget && canEdit && (
         <MaterialForm
           material={dupTarget}
           duplicate
@@ -180,7 +180,7 @@ export default function Materials({ mode = 'general' }: { mode?: 'general' | 'ha
           }}
         />
       )}
-      {formTarget && (isAdmin || (formTarget === 'new' && canEdit)) && (
+      {formTarget && canEdit && (
         <MaterialForm
           material={formTarget === 'new' ? null : formTarget}
           categories={

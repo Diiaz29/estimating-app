@@ -12,7 +12,7 @@ export const SLOTS = ['CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS
 export default function AssemblyDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { canEdit } = useAuth()
   const [assembly, setAssembly] = useState<Assembly | null>(null)
   const [bom, setBom] = useState<AssemblyMaterial[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
@@ -106,7 +106,7 @@ export default function AssemblyDetail() {
         <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
           {assembly.category}
         </span>
-        {isAdmin ? (
+        {canEdit ? (
           <span className="flex gap-1" title="How this assembly is priced. Labor minutes and BOM quantities below are per this unit — re-check them after switching.">
             {(['EA', 'LF', 'SF'] as const).map((u) => (
               <button
@@ -129,7 +129,7 @@ export default function AssemblyDetail() {
         )}
         <div className="ml-auto flex items-center gap-2">
           {saved && <span className="text-xs font-medium text-emerald-600">Saved ✓</span>}
-          {isAdmin && (
+          {canEdit && (
             <button
               onClick={() => void save()}
               disabled={busy}
@@ -144,14 +144,14 @@ export default function AssemblyDetail() {
       <input
         value={assembly.name}
         onChange={(e) => patch({ name: e.target.value })}
-        disabled={!isAdmin}
+        disabled={!canEdit}
         className="w-full border-0 border-b-2 border-slate-300 bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight focus:border-slate-900 focus:outline-none disabled:border-transparent"
       />
       <textarea
         rows={2}
         value={assembly.description ?? ''}
         onChange={(e) => patch({ description: e.target.value || null })}
-        disabled={!isAdmin}
+        disabled={!canEdit}
         placeholder="Description…"
         className="input mt-0"
       />
@@ -162,7 +162,7 @@ export default function AssemblyDetail() {
             type="number" step="any" min="0"
             value={Number(assembly.build_minutes)}
             onChange={(e) => patch({ build_minutes: Number(e.target.value) })}
-            disabled={!isAdmin}
+            disabled={!canEdit}
             className="input"
           />
         </Field>
@@ -171,7 +171,7 @@ export default function AssemblyDetail() {
             type="number" step="any" min="0"
             value={Number(assembly.install_minutes)}
             onChange={(e) => patch({ install_minutes: Number(e.target.value) })}
-            disabled={!isAdmin}
+            disabled={!canEdit}
             className="input"
           />
         </Field>
@@ -182,7 +182,7 @@ export default function AssemblyDetail() {
                 type="number" step="any" min="0"
                 value={assembly.typical_width_in == null ? '' : Number(assembly.typical_width_in)}
                 onChange={(e) => patch({ typical_width_in: e.target.value === '' ? null : Number(e.target.value), width_confirmed: false })}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 className="input"
               />
             </Field>
@@ -192,7 +192,7 @@ export default function AssemblyDetail() {
                   <span className="inline-block rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
                     Confirmed ✓
                   </span>
-                ) : isAdmin ? (
+                ) : canEdit ? (
                   <button
                     onClick={() => patch({ width_confirmed: true })}
                     className="w-full rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
@@ -234,7 +234,7 @@ export default function AssemblyDetail() {
           <h2 className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
             Bill of materials — per {unitWord}
           </h2>
-          {isAdmin && (
+          {canEdit && (
             <button
               onClick={() => void addBomRow()}
               className="ml-auto rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
@@ -262,7 +262,7 @@ export default function AssemblyDetail() {
                   key={row.id}
                   row={row}
                   materials={materials}
-                  isAdmin={isAdmin}
+                  canEdit={canEdit}
                   onSave={(fields) => void saveBomRow(row, fields)}
                   onRemove={() => void removeBomRow(row)}
                 />
@@ -285,7 +285,7 @@ export default function AssemblyDetail() {
         </p>
       </section>
 
-      {isAdmin && (
+      {canEdit && (
         <div className="border-t border-slate-200 pt-4">
           <button onClick={() => setConfirmDelete(true)} className="text-xs text-red-500 hover:text-red-700 hover:underline">
             Remove this assembly
@@ -309,13 +309,13 @@ export default function AssemblyDetail() {
 function BomRow({
   row,
   materials,
-  isAdmin,
+  canEdit,
   onSave,
   onRemove,
 }: {
   row: AssemblyMaterial
   materials: Material[]
-  isAdmin: boolean
+  canEdit: boolean
   onSave: (fields: Partial<AssemblyMaterial>) => void
   onRemove: () => void
 }) {
@@ -345,7 +345,7 @@ function BomRow({
   return (
     <tr className="border-t border-slate-100">
       <td className="px-4 py-1.5">
-        {isAdmin ? (
+        {canEdit ? (
           <select value={sourceValue} onChange={(e) => changeSource(e.target.value)} className="input mt-0 py-1.5">
             <optgroup label="Finish slots (assigned per job)">
               {SLOTS.map((s) => (
@@ -374,7 +374,7 @@ function BomRow({
           value={qty}
           onChange={(e) => setQty(e.target.value)}
           onBlur={() => Number(qty) !== Number(row.qty) && onSave({ qty: Number(qty) })}
-          disabled={!isAdmin}
+          disabled={!canEdit}
           className="w-20 rounded-md border border-slate-200 px-1.5 py-1 text-right text-sm focus:border-slate-800 focus:outline-none disabled:border-transparent disabled:bg-transparent"
         />
       </td>
@@ -384,7 +384,7 @@ function BomRow({
           value={waste}
           onChange={(e) => setWaste(e.target.value)}
           onBlur={() => Number(waste) / 100 !== Number(row.waste_pct) && onSave({ waste_pct: Number(waste) / 100 })}
-          disabled={!isAdmin}
+          disabled={!canEdit}
           className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-right text-sm focus:border-slate-800 focus:outline-none disabled:border-transparent disabled:bg-transparent"
         />
       </td>
@@ -393,7 +393,7 @@ function BomRow({
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{row.slot ? '—' : fmtCost(lineCost)}</td>
       <td className="px-3 py-1.5 text-right">
-        {isAdmin && (
+        {canEdit && (
           <button onClick={onRemove} className="text-xs text-slate-300 hover:text-red-600">
             ×
           </button>

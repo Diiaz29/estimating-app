@@ -10,7 +10,7 @@ import type { Assembly } from '../../lib/types'
 import { GroupTitle } from '../../components/LibraryBits'
 
 export default function Assemblies() {
-  const { isAdmin } = useAuth()
+  const { canEdit } = useAuth()
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [assemblies, setAssemblies] = useState<Assembly[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,7 +96,7 @@ export default function Assemblies() {
           Cabinet types with their labor minutes and bill of materials. Priced per box (EA) or per
           foot (LF).
         </p>
-        {isAdmin && (
+        {canEdit && (
           <button
             onClick={() => setAdding(true)}
             className="ml-auto shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
@@ -149,7 +149,7 @@ export default function Assemblies() {
                     {a.typical_width_in ? `${Number(a.typical_width_in)}"` : '?'} {a.width_confirmed ? '✓' : 'unconfirmed'}
                   </span>
                 )}
-                {isAdmin && (
+                {canEdit && (
                   <button
                     onClick={(e) => {
                       e.preventDefault()

@@ -17,7 +17,7 @@ const FINISH_UNITS = ['SQ/FT', 'SHEET']
 const SLOT_OPTIONS = ['', 'CABINET_LAM', 'PLAM 1', 'PLAM 2', 'PLAM 3', 'PLAM 4', 'SS 1', 'SS 2', 'SS 3', 'SS 4']
 
 export default function Finishes() {
-  const { isAdmin, canEdit } = useAuth()
+  const { canEdit } = useAuth()
   const saves = useSaveQueue()
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [finishes, setFinishes] = useState<Finish[] | null>(null)
@@ -135,7 +135,7 @@ export default function Finishes() {
                       />
                       </span><span className="library-record-actions">
                       {canEdit && <button onClick={() => setFormTarget(f)} className="ml-3 text-xs text-slate-400 hover:text-slate-900">edit</button>}
-                      {isAdmin && (
+                      {canEdit && (
                         <>
                           <button
                             onClick={() => setDupTarget(f)}
