@@ -3,9 +3,11 @@ import type { Area, AreaFinishOverride, AreaMaterialOverride, Assembly, Assembly
 import { supabase } from '../lib/supabase'
 import { buildContext, priceBid } from '../lib/pricing'
 import { fmtMoney } from '../lib/format'
+import { useAuth } from '../lib/auth'
 
 /** Read-only preview, using the same complete pricing inputs as Estimate. */
 export default function ProjectEstimatePreview({ bid }: { bid: Bid }) {
+  const { isAdmin } = useAuth()
   const [result, setResult] = useState<{ id: string; areas: Area[]; pricing: ReturnType<typeof priceBid> } | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -57,11 +59,11 @@ export default function ProjectEstimatePreview({ bid }: { bid: Bid }) {
   if (!result || result.id !== bid.id) return <p className="index-preview-note">Loading estimate by area…</p>
   const { areas, pricing } = result
   return <div className="index-area-preview">
-    <details className="index-estimate-breakdown"><summary>Estimate by area · {areas.length} {areas.length === 1 ? 'area' : 'areas'}</summary>
+    {isAdmin && <details className="index-estimate-breakdown"><summary>Estimate by area · {areas.length} {areas.length === 1 ? 'area' : 'areas'}</summary>
     {areas.map(area => <div className="index-area-row" key={area.id}><span>{area.name}{area.is_alternate && <small>Priced separately</small>}</span><span>{fmtMoney(pricing.areaTotals.get(area.id)?.price ?? 0)}</span></div>)}
     <div className="index-area-row"><span>Added costs</span><span>{fmtMoney(pricing.addersTotal)}</span></div>
     {pricing.adjustment !== 0 && <div className="index-area-row"><span>Adjustment</span><span>{fmtMoney(pricing.adjustment)}</span></div>}
-    </details>
+    </details>}
     <div className="index-preview-total"><span>Current contract total</span><strong>{fmtMoney(pricing.contractAmount)}</strong></div>
     <p className="index-preview-note">Current working estimate. Options are priced separately.{pricing.warnings.length > 0 && ' Pricing warnings need review in the estimate.'}</p>
   </div>

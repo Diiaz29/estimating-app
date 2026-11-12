@@ -155,8 +155,8 @@ export default function RevisionView() {
       {/* Frozen totals bar (sits above the phone tab bar) */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-amber-500 bg-amber-50">
         <div className="mx-auto flex max-w-6xl items-stretch divide-x divide-amber-300 overflow-x-auto font-mono">
-          {totals && <Cell label="Base bid" value={fmtMoney(totals.cabinetTotal)} />}
-          {totals && <Cell label="Added costs" value={fmtMoney(totals.addersTotal)} />}
+          {isAdmin && totals && <Cell label="Base bid" value={fmtMoney(totals.cabinetTotal)} />}
+          {isAdmin && totals && <Cell label="Added costs" value={fmtMoney(totals.addersTotal)} />}
           <Cell label={rev.rev_number === null ? 'Contract (internal review)' : `Contract (R${rev.rev_number})`} value={fmtMoney(Number(rev.contract_amount))} strong />
           <Cell label="Tax" value={fmtMoney(Number(rev.tax))} />
           {totals && (totals.alternatesAllInTotal ?? totals.alternatesTotal) > 0 && (
