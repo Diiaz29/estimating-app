@@ -39,6 +39,7 @@ import Materials from './pages/libraries/Materials'
 import Finishes from './pages/libraries/Finishes'
 import Assemblies from './pages/libraries/Assemblies'
 import AssemblyDetail from './pages/libraries/AssemblyDetail'
+import FinancialPage from './components/FinancialPage'
 
 function Gate() {
   const { session, loading } = useAuth()
@@ -78,10 +79,10 @@ function Gate() {
           <Route path="estimate" element={<Estimate />} />
           <Route path="revisions/:revId" element={<RevisionView />} />
           <Route path="order" element={<OrderSheet />} />
-          <Route path="math" element={<MathView />} />
+          <Route path="math" element={<FinancialPage><MathView /></FinancialPage>} />
           <Route path="proposal" element={<Proposal />} />
-          <Route path="actuals" element={<Actuals />} />
-          <Route path="budget" element={<Budget />} />
+          <Route path="actuals" element={<FinancialPage allowOffice><Actuals /></FinancialPage>} />
+          <Route path="budget" element={<FinancialPage><Budget /></FinancialPage>} />
           <Route path="schedule" element={<JobSchedule />} />
           <Route path="plans" element={<Plans />} />
           <Route path="plans/room" element={<PlanRoom />} />
@@ -89,7 +90,7 @@ function Gate() {
           <Route path="field/report/:reportId" element={<FieldReportView />} />
           <Route path="co/:coId" element={<ChangeOrderDoc />} />
         </Route>
-        <Route path="/reports" element={<Reports />} />
+        <Route path="/reports" element={<FinancialPage><Reports /></FinancialPage>} />
         <Route path="/contractors" element={<Customers />} />
         <Route path="/contractors/:id" element={<CustomerDetail />} />
         <Route path="/libraries" element={<LibrariesLayout />}>
@@ -99,8 +100,8 @@ function Gate() {
           <Route path="assemblies" element={<Assemblies />} />
         </Route>
         <Route path="/libraries/assemblies/:id" element={<AssemblyDetail />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/settings/overhead" element={<Overhead />} />
+        <Route path="/settings" element={<FinancialPage><Settings /></FinancialPage>} />
+        <Route path="/settings/overhead" element={<FinancialPage><Overhead /></FinancialPage>} />
         <Route path="/team" element={<Team />} />
         <Route path="/account" element={<Account />} />
         <Route path="*" element={<Dashboard />} />

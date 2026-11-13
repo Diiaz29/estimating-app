@@ -139,7 +139,7 @@ export default function Proposal() {
   const [logoOk, setLogoOk] = useState(true) // logo carries the name, so text name hides when it loads
   const [terms, setTerms] = useState<Record<string, string>>({})
   // who signs: author of the locked revision, or the signed-in user for live numbers
-  const { session, canManageBids, canEdit, isAdmin } = useAuth()
+  const { session, canEdit, isAdmin } = useAuth()
   const review = useBidReview(id, canEdit)
   const [signers, setSigners] = useState<Profile[]>([])
   const [signed, setSigned] = useState(false) // signature goes on only when the creator clicks Sign
@@ -525,7 +525,7 @@ export default function Proposal() {
         {canApproveExisting && <button className="index-primary" disabled={review.busy || !review.context?.approve_existing_revision || !!review.error}
           onClick={() => setRevisionToApprove(lockedRev!)}>Approve R{lockedRev!.rev_number} for signature</button>}
         {canApproveExisting && review.context && !review.context.approve_existing_revision && <span role="status">Approving existing revisions will be available after the database update is published.</span>}
-        {canManageBids && (
+        {isAdmin && (
           <label
             className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-600"
             title="Print each cabinet's materials and labor at the charged price, plus every added cost"
@@ -679,7 +679,7 @@ export default function Proposal() {
           </tbody>
         </table>
 
-        {showDetail && data.addersDetail.some((a) => a.enabled) && (
+        {isAdmin && showDetail && data.addersDetail.some((a) => a.enabled) && (
           <div className="mt-2 border border-slate-400 text-[11px]">
             <div className="border-b border-slate-400 bg-slate-100 px-2 py-1 font-semibold">
               Added costs — included in the total above
@@ -713,7 +713,7 @@ export default function Proposal() {
                 <div>
                   <b>Includes:</b> {area.includes}
                 </div>
-                {showDetail && area.breakdown.length > 0 && (
+                {isAdmin && showDetail && area.breakdown.length > 0 && (
                   <div className="mt-1.5 border border-slate-400 text-[11px]">
                     {area.breakdown.map((l, j) => (
                       <div key={j} className={j > 0 ? 'border-t border-slate-400' : ''}>

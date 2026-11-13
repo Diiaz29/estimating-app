@@ -664,13 +664,13 @@ export default function Estimate() {
           {bid.name} — estimate
         </h1>
         {!canEdit && <ViewOnlyBanner />}
-        <Link
+        {isAdmin && <Link
           to={`/bids/${bid.id}/math`}
           className="index-secondary estimate-math-link shrink-0 whitespace-nowrap"
           title="See every calculation behind these numbers"
         >
           Show the math
-        </Link>
+        </Link>}
       </div>
 
       <SaveFeedback state={saves} retry={saves.queue.retry} explanation="Submit saved changes for review. Signing the approved proposal creates the numbered client revision." />
@@ -1005,11 +1005,12 @@ export default function Estimate() {
       <div className="estimate-summary-panel">
         <h2>Bid summary</h2>
         <div className="estimate-summary-lines">
-          <TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
+          {isAdmin && <><TotalCell label="Base bid" value={fmtMoney(pricing.cabinetTotal)} />
           <TotalCell label="Added costs" value={fmtMoney(pricing.addersTotal)} />
           {pricing.adjustment !== 0 && (
             <TotalCell label={pricing.adjustment < 0 ? 'Discount' : 'Price add'} value={fmtMoney(pricing.adjustment)} />
           )}
+          </>}
           <TotalCell label="Contract" value={fmtMoney(pricing.contractAmount)} strong />
           <TotalCell label={bid.tax_exempt ? 'Tax (exempt)' : 'Tax'} value={fmtMoney(pricing.tax)} />
           {clientOptionsTotal > 0 && (
@@ -1811,6 +1812,7 @@ function AreaCard({
 
 /** Markup % for one sub quote. Blank = the Settings sub markup. */
 function SubMarkupInput({ value, fallback, onSave }: { value: number | null; fallback: number; onSave: (v: number | null) => void }) {
+  const { isAdmin } = useAuth()
   const toPct = (f: number) => String(Math.round((f - 1) * 10000) / 100)
   const [draft, setDraft] = useState(value == null ? '' : toPct(Number(value)))
   useEffect(() => setDraft(value == null ? '' : toPct(Number(value))), [value])
@@ -1820,6 +1822,7 @@ function SubMarkupInput({ value, fallback, onSave }: { value: number | null; fal
     if (next != null && Number.isNaN(next)) return
     if (next !== (value == null ? null : Number(value))) onSave(next)
   }
+  if (!isAdmin) return null
   return (
     <label
       className="mt-0.5 flex items-center justify-end gap-1 font-mono text-[10px] font-normal text-slate-400"
@@ -1972,7 +1975,7 @@ function LineRow({
           mixed cabinet/one-off tables keep their columns aligned */}
       <td className="hidden w-28 px-2 py-1.5 text-right tabular-nums whitespace-nowrap sm:table-cell">
         {line.kind === 'assembly' ? (
-          <span className="text-xs text-slate-500" title="Computed: materials × markup + shop labor">
+          <span className="text-xs text-slate-500" title="Customer unit price">
             {Number(line.quantity) > 0 ? fmtCost(p.linePrice / (Number(line.quantity) * Number(area.multiplier))) : '—'}
             /{assembly?.pricing_unit ?? 'EA'}
           </span>

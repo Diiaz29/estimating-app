@@ -25,7 +25,7 @@ const WHOLE_UNITS = new Set(['EACH', 'SHEET', 'GALLON', 'PER BOX'])
 
 export default function OrderSheet() {
   const { id } = useParams<{ id: string }>()
-  const { session, canSchedule } = useAuth()
+  const { session, canSchedule, isAdmin } = useAuth()
   const [bid, setBid] = useState<Bid | null>(null)
   const [areas, setAreas] = useState<Area[]>([])
   const [lines, setLines] = useState<LineItem[]>([])
@@ -204,8 +204,8 @@ export default function OrderSheet() {
                     <th className="px-2 py-2 font-medium text-right">Need</th>
                     <th className="px-2 py-2 font-medium text-right">Buy</th>
                     <th className="px-2 py-2 font-medium">Unit</th>
-                    <th className="px-2 py-2 font-medium text-right">Unit cost</th>
-                    <th className="px-4 py-2 font-medium text-right">Total</th>
+                    {isAdmin && <><th className="px-2 py-2 font-medium text-right">Unit cost</th>
+                    <th className="px-4 py-2 font-medium text-right">Total</th></>}
                   </tr>
                 </thead>
                 <tbody>
@@ -229,8 +229,8 @@ export default function OrderSheet() {
                         </td>
                         <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{r.buyQty}</td>
                         <td className="px-2 py-1.5 text-xs text-slate-500">{r.unit}</td>
-                        <td className="px-2 py-1.5 text-right text-xs text-slate-500 tabular-nums">{fmtCost(r.unitCost)}</td>
-                        <td className="px-4 py-1.5 text-right tabular-nums">{r.total == null ? '—' : fmtMoney(r.total)}</td>
+                        {isAdmin && <><td className="px-2 py-1.5 text-right text-xs text-slate-500 tabular-nums">{fmtCost(r.unitCost)}</td>
+                        <td className="px-4 py-1.5 text-right tabular-nums">{r.total == null ? '—' : fmtMoney(r.total)}</td></>}
                       </tr>
                     )
                   })}
@@ -241,7 +241,7 @@ export default function OrderSheet() {
         ))
       )}
 
-      {allRows.length > 0 && (
+      {isAdmin && allRows.length > 0 && (
         <div className="flex items-center justify-end gap-3 rounded-lg border-2 border-slate-800 bg-white px-4 py-3">
           <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
             Estimated purchase total
