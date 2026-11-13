@@ -5,6 +5,7 @@ import type { ShopWorker } from '../components/ShopWorkers'
 import { errorMessage, requireLoaded } from '../lib/loadResults'
 import LoadError from '../components/LoadError'
 import { timeCategories, type TimeCategory } from '../lib/timeCategories'
+import ShopRecentTime from '../components/ShopRecentTime'
 
 interface Shift { id: string; worker_id: string; bid_id: string; started_at: string; kind?: TimeCategory; night?: boolean }
 interface Job { id: string; job_number: string; name: string }
@@ -32,6 +33,7 @@ export default function ShopTimeClock() {
   const [busy,setBusy] = useState(false)
   const [message,setMessage] = useState('')
   const [now,setNow] = useState(Date.now())
+  const [recentRefresh,setRecentRefresh] = useState(0)
   const load = useCallback(async () => {
     if (!loginId) return
     setLoadError(null)
@@ -70,6 +72,7 @@ export default function ShopTimeClock() {
       if (error) throw error
       setMessage(hours + ' hours saved for ' + selected.first_name + ' ' + selected.last_name + ' on ' + date + '.')
       setHours(''); setNote(''); setNight(false)
+      setRecentRefresh(current => current + 1)
     } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
   async function clock() {
@@ -87,7 +90,9 @@ export default function ShopTimeClock() {
       }
       if(error) throw error
       setMessage(`${selected.first_name} ${selected.last_name} clocked ${activeShift ? 'out. Hours saved.' : 'in.'}`)
-      setWorkerId(''); setNote(''); setKind('shop'); setNight(false); await load()
+      setNote(''); setKind('shop'); setNight(false)
+      setRecentRefresh(current => current + 1)
+      await load()
     } catch(e) { setError(errorMessage(e)); await load() } finally { setBusy(false) }
   }
   if (loading) return <p role="status">Loading shop clock…</p>
@@ -140,6 +145,7 @@ export default function ShopTimeClock() {
         <button className="index-primary" disabled={preview || busy || (!activeShift && (!jobId || !selected.active))} onClick={()=>void clock()}>{busy ? 'Saving…' : activeShift ? 'Clock out' : 'Clock in'}</button>
       </div>}
     </section>
+    {selected && <ShopRecentTime key={selected.id} worker={selected} refresh={recentRefresh} />}
     <p className="text-sm text-slate-500">Only workers assigned to this shared login are listed. Saved time can only be edited or deleted by an admin.</p>
   </div>
 }
