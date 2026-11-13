@@ -97,7 +97,7 @@ export default function ShopTimeClock() {
   }
   if (loading) return <p role="status">Loading shop clock…</p>
   if (loadError) return <LoadError error={loadError} subject="the shop clock" retry={() => void load()} />
-  return <div className="zaid-page space-y-5 max-w-3xl">
+  return <div className="zaid-page space-y-5 max-w-6xl">
     <h1>Time</h1><p>Select your name and enter your hours. You can also use a timer to clock in and out.</p>
     {preview && <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
       <label className="block">Preview shared login<select className="input" value={shownLogin ?? ''} onChange={e => { setPreviewLogin(e.target.value); setWorkerId(''); setNote(''); setError(null); setMessage('') }}>
@@ -108,7 +108,8 @@ export default function ShopTimeClock() {
     </section>}
     {message && <p role="status" className="save-feedback save-saved">{message}</p>}
     {error && <p role="alert" className="save-feedback save-failed">{error}</p>}
-    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 space-y-4">
       <div className="flex gap-2" role="group" aria-label="Time entry method">
         {(['manual', 'clock'] as const).map(value => <button key={value} type="button" className={mode === value ? 'index-primary' : 'btn'} aria-pressed={mode === value} disabled={busy} onClick={() => { setMode(value); setError(null); setMessage('') }}>{value === 'manual' ? 'Log hours' : 'Clock in / out'}</button>)}
       </div>
@@ -146,6 +147,7 @@ export default function ShopTimeClock() {
       </div>}
     </section>
     {selected && <ShopRecentTime key={selected.id} worker={selected} refresh={recentRefresh} />}
+    </div>
     <p className="text-sm text-slate-500">Only workers assigned to this shared login are listed. Saved time can only be edited or deleted by an admin.</p>
   </div>
 }
