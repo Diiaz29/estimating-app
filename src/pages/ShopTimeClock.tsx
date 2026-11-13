@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { ShopWorker } from '../components/ShopWorkers'
@@ -20,6 +20,9 @@ export default function ShopTimeClock() {
   const [jobs,setJobs] = useState<Job[]>([])
   const [workerId,setWorkerId] = useState('')
   const [jobId,setJobId] = useState('')
+  const [mode,setMode] = useState<'manual' | 'clock'>('manual')
+  const [date,setDate] = useState(() => new Date().toLocaleDateString('en-CA'))
+  const [hours,setHours] = useState('')
   const [note,setNote] = useState('')
   const [kind,setKind] = useState<TimeCategory>('shop')
   const [night,setNight] = useState(false)
@@ -52,9 +55,23 @@ export default function ShopTimeClock() {
     return () => window.clearInterval(timer)
   },[load])
   const shownLogin = preview ? (previewLogins.find(p => p.id === previewLogin)?.id ?? previewLogins[0]?.id) : loginId
-  const visibleWorkers = workers.filter(w => w.login_id === shownLogin && (w.active || shifts.some(s => s.worker_id === w.id)))
+  const visibleWorkers = workers.filter(w => w.login_id === shownLogin && (w.active || (mode === 'clock' && shifts.some(s => s.worker_id === w.id))))
   const selected = visibleWorkers.find(w => w.id===workerId)
   const activeShift = shifts.find(s => s.worker_id===workerId)
+  async function logHours(event: FormEvent) {
+    event.preventDefault()
+    if (!selected?.active || busy || preview) return
+    setBusy(true); setError(null); setMessage('')
+    try {
+      const { error } = await supabase!.rpc('log_shop_time', {
+        p_worker_id: selected.id, p_bid_id: jobId, p_work_date: date,
+        p_hours: Number(hours), p_note: note.trim() || null, p_kind: kind, p_night: night,
+      })
+      if (error) throw error
+      setMessage(hours + ' hours saved for ' + selected.first_name + ' ' + selected.last_name + ' on ' + date + '.')
+      setHours(''); setNote(''); setNight(false)
+    } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
+  }
   async function clock() {
     if (!selected || busy || preview) return
     setBusy(true); setError(null); setMessage('')
@@ -76,23 +93,41 @@ export default function ShopTimeClock() {
   if (loading) return <p role="status">Loading shop clock…</p>
   if (loadError) return <LoadError error={loadError} subject="the shop clock" retry={() => void load()} />
   return <div className="zaid-page space-y-5 max-w-3xl">
-    <h1>Time</h1><p>Select your name, choose your job, and clock in. Select your name again when you’re ready to clock out.</p>
+    <h1>Time</h1><p>Select your name and enter your hours. You can also use a timer to clock in and out.</p>
     {preview && <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
       <label className="block">Preview shared login<select className="input" value={shownLogin ?? ''} onChange={e => { setPreviewLogin(e.target.value); setWorkerId(''); setNote(''); setError(null); setMessage('') }}>
         {!previewLogins.length && <option value="">No Shop logins configured</option>}
         {previewLogins.map(p => <option key={p.id} value={p.id}>{p.email}</option>)}
       </select></label>
-      <p className="text-sm text-slate-500">Preview the workers and clock status for this login. Clocking is disabled in View as so testing won’t create real time entries.</p>
+      <p className="text-sm text-slate-500">Preview the workers and clock status for this login. Saving time and clocking are disabled in View as so testing won’t create real time entries.</p>
     </section>}
     {message && <p role="status" className="save-feedback save-saved">{message}</p>}
     {error && <p role="alert" className="save-feedback save-failed">{error}</p>}
     <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+      <div className="flex gap-2" role="group" aria-label="Time entry method">
+        {(['manual', 'clock'] as const).map(value => <button key={value} type="button" className={mode === value ? 'index-primary' : 'btn'} aria-pressed={mode === value} disabled={busy} onClick={() => { setMode(value); setError(null); setMessage('') }}>{value === 'manual' ? 'Log hours' : 'Clock in / out'}</button>)}
+      </div>
       {visibleWorkers.length===0 && <p>Ask an admin to add your names to this shared login on the Team page.</p>}
       <label className="block">Worker<select className="input" value={selected?.id ?? ''} disabled={busy || !visibleWorkers.length} onChange={e => { setWorkerId(e.target.value); setError(null); setMessage(''); setNote(''); setKind('shop'); setNight(false) }}>
         <option value="">Select your name</option>
         {visibleWorkers.map(w => <option key={w.id} value={w.id}>{w.first_name} {w.last_name}{shifts.some(s => s.worker_id === w.id) ? ' — Clocked in' : ''}</option>)}
       </select></label>
-      {selected && <div className="space-y-4 border-t border-slate-200 pt-4">
+      {selected && mode === 'manual' && <form className="space-y-4 border-t border-slate-200 pt-4" onSubmit={event => void logHours(event)}>
+        {activeShift && <p role="status" className="text-sm text-slate-500">Your timer is still running. Manually logged hours are separate. Use Clock in / out to stop the timer.</p>}
+        <label className="block">Job<select className="input" required disabled={busy} value={jobId} onChange={e => setJobId(e.target.value)}>{jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
+        {!jobs.length && <p>No active jobs are available. Ask an admin to add one.</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">Day<input type="date" className="input" required disabled={busy} value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label className="block">Hours<input type="number" className="input" required min="0.01" max="24" step="any" disabled={busy} value={hours} onChange={e => setHours(e.target.value)} /></label>
+        </div>
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="block">Category<select className="input" disabled={busy} value={kind} onChange={e => setKind(e.target.value as TimeCategory)}>{timeCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}</select></label>
+          <label className="flex items-center gap-2 py-2"><input type="checkbox" disabled={busy} checked={night} onChange={e => setNight(e.target.checked)} />Night work</label>
+        </div>
+        <label className="block">What you worked on (optional)<input className="input" disabled={busy} value={note} onChange={e => setNote(e.target.value)} /></label>
+        <button type="submit" className="index-primary" disabled={preview || busy || !jobId || !date || !hours || Number(hours) <= 0 || Number(hours) > 24}>{busy ? 'Saving…' : 'Log time'}</button>
+      </form>}
+      {selected && mode === 'clock' && <div className="space-y-4 border-t border-slate-200 pt-4">
         {activeShift ? <p>Clocked in at {new Date(activeShift.started_at).toLocaleString()} · {jobs.find(j=>j.id===activeShift.bid_id)?.name ?? 'Assigned job'} · {Math.max(0,(now-new Date(activeShift.started_at).getTime())/3600000).toFixed(1)} hrs</p> : <>
           <label className="block">Job<select className="input" disabled={busy} value={jobId} onChange={e=>setJobId(e.target.value)}>{jobs.map(j=><option key={j.id} value={j.id}>{j.job_number} — {j.name}</option>)}</select></label>
           {!jobs.length && <p>No active jobs are available. Ask an admin to add one.</p>}
@@ -105,6 +140,6 @@ export default function ShopTimeClock() {
         <button className="index-primary" disabled={preview || busy || (!activeShift && (!jobId || !selected.active))} onClick={()=>void clock()}>{busy ? 'Saving…' : activeShift ? 'Clock out' : 'Clock in'}</button>
       </div>}
     </section>
-    <p className="text-sm text-slate-500">Each worker has a separate timer. Completed time can only be corrected by an admin.</p>
+    <p className="text-sm text-slate-500">Only workers assigned to this shared login are listed. Saved time can only be edited or deleted by an admin.</p>
   </div>
 }
