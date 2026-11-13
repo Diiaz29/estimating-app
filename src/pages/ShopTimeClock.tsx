@@ -5,6 +5,7 @@ import type { ShopWorker } from '../components/ShopWorkers'
 import { errorMessage, requireLoaded } from '../lib/loadResults'
 import LoadError from '../components/LoadError'
 import { timeCategories, type TimeCategory } from '../lib/timeCategories'
+import ShopRecentTime from '../components/ShopRecentTime'
 
 interface Shift { id: string; worker_id: string; bid_id: string; started_at: string; kind?: TimeCategory; night?: boolean }
 interface Job { id: string; job_number: string; name: string }
@@ -32,6 +33,7 @@ export default function ShopTimeClock() {
   const [busy,setBusy] = useState(false)
   const [message,setMessage] = useState('')
   const [now,setNow] = useState(Date.now())
+  const [recentRefresh,setRecentRefresh] = useState(0)
   const load = useCallback(async () => {
     if (!loginId) return
     setLoadError(null)
@@ -70,6 +72,7 @@ export default function ShopTimeClock() {
       if (error) throw error
       setMessage(hours + ' hours saved for ' + selected.first_name + ' ' + selected.last_name + ' on ' + date + '.')
       setHours(''); setNote(''); setNight(false)
+      setRecentRefresh(current => current + 1)
     } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
   async function clock() {
@@ -87,12 +90,14 @@ export default function ShopTimeClock() {
       }
       if(error) throw error
       setMessage(`${selected.first_name} ${selected.last_name} clocked ${activeShift ? 'out. Hours saved.' : 'in.'}`)
-      setWorkerId(''); setNote(''); setKind('shop'); setNight(false); await load()
+      setNote(''); setKind('shop'); setNight(false)
+      setRecentRefresh(current => current + 1)
+      await load()
     } catch(e) { setError(errorMessage(e)); await load() } finally { setBusy(false) }
   }
   if (loading) return <p role="status">Loading shop clock…</p>
   if (loadError) return <LoadError error={loadError} subject="the shop clock" retry={() => void load()} />
-  return <div className="zaid-page space-y-5 max-w-3xl">
+  return <div className="zaid-page space-y-5 max-w-6xl">
     <h1>Time</h1><p>Select your name and enter your hours. You can also use a timer to clock in and out.</p>
     {preview && <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
       <label className="block">Preview shared login<select className="input" value={shownLogin ?? ''} onChange={e => { setPreviewLogin(e.target.value); setWorkerId(''); setNote(''); setError(null); setMessage('') }}>
@@ -103,7 +108,8 @@ export default function ShopTimeClock() {
     </section>}
     {message && <p role="status" className="save-feedback save-saved">{message}</p>}
     {error && <p role="alert" className="save-feedback save-failed">{error}</p>}
-    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 space-y-4">
       <div className="flex gap-2" role="group" aria-label="Time entry method">
         {(['manual', 'clock'] as const).map(value => <button key={value} type="button" className={mode === value ? 'index-primary' : 'btn'} aria-pressed={mode === value} disabled={busy} onClick={() => { setMode(value); setError(null); setMessage('') }}>{value === 'manual' ? 'Log hours' : 'Clock in / out'}</button>)}
       </div>
@@ -140,6 +146,8 @@ export default function ShopTimeClock() {
         <button className="index-primary" disabled={preview || busy || (!activeShift && (!jobId || !selected.active))} onClick={()=>void clock()}>{busy ? 'Saving…' : activeShift ? 'Clock out' : 'Clock in'}</button>
       </div>}
     </section>
+    {selected && <ShopRecentTime key={selected.id} worker={selected} refresh={recentRefresh} />}
+    </div>
     <p className="text-sm text-slate-500">Only workers assigned to this shared login are listed. Saved time can only be edited or deleted by an admin.</p>
   </div>
 }
